@@ -1,6 +1,0 @@
-# 개발 환경 실측 버전 (Python 3.11.7) — mediapipe는 Python 3.12+ 미지원 주의
-mediapipe==0.10.14
-opencv-python==4.13.0.92
-numpy==1.26.4
-pandas==3.0.3
-scipy==1.17.1

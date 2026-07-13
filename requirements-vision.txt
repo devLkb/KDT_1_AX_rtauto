@@ -1,0 +1,8 @@
+# 비전(텔레옵) 가상환경 — Python 3.10.11 또는 3.10.12 기준
+# ⚠️ mediapipe는 protobuf 4.x 요구 → mlagents(protobuf 3.x)와 같은 환경에 설치 금지.
+#    반드시 별도 venv (venv-vision). 자세한 이유는 README '2. Python' 참고.
+mediapipe==0.10.14
+opencv-python==4.13.0.92
+numpy==1.26.4
+pandas==3.0.3
+scipy==1.17.1

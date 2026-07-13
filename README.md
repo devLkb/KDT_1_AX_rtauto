@@ -26,11 +26,26 @@
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
 
-### 2. Python (3.11 권장)
+### 2. Python — **3.10.11 또는 3.10.12 설치, 가상환경 2개**
+
+버전 선택 근거:
+- mediapipe 0.10.14는 Python 3.9~3.12 지원, **ML-Agents(mlagents)는 3.10.x 전용** → 3.10으로 통일
+- mediapipe는 **protobuf 4.x**, mlagents는 **protobuf 3.x** 요구 → 같은 환경에 공존 불가,
+  **가상환경을 반드시 둘로 분리**
+
 ```bash
-python -m venv venv && venv\Scripts\activate
-pip install -r requirements.txt
+# ① 비전(텔레옵)용
+python -m venv venv-vision
+venv-vision\Scripts\activate
+pip install -r requirements-vision.txt
+
+# ② ML-Agents 학습용 (로드맵 Phase 6 진입 시)
+python -m venv venv-mlagents
+venv-mlagents\Scripts\activate
+pip install -r requirements-mlagents.txt
 ```
+⚠️ mlagents 버전은 Unity ML-Agents 패키지 버전과 짝을 맞춰 고정할 것 (`docs/ML_AGENTS_ROADMAP.md` §3-1).
+텔레옵 스크립트(`vision/`) 실행은 항상 venv-vision에서.
 
 ### 3. (선택) unity-cli — 에디터를 CLI로 제어 (임포트/프로브 자동화에 사용)
 - https://github.com/akiojin/unity-cli 설치 후 Unity 프로젝트에 커넥터 패키지 추가.
