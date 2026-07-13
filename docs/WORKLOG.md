@@ -622,6 +622,20 @@ dg5f_angles.py에서 dg_min/max 스왑) ②보정 루틴(calibrate_raw.py 개조
 
 ---
 
+## 21. SVH 완전 제거 + 메인 리포 이전 (2026-07-13 밤)
+
+- **메인 리포**: https://github.com/devLkb/KDT_1_AX_rtauto (새 환경 재현용 — 셋업은 리포 README).
+  Python 규격: **3.10.11/3.10.12 + venv 2분리** (mediapipe=protobuf 4.x ↔ mlagents=protobuf 3.x 충돌).
+- **SVH 제거(DG5F 전환 확정)**: vision/svh, docs 코드사본, Unity의 SvhReceiver/SvhHandDriver/
+  SvhJointLogger/MimicJointController, SampleScene+unity_pkg 삭제.
+- **공용 컴포넌트 개명(GUID 보존)**: SvhInitialPoseSync→RobotInitialPoseSync,
+  SvhSelfCollisionIgnore→RobotSelfCollisionIgnore — 파일명+.meta 동시 rename이라 DG5F 프리팹
+  4종 참조 무손상 (missing 0, 컴파일 0에러, fist 프로브 스모크 통과). setup_drive.py 기본값 갱신.
+- **유지**: ArmTargetIK+HandSliderUI+RobotConfig(팔 IK 스택), ur5e_svh_build(팔 변환).
+  ⚠️ UR5e 팔이 이제 씬에 없음 — 결합(로드맵 3번) 시 ur5e_raw.urdf + merge.py 개조로 재구성.
+
+---
+
 ## 부록 — 자주 쓰는 unity-cli 패턴
 
 ```bash
