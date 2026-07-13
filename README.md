@@ -10,7 +10,6 @@
 |---|---|
 | `unity/` | Unity 프로젝트 (Assets + Packages + ProjectSettings — Library는 열 때 자동 생성) |
 | `vision/dg5f/` | **DG5F 텔레옵 파이프라인**: 보정→웹캠 트래킹→UDP 송신 + 검증/분석 도구 |
-| `vision/svh/` | (레거시) SCHUNK SVH 파이프라인 — DG5F 전환 전 코드 |
 | `tools/urdf_hand_import/` | URDF→Unity 임포트/물리검증/구동준비/프로브 범용 스크립트 |
 | `urdf/dg5f/` | Tesollo DG5F URDF+메시 원본 4변형 (검증 스크립트의 대조 기준) |
 | `urdf/ur5e_svh_build/` | UR5e xacro 변환 + 핸드 결합 스크립트 (SVH용, DG5F 결합 시 개조) |
@@ -22,7 +21,10 @@
 - **Unity 6000.4.0f1** (다른 버전은 ArticulationBody 물리 재검증 필요)
 - Unity Hub → Open → `unity/` 폴더 선택. 첫 오픈 시 Library 생성으로 수 분 소요.
 - 렌더 파이프라인: Built-in (URP 아님 — 머티리얼 마젠타면 확인)
-- 씬: `Assets/Scenes/DG5F_Import.unity` (DG5F 단독) / `SampleScene.unity` (UR5e+SVH 레거시)
+- 씬: `Assets/Scenes/DG5F_Import.unity` (메인 — DG5F 왼손 인스턴스 배치됨)
+  ※ SVH 관련 코드·씬(SampleScene, unity_pkg)은 DG5F 전환에 따라 제거됨(2026-07-13).
+  UR5e 팔 결합 시 `urdf/ur5e_svh_build/`의 변환 스크립트와 `Assets/Scripts/ArmTargetIK.cs`
+  (팔 IK, WORKLOG §15·§18)를 재사용해 새로 구성.
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
 

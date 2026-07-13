@@ -12,7 +12,7 @@
   3. 전 바디 useGravity=false + 루트 immovable=true
      — 디지털 트윈은 명령 포즈 유지가 목적. 안 하면 Play 시 낙하+처짐
   4. 자기충돌 무시 + 초기 포즈 동기화 컴포넌트 부착
-     — SvhSelfCollisionIgnore/SvhInitialPoseSync (이름만 Svh, 로직은 범용:
+     — RobotSelfCollisionIgnore/RobotInitialPoseSync (SVH 시절 검증된 범용 로직:
        자식 전체 순회라 어떤 로봇 루트에 붙여도 동작)
 
 사용 예:
@@ -86,7 +86,7 @@ def main():
     ap.add_argument("--damping", type=float, default=200)
     ap.add_argument("--force-limit", type=float, default=100000)
     ap.add_argument("--components", nargs="*",
-                    default=["SvhSelfCollisionIgnore", "SvhInitialPoseSync"],
+                    default=["RobotSelfCollisionIgnore", "RobotInitialPoseSync"],
                     help="루트에 부착할 컴포넌트 클래스명")
     args = ap.parse_args()
     ok = setup(args.prefab, args.cli, args.stiffness, args.damping, args.force_limit, args.components)

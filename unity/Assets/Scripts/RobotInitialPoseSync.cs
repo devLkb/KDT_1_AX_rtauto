@@ -11,7 +11,7 @@ using UnityEngine;
 ///
 /// 사용법: ur5e_svh 루트에 부착. Start에서 1회 실행.
 /// </summary>
-public class SvhInitialPoseSync : MonoBehaviour
+public class RobotInitialPoseSync : MonoBehaviour
 {
     void Start()
     {
@@ -25,6 +25,6 @@ public class SvhInitialPoseSync : MonoBehaviour
             ab.jointVelocity = new ArticulationReducedSpace(0f);
             n++;
         }
-        Debug.Log($"[SvhInitialPoseSync] {n}개 관절을 목표 포즈로 초기화");
+        Debug.Log($"[RobotInitialPoseSync] {n}개 관절을 목표 포즈로 초기화");
     }
 }

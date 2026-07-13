@@ -1,3 +1,0 @@
-DONE rows=1641
-l          p2p=   0.00  mean|err|=   0.05  final=  45.75  tgt=45.8
-p          p2p=   0.00  mean|err|=   0.00  final=  76.40  tgt=76.4

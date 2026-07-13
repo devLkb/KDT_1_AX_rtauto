@@ -14,7 +14,7 @@ using UnityEngine;
 ///
 /// 사용법: ur5e_svh 루트에 부착. Start에서 1회 처리.
 /// </summary>
-public class SvhSelfCollisionIgnore : MonoBehaviour
+public class RobotSelfCollisionIgnore : MonoBehaviour
 {
     void Start()
     {
@@ -32,6 +32,6 @@ public class SvhSelfCollisionIgnore : MonoBehaviour
                 Physics.IgnoreCollision(cols[i], cols[j], true);
                 pairs++;
             }
-        Debug.Log($"[SvhSelfCollisionIgnore] 로봇 자기충돌 비활성화: 콜라이더 {cols.Count}개, {pairs}쌍");
+        Debug.Log($"[RobotSelfCollisionIgnore] 로봇 자기충돌 비활성화: 콜라이더 {cols.Count}개, {pairs}쌍");
     }
 }

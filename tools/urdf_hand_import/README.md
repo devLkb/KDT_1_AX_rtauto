@@ -58,7 +58,7 @@ python probe_test.py dg5f_right --urdf C:/path/to/dg5f_right.urdf
    오차 0.04°에도 포화 → 뱅뱅 진동(WORKLOG §18 손목 사태 패턴). HW 토크상한 재현 포기.
 3. **중력 off + 루트 immovable** — 디지털 트윈은 명령 포즈 유지가 목적. 안 하면 낙하+처짐.
 4. **자기충돌 무시 + 초기 포즈 동기화** — vHACD 콜라이더 겹침 진동 방지 + Play 시작 채찍질 방지.
-   `SvhSelfCollisionIgnore`/`SvhInitialPoseSync`(이름만 Svh, 로직 범용)를 루트에 부착.
+   `RobotSelfCollisionIgnore`/`RobotInitialPoseSync`(SVH 시절 검증된 범용 로직)를 루트에 부착.
 
 DG5F 4변형 검증 결과(2026-07-13): probe 20관절 전부 정착오차 0.00°/잔여진동 0.00°/침범 0 PASS.
 
