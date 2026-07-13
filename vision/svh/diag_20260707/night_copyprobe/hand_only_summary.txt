@@ -1,0 +1,10 @@
+DONE rows=1959
+a          p2p=  21.52  mean|err|=   5.58  final=  48.81  tgt=55.6
+i          p2p=  16.61  mean|err|=   4.49  final=  59.30  tgt=56.3
+j          p2p=  22.63  mean|err|=   6.11  final=  44.04  tgt=56.3
+k          p2p=  18.93  mean|err|=   4.81  final=  42.73  tgt=45.8
+l          p2p=  15.66  mean|err|=   4.66  final=  44.30  tgt=45.8
+o          p2p=  58.40  mean|err|=  15.25  final=  67.00  tgt=76.4
+p          p2p=  66.51  mean|err|=  20.68  final=  70.25  tgt=76.4
+virtual_i  p2p=   0.00  mean|err|=   0.00  final=  33.40  tgt=33.4
+z          p2p=   0.00  mean|err|=   0.00  final=  56.60  tgt=56.6

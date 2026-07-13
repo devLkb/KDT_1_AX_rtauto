@@ -1,0 +1,4 @@
+DONE rows=1681
+B(l-clone): steady p2p=0.00 deg, mean|err|=0.05 deg, final=45.75
+C(p-clone): steady p2p=0.00 deg, mean|err|=0.00 deg, final=76.40
+targets: B=45.8, C=76.4

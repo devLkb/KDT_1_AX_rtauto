@@ -1,0 +1,25 @@
+# Unity — 열 때 자동 생성되는 것들
+unity/Library/
+unity/Temp/
+unity/Obj/
+unity/Logs/
+unity/UserSettings/
+unity/MemoryCaptures/
+unity/Screenshots/
+unity/*.csproj
+unity/*.sln
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# 런타임 로그·산출물 (스크립트가 실행마다 생성)
+vision/**/*.csv
+vision/**/vision_dg5f_*.csv
+vision/**/calib_log_*.csv
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
