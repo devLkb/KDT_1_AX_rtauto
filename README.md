@@ -29,7 +29,8 @@
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
 - ML-Agents 학습 씬: `Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`.
-  Agent 계약·빌드·학습 명령은 `docs/AGENT_SPEC.md` 참고.
+  Agent 계약은 `docs/AGENT_SPEC.md`, 빌드·smoke·본학습 실행법은
+  `docs/ML_AGENTS_TRAINING_GUIDE.md` 참고.
 
 ### 2. Python — **3.10.12 권장, 비전+ML-Agents 공용 가상환경 1개**
 

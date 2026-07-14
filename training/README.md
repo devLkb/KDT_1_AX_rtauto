@@ -1,6 +1,7 @@
 # DG5F grasp training
 
 Canonical environment contract: [`docs/AGENT_SPEC.md`](../docs/AGENT_SPEC.md).
+Step-by-step execution runbook: [`docs/ML_AGENTS_TRAINING_GUIDE.md`](../docs/ML_AGENTS_TRAINING_GUIDE.md).
 
 - PPO config: `config/dg5f_grasp.yaml`
 - launcher: `scripts/train_dg5f_grasp.sh`
