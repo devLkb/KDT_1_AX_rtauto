@@ -30,7 +30,9 @@ public class Dg5fJointLogger : MonoBehaviour
         foreach (var ab in GetComponentsInChildren<ArticulationBody>())
         {
             if (ab.jointType != ArticulationJointType.RevoluteJoint) continue;
-            string s = ab.name.Substring(ab.name.IndexOf("_dg_") + 4); // "f_j"
+            int k = ab.name.IndexOf("_dg_");
+            if (k < 0) continue; // 결합 로봇의 팔 관절(UR 등) — DG5F 채널 아님
+            string s = ab.name.Substring(k + 4); // "f_j"
             int f = s[0] - '0';
             int j = s[2] - '0';
             _joints[(f - 1) * 4 + (j - 1)] = ab;

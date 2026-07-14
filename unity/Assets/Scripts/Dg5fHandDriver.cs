@@ -40,8 +40,12 @@ public class Dg5fHandDriver : MonoBehaviour
 
         var bySuffix = new Dictionary<string, ArticulationBody>();
         foreach (var ab in GetComponentsInChildren<ArticulationBody>())
-            if (ab.jointType == ArticulationJointType.RevoluteJoint)
-                bySuffix[ab.name.Substring(ab.name.IndexOf("_dg_"))] = ab;
+        {
+            if (ab.jointType != ArticulationJointType.RevoluteJoint) continue;
+            int k = ab.name.IndexOf("_dg_");
+            if (k < 0) continue; // 결합 로봇의 팔 관절 — 손 채널 매핑 대상 아님
+            bySuffix[ab.name.Substring(k)] = ab;
+        }
 
         int found = 0;
         for (int f = 1; f <= 5; f++)

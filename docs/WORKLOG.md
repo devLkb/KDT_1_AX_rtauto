@@ -620,6 +620,75 @@ dg5f_angles.py에서 dg_min/max 스왑) ②보정 루틴(calibrate_raw.py 개조
 동결↔재가동 경계에서 뚝뚝 끊기는 느낌(동결 방식 자체), CCD 스텝 제한(1.5°×2iter)로 인한 추종
 지연, 비전 tip z(깊이) 노이즈. 진단 시 Dg5fJointLogger + analyze_teleop --channels thumb 활용.
 
+### §20-4. 엄지 IK 개선 3종 — 자세 prior·연속 감쇠·핀치 연속 블렌딩 (2026-07-14)
+
+**배경**: §20-3 미해결 ②(엄지 부드럽지 않음 — 동결↔재가동 경계 끊김 의심) + 여유자유도
+배회(4관절 vs 위치 3D → 손끝은 맞아도 관절 "모양"이 사람과 다름) + 핀치 임계 근처 목표 점프.
+
+**변경** (Unity `Dg5fThumbIK/Dg5fReceiver` + Python `vision_node_dg5f.py`):
+1. **자세 prior**: IK 활성 시 버려지던 패킷 0..3(엄지 관절각)을 2순위 목표로 — CCD 후
+   `priorGain`(3/s)·`priorWeights`(기본 {0,1,1,1} — **1_1=0 고정**: Python이 thumb_cmc 게이트라
+   자세 정보 아님)로 사람 각도 쪽 블렌딩. 위치(CCD)가 항상 우선, 리밋·와인드업 클램프 동일.
+2. **동결 → 연속 감쇠**: deadband/rearmBand 제거, `softZone`(1.5cm) 도입 — 오차에 비례해
+   CCD 스텝 상한 축소(`stepCap = maxStepDeg × clamp01(err/softZone)`). 경계 없는 정지,
+   prior와의 평형점에서 매끄럽게 멈춤.
+3. **핀치 연속 블렌딩**: **v3 패킷 `<25f`** = v2 + [24] 엄지-검지 끝거리비(연속, One Euro).
+   `pinchNear`(0.32)~`pinchFar`(0.55) 사이 SmoothStep으로 해부학 목표↔검지끝 스냅 연속 전환
+   — 임계 점프 제거. v2 수신 시 기존 이진 스냅 폴백(양방향 하위호환, 길이로 버전 판별).
+   ⚠️ 핀치 가중 w만큼 prior 약화(`×(1-w)`) — 초기 구현에서 prior가 접촉 목표를 반대로 당겨
+   수렴 3.8cm에서 정체 → 약화 후 정상.
+
+**검증(v3 프로브, 왼손 모델)**: 25f 수신·`GetPinchDistance` OK, IK Active, far(d=0.8)에서
+prior 평형 확인, pinch(d=0.25)+검지 62/52/38에서 엄지-검지 끝거리 **1.2cm(=pinchOffset) 정확
+수렴** — §20-3 oktip 벤치마크 동등. 컴파일 0에러, 콘솔 클린. 라이브 Unity 프로젝트
+(`UnityProjects/cli_test/KDT_robot_AI`)에도 스크립트 배포 완료.
+
+**⭐엄지 떨림 근본원인 규명 = CCD 리밋사이클 (같은 날 후속, 정지 프로브 정량 진단)**:
+고정 입력인데 1_1/1_3/1_4가 p2p 17~23° 지속 요동(1_2만 안정), 패킷 끊기면 완전 정지
+→ 물리 결백, 명령 레벨. **prior 끄고도 15~22° 동일 → prior 무죄, CCD 자체가 범인**:
+도달 불가(작업공간 밖) 목표 → 오차가 softZone 아래로 안 내려가 매 틱 풀스텝 → 순차
+CCD의 관절 간 그리디 순환 + 와인드업 가드 포화(|tgt-act|=15.000 정확)의 위상지연.
+§20-3② "부드럽지 않음"의 정체로 추정 — 비율 차이로 비전 목표가 작업공간 밖에
+떨어질 때마다 발생했을 것. **⚠️구버전 데드밴드 동결도 도달 불가 목표에선 같은 사이클**
+(0.8cm 데드밴드에 영원히 미도달).
+
+**수정 = 정체 감지 감쇠(stall damper)**: 최선 오차가 `stallTime`(0.6s) 내 1mm도 안
+줄면 스텝 권한 지수 감쇠(×0.95/틱, 하한 0.02), 개선 시 **점진 회복**(×1.15/틱 — 즉시
+1.0 리셋은 사이클 재점화 15~19° 실측), 목표 3mm 이동 시 전체 재가동. 시행착오 2건 기록:
+①prior 스텝캡만으로는 무효(원인 오진) ②틱당 개선 판정(0.2mm)은 물리 추종 지연까지
+정체로 오판해 핀치 수렴이 2.4cm에서 정체 — **시간창 판정이어야 함**.
+최종 검증: 정지 65°(초기 과도)→7→6→1.2→0.7→1.1° 단조 감쇠 재점화 없음, 핀치 전환
+재가동 정상, 접촉 1.2cm 유지. 진단·검증 전 과정 Dg5fJointLogger 5초 구간별 p2p로 수행.
+
+**남은 것**: 라이브 웹캠 체감 검증(부드러움 §20-3② 재평가, priorGain/softZone/stallTime 튜닝).
+미착수 로드맵: 엄지 체인 길이 정규화(비율 문제), IP 위치 2점 IK(v4), 작업공간 사영,
+벌림 게이트 해제.
+
+### §20-5. 엄지 CMC(1_1) 게이트 해제 — 앞뒤 움직임 재현 (2026-07-14)
+
+**배경**: 엄지 앞뒤(안테포지션)가 로봇 1_1에 전혀 안 나타남. 경로 삼중 차단이 원인:
+①Python 채널0 게이트(옛 프록시 노이즈, §20-2) ②priorWeights[0]=0 ③IK 목표의 앞뒤
+성분이 깊이(z) 노이즈 축+여유자유도에 흡수.
+
+**변경**:
+- **Python 신프록시** `_thumb_elevation`: 엄지 중수골(CMC→MCP)의 손바닥 평면 이탈각
+  arcsin — 옛 3점각(준일직선, 조건수 불량)과 달리 전 구간 안정. 채널0 게이트 해제,
+  기본 매핑 (0.15,0.85)rad→(0,65)°. **⚠️옛 보정값이 신프록시를 오염** → 양쪽
+  dg5f_calibration.json에서 thumb_cmc 항목 제거(재보정 필요). 좌우 미러는 기존
+  LEFT_MIRROR_CHANNELS에 thumb_cmc가 이미 있어 무변경.
+- **Unity CMC 피드포워드**(`cmcFeedforward`=8/s): 채널0→1_1 직결 lerp. **평시 CCD는
+  1_1을 안 건드림**(CCD의 1_1 스텝 ×_pinchW) — 같은 관절 이중 제어 금지 원칙(§20-4
+  리밋사이클 교훈). 핀치 시 역할 교대(ff는 ×(1-w)로 소멸, CCD가 1_1 인수 — 접촉 우선).
+
+**검증(왼손, ch0 삼각파 스윕 프로브)**: rx↔act 1_1 **상관 0.991, 평균 오차 1.68°**,
+정지 hold 시 1_1 p2p 0.07°, 핀치 1.2cm 유지. 잔여: 모순 입력(1_1 강제+손끝 고정)
+최악 조건에서 1_3/1_4가 1~2.5°/s 미세 숨쉬기(정체 감쇠 하한 0.02의 크롤링) — 실손
+입력은 두 신호가 일관돼 덜함, 하한 튜닝 여지.
+
+**라이브 확인 필요(사용자)**: ①방향 — vision_node [send] 첫 값(ch0)이 엄지를 손바닥
+앞쪽으로 움직일 때 증가해야. 반대면 채널 테이블 thumb_cmc (dg_min,dg_max)=(65,0) 스왑
+②calibrate_dg5f.py 재보정(thumb_cmc 신프록시 범위 학습).
+
 ---
 
 ## 21. SVH 완전 제거 + 메인 리포 이전 (2026-07-13 밤)
@@ -633,6 +702,41 @@ dg5f_angles.py에서 dg_min/max 스왑) ②보정 루틴(calibrate_raw.py 개조
   4종 참조 무손상 (missing 0, 컴파일 0에러, fist 프로브 스모크 통과). setup_drive.py 기본값 갱신.
 - **유지**: ArmTargetIK+HandSliderUI+RobotConfig(팔 IK 스택), ur5e_svh_build(팔 변환).
   ⚠️ UR5e 팔이 이제 씬에 없음 — 결합(로드맵 3번) 시 ur5e_raw.urdf + merge.py 개조로 재구성.
+
+---
+
+## 22. UR5e + DG5F 결합 (2026-07-14, 로드맵 3번)
+
+**빌드**: `urdf/ur5e_dg5f_build/merge_dg5f.py` — ur5e_raw.urdf(§21 이전 xacro 변환본) +
+dg5f_left.urdf 결합. UR tool0 --(fixed, identity)--> **ll_dg_mount**(DG5F가 플랜지
+장착용 마운트 링크를 자체 보유). 메시는 빌드 폴더 meshes/{ur,dg5f_left}/로 복사(자족적),
+mimic 없음. 결과 `ur5e_dg5f_left.urdf`: 링크 41/관절 40(revolute 26=팔6+손20),
+world→5tip 연결 OK, 중복명 0.
+
+**임포트**: import_hand.py --verify --prefab → 바디 40, 물리 대조 전 항목 통과.
+badInertia 5 = **inertial 없는 UR 더미 링크**(base_link/base/flange/tool0/ft_frame,
+§12 함정) → 프리팹 내 mass 0.1/관성 1e-4 수정(remainBad 0). setup_drive로 26관절
+10000/200/100000 + Controller 제거 + 중력off/루트고정 + 컴포넌트 8종 부착:
+RobotSelfCollisionIgnore/RobotInitialPoseSync/**Dg5f 4종**(Receiver·HandDriver·
+ThumbIK·JointLogger)/**팔 IK 2종**(HandSliderUI·ArmTargetIK). 팔 준비 포즈
+(0,-60,60,-90,-90,0) 프리팹에 내장.
+
+**⚠️Dg5f 스크립트 3종의 손 전용 가정 수정**: HandDriver/JointLogger가 revolute 전수에
+`IndexOf("_dg_")` 접미사 파싱 → 팔 관절(UR)에서 Substring(-1) 예외로 Start 사망,
+**수신까지 연쇄 침묵**(pkt_age=Infinity — 같은 GO의 Start 예외 연쇄). `_dg_` 없는
+관절 skip으로 수정(ThumbIK도 방어 적용). 손 단독 프리팹과 양립.
+
+**씬(DG5F_Import.unity)**: 손 단독 dg5f_left 인스턴스 **비활성**(UDP 5006 충돌 방지,
+폴백 보존), ur5e_dg5f_left 프리팹 인스턴스 + IK_Target(빨간 구) 배치, ArmTargetIK.target
+연결(**enableIK=false로 시작** — 팔 IK 활성화는 별도 검증 후), 카메라 프레이밍, 저장.
+
+**스모크 검증**: 주먹↔펴기 사이클 + 핀치 v3 프로브 — 팔 준비 포즈 유지(act=tgt 정확,
+진동 0), 손 20채널 추종(검지 2_2 tgt=act=62.0), 엄지 IK Active, **핀치 1.2cm**(손 단독과
+동등), 콘솔 0. 스크린샷 Screenshots/ur5e_dg5f_smoke.png.
+
+**남은 것**: ①팔 IK 활성 검증(enableIK 켜고 IK_Target 추종 — §18 파라미터는 코드
+기본값에 내장돼 있음) ②GraspPoint(파지 중심) DG5F 기준 재측정(§18-3은 SVH 기준)
+③오른손 변형 빌드는 merge_dg5f.py의 DG/DG_MESHES/이름만 교체.
 
 ---
 
