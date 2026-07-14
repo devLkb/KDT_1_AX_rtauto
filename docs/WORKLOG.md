@@ -625,7 +625,7 @@ dg5f_angles.py에서 dg_min/max 스왑) ②보정 루틴(calibrate_raw.py 개조
 ## 21. SVH 완전 제거 + 메인 리포 이전 (2026-07-13 밤)
 
 - **메인 리포**: https://github.com/devLkb/KDT_1_AX_rtauto (새 환경 재현용 — 셋업은 리포 README).
-  Python 규격: **3.10.11/3.10.12 + venv 2분리** (mediapipe=protobuf 4.x ↔ mlagents=protobuf 3.x 충돌).
+  Python 규격(정정 전): **3.10.11/3.10.12 + venv 2분리** (당시 mediapipe 0.10.14 기준 protobuf 4.x ↔ mlagents protobuf 3.x 충돌 판단).
 - **SVH 제거(DG5F 전환 확정)**: vision/svh, docs 코드사본, Unity의 SvhReceiver/SvhHandDriver/
   SvhJointLogger/MimicJointController, SampleScene+unity_pkg 삭제.
 - **공용 컴포넌트 개명(GUID 보존)**: SvhInitialPoseSync→RobotInitialPoseSync,
@@ -649,3 +649,17 @@ cat script.cs | "$CLI" exec                     # C# 실행 (stdin 파이프 권
 ```
 - exec C#에서 `Object`는 `UnityEngine.Object`로 명시.
 - Play 진입/종료, 패키지 추가, 스크립트 변경은 **도메인 리로드**를 유발 → 잠시 `not responding`이 정상.
+
+
+## 22. 비전+ML-Agents 공용 venv 의존성 정정 (2026-07-14)
+
+- **정정**: 기존 문서의 "비전과 ML-Agents는 반드시 별도 venv" 결론은 `mediapipe==0.10.14`
+  기준이었다. `mediapipe==0.10.11`로 낮추면 `protobuf==3.20.3`을 유지할 수 있어 ML-Agents와
+  같은 가상환경에서 사용 가능.
+- **실제 확인 환경**: `vision/.vision`, Python 3.10.12.
+- **핵심 설치 버전**: `mediapipe==0.10.11`, `protobuf==3.20.3`, `numpy==1.23.5`,
+  `opencv-contrib-python==4.8.1.78`, `pandas==2.0.3`, `scipy==1.10.1`, `torch==2.1.1+cpu`,
+  `mlagents/mlagents_envs==1.2.0.dev0`(로컬 release23 소스 설치본).
+- **검증**: `pip check` 통과, `mp.solutions.hands` import 통과, `mlagents-learn --help` 통과.
+- **문서/파일 갱신**: `requirements-vision.txt`, `requirements-mlagents.txt`, README Python 셋업,
+  `docs/ML_AGENTS_ROADMAP.md`, `docs/PROJECT_HANDOFF.md`를 공용 venv 기준으로 수정.

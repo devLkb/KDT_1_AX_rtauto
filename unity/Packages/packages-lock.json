@@ -150,7 +150,7 @@
       "url": "https://packages.unity.com"
     },
     "com.youngwoocho02.unity-cli-connector": {
-      "version": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector#v0.3.22",
+      "version": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector",
       "depth": 0,
       "source": "git",
       "dependencies": {

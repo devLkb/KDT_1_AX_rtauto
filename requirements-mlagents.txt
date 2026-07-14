@@ -1,6 +1,8 @@
-# ML-Agents 학습 가상환경 — Python 3.10.11 또는 3.10.12 기준 (mlagents는 3.10.x 전용)
-# ⚠️ mlagents는 protobuf 3.x 요구 → mediapipe(protobuf 4.x)와 같은 환경에 설치 금지.
-#    반드시 별도 venv (venv-mlagents). protobuf/PyTorch는 mlagents가 맞는 버전을 자동 설치.
-# ⚠️ 버전 고정 보류: Unity ML-Agents 패키지 버전과 Python mlagents 버전 짝을 반드시
-#    맞춰야 함 (docs/ML_AGENTS_ROADMAP.md §3-1) — Unity 쪽 패키지 설치 시점에 함께 고정할 것.
+# ML-Agents 학습 + 비전(텔레옵) 공용 가상환경 — Python 3.10.12에서 검증
+# 2026-07-14 현재 vision/.vision은 mediapipe==0.10.11 + protobuf==3.20.3 조합으로
+# mlagents와 같은 venv에서 pip check 통과. 더 높은 mediapipe(예: 0.10.14+)를 쓰면
+# protobuf 4.x 충돌 가능성이 있으므로 vision/requirements-vision-mlagents.constraints.txt를 유지.
+# 현재 로컬 venv의 mlagents/mlagents_envs는 release23 소스 설치본(1.2.0.dev0)이다.
+-c vision/requirements-vision-mlagents.constraints.txt
+
 mlagents

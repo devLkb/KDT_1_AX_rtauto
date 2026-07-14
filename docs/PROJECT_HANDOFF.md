@@ -73,9 +73,10 @@
 ## 2. 개발 환경
 
 - OS: Windows. 작업 폴더: `C:\Users\dltmd\Desktop\KDT\svh\`
-- Python 3.11 (`C:\Users\dltmd\AppData\Local\Programs\Python\Python311`)
-- **중요 버전 고정**: `mediapipe==0.10.14`, `numpy==1.26.4`
-  (최신 mediapipe 0.10.35는 `mp.solutions` API가 제거되어 사용 불가 — 아래 트러블슈팅 참조)
+- Python 3.10.12 공용 venv(`vision/.vision`) 권장 — 비전(텔레옵)과 ML-Agents를 한 환경에서 사용.
+- **중요 버전 고정(2026-07-14 검증)**: `mediapipe==0.10.11`, `protobuf==3.20.3`, `numpy==1.23.5`,
+  `opencv-contrib-python==4.8.1.78`. 과거 `mediapipe==0.10.14` 기준으로는 protobuf 4.x 충돌 때문에
+  venv 분리가 필요하다고 보았으나, 0.10.11로 낮추면 ML-Agents와 공존 가능.
 - 이어서 할 환경: Claude Code + unity-cli (유니티를 CLI 환경에서 직접 조작 가능)
   - 이미 검증한 것: dex-urdf / UR ROS2 description zip에서 3D 모델 추출,
     핸드+로봇암 결합, 관절값 주입해 조작까지 성공.
@@ -144,10 +145,13 @@ finger_spread 0.558–1.101, index_middle_couple 0.169–3.084, ring_pinky_coupl
      없고 `tasks`/`modules`만 있음 → 구 `mp.solutions.hands` API 제거됨.
    - 확인법: `python -c "import mediapipe as mp,os;print(os.listdir(os.path.dirname(mp.__file__)))"`
      → `python` 폴더 없으면 구 API 불가.
-   - 해결: `pip install --force-reinstall --no-cache-dir "mediapipe==0.10.14" "numpy<2"`
-   - 검증: `python -c "import mediapipe as mp; print(mp.solutions.hands)"` → 모듈 출력되면 OK.
-   - 잔여 경고(무시 가능): opencv-python이 numpy>=2 원한다는 의존성 경고,
-     protobuf `GetPrototype deprecated`, TFLite XNNPACK INFO, inference_feedback_manager WARNING.
+   - 해결(현재 권장): `pip install -r requirements-vision.txt` 또는
+     `pip install -r vision/requirements-vision-mlagents.resolved.txt`
+   - 검증: `python -c "import mediapipe as mp; print(mp.__version__, mp.solutions.hands)"` →
+     `0.10.11`과 hands 모듈이 출력되면 OK.
+   - ML-Agents와 같은 venv를 유지하려면 `protobuf==3.20.3`을 고정한다.
+   - 잔여 경고(무시 가능): protobuf `GetPrototype deprecated`, TFLite XNNPACK INFO,
+     inference_feedback_manager WARNING.
 
 2. **수동으로 svh_angles.py의 human 범위를 고쳐야 하는 번거로움**
    - 해결: calibrate_raw.py가 종료 시 `calibration.json` 자동 저장(마진 ±0.05 적용),
@@ -235,9 +239,11 @@ SVH의 실제 관절 가동 범위(rad)로 교체. 현재는 placeholder(예: 0.
 ## 7. 재현/실행 방법 (현재 1단계까지)
 
 ```powershell
-# 최초 1회 설치
-pip install --force-reinstall --no-cache-dir "mediapipe==0.10.14" "numpy<2"
-pip install opencv-python   # (이미 opencv-contrib-python이 mediapipe와 함께 설치됨)
+# 최초 1회 설치(비전 + ML-Agents 공용 venv)
+py -3.10 -m venv vision\.vision
+vision\.vision\Scripts\Activate.ps1
+pip install -r requirements-mlagents.txt
+pip install -r requirements-vision.txt
 
 cd "C:\Users\dltmd\Desktop\KDT\svh"
 

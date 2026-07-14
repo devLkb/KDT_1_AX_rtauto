@@ -28,26 +28,30 @@
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
 
-### 2. Python — **3.10.11 또는 3.10.12 설치, 가상환경 2개**
+### 2. Python — **3.10.12 권장, 비전+ML-Agents 공용 가상환경 1개**
 
-버전 선택 근거:
-- mediapipe 0.10.14는 Python 3.9~3.12 지원, **ML-Agents(mlagents)는 3.10.x 전용** → 3.10으로 통일
-- mediapipe는 **protobuf 4.x**, mlagents는 **protobuf 3.x** 요구 → 같은 환경에 공존 불가,
-  **가상환경을 반드시 둘로 분리**
+버전 선택 근거(2026-07-14 `vision/.vision`에서 검증):
+- **ML-Agents(mlagents)는 Python 3.10.x 전용** → 3.10.12 기준으로 통일
+- 기존 판단은 `mediapipe 0.10.14`(protobuf 4.x 계열) 때문에 ML-Agents(protobuf 3.x)와
+  가상환경을 분리해야 한다는 것이었으나, **`mediapipe==0.10.11`로 낮추면 `protobuf==3.20.3`에서
+  동작**해 ML-Agents와 같은 venv에 공존 가능하다.
+- 현재 검증된 핵심 버전: `mediapipe==0.10.11`, `protobuf==3.20.3`, `numpy==1.23.5`,
+  `opencv-contrib-python==4.8.1.78`, `torch==2.1.1+cpu`, `mlagents/mlagents_envs==1.2.0.dev0`.
 
 ```bash
-# ① 비전(텔레옵)용
-python -m venv venv-vision
-venv-vision\Scripts\activate
+# 비전(텔레옵) + ML-Agents 공용 venv (리포 현재 검증 경로)
+python3.10 -m venv vision/.vision
+source vision/.vision/bin/activate      # Windows: vision\.vision\Scripts\activate
+pip install -r requirements-mlagents.txt
 pip install -r requirements-vision.txt
 
-# ② ML-Agents 학습용 (로드맵 Phase 6 진입 시)
-python -m venv venv-mlagents
-venv-mlagents\Scripts\activate
-pip install -r requirements-mlagents.txt
+# 전체 고정 버전 재현/감사가 필요할 때
+pip install -r vision/requirements-vision-mlagents.resolved.txt
 ```
-⚠️ mlagents 버전은 Unity ML-Agents 패키지 버전과 짝을 맞춰 고정할 것 (`docs/ML_AGENTS_ROADMAP.md` §3-1).
-텔레옵 스크립트(`vision/`) 실행은 항상 venv-vision에서.
+
+⚠️ `mlagents/mlagents_envs==1.2.0.dev0`은 현재 로컬 `release23` 소스 설치본이다. 새 PC에서는 Unity
+`com.unity.ml-agents` 패키지와 Python `mlagents` 소스/휠 버전 짝을 맞춘 뒤 `mlagents-learn --help`를
+반드시 확인한다(`docs/ML_AGENTS_ROADMAP.md` §3-1). 텔레옵 스크립트(`vision/`)도 같은 공용 venv에서 실행한다.
 
 ### 3. (선택) unity-cli — 에디터를 CLI로 제어 (임포트/프로브 자동화에 사용)
 - https://github.com/akiojin/unity-cli 설치 후 Unity 프로젝트에 커넥터 패키지 추가.

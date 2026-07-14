@@ -23,3 +23,8 @@ vision/**/calib_log_*.csv
 # OS
 Thumbs.db
 .DS_Store
+
+# Agents
+*.omc
+*.omx
+*.claude

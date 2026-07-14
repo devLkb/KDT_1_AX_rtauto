@@ -1,0 +1,44 @@
+# Python
+# Python == 3.10.12
+# 2026-07-14 vision/.vision에서 검증한 비전+ML-Agents 공용 venv 제약.
+# pip freeze 전체 스냅샷은 requirements-vision-mlagents.resolved.txt 참고.
+
+# ML-Agents / MediaPipe 공통 핵심 의존성
+numpy==1.23.5
+protobuf==3.20.3
+grpcio==1.53.2
+
+# ML-Agents
+onnx==1.15.0
+tensorboard==2.14.1
+torch==2.1.1+cpu
+h5py==3.10.0
+Pillow==10.2.0
+PyYAML==6.0.1
+six==1.16.0
+cattrs==1.5.0
+attrs==23.2.0
+huggingface-hub==0.20.3
+
+# ML-Agents Env API
+cloudpickle==3.0.0
+gym==0.26.2
+pettingzoo==1.15.0
+filelock==3.13.1
+
+# MediaPipe
+mediapipe==0.10.11
+opencv-contrib-python==4.8.1.78
+absl-py==2.1.0
+flatbuffers==23.5.26
+sounddevice==0.4.6
+
+# MediaPipe가 가져오는 JAX 계열을 NumPy 1.23.5 호환 버전으로 제한
+jax==0.4.23
+jaxlib==0.4.23
+scipy==1.10.1
+ml-dtypes==0.2.0
+matplotlib==3.7.5
+
+# 기존 Vision 코드에서 사용할 가능성이 높은 데이터 처리 패키지
+pandas==2.0.3
