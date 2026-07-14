@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+VENV="${VENV:-$ROOT/vision/.vision}"
+CONFIG="$ROOT/training/config/dg5f_grasp.yaml"
+RUN_ID="${RUN_ID:-dg5f_grasp_v1}"
+ENV_PATH="${ENV_PATH:-}"
+NUM_ENVS="${NUM_ENVS:-2}"
+TIME_SCALE="${TIME_SCALE:-10}"
+
+args=("$CONFIG" --run-id "$RUN_ID" --time-scale "$TIME_SCALE")
+if [[ -n "$ENV_PATH" ]]; then
+  args+=(--env "$ENV_PATH" --num-envs "$NUM_ENVS" --no-graphics)
+fi
+
+exec "$VENV/bin/mlagents-learn" "${args[@]}" "$@"

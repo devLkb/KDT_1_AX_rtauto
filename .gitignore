@@ -20,6 +20,11 @@ vision/**/vision_dg5f_*.csv
 vision/**/calib_log_*.csv
 *.log
 
+# ML-Agents training/build outputs
+training/results/
+training/builds/
+unity/Assets/MLAgents/Grasp/Models/*.onnx
+
 # OS
 Thumbs.db
 .DS_Store

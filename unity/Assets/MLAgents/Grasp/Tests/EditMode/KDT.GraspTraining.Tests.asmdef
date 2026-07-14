@@ -1,0 +1,10 @@
+{
+  "name": "KDT.GraspTraining.Tests",
+  "rootNamespace": "KDT.GraspTraining.Tests",
+  "references": [
+    "KDT.GraspTraining"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false
+}

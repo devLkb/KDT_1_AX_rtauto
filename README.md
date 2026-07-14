@@ -14,6 +14,7 @@
 | `urdf/dg5f/` | Tesollo DG5F URDF+메시 원본 4변형 (검증 스크립트의 대조 기준) |
 | `urdf/ur5e_svh_build/` | UR5e xacro 변환 + 핸드 결합 스크립트 (SVH용, DG5F 결합 시 개조) |
 | `docs/` | WORKLOG(작업 이력 전체), ML-Agents 로드맵, 진동 디버깅 기록 |
+| `training/` | DG5FGrasp PPO 설정, headless 학습 실행 스크립트 |
 
 ## 새 환경 셋업
 
@@ -27,6 +28,8 @@
   (팔 IK, WORKLOG §15·§18)를 재사용해 새로 구성.
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
+- ML-Agents 학습 씬: `Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`.
+  Agent 계약·빌드·학습 명령은 `docs/AGENT_SPEC.md` 참고.
 
 ### 2. Python — **3.10.12 권장, 비전+ML-Agents 공용 가상환경 1개**
 
@@ -49,9 +52,9 @@ pip install -r requirements-vision.txt
 pip install -r vision/requirements-vision-mlagents.resolved.txt
 ```
 
-⚠️ `mlagents/mlagents_envs==1.2.0.dev0`은 현재 로컬 `release23` 소스 설치본이다. 새 PC에서는 Unity
-`com.unity.ml-agents` 패키지와 Python `mlagents` 소스/휠 버전 짝을 맞춘 뒤 `mlagents-learn --help`를
-반드시 확인한다(`docs/ML_AGENTS_ROADMAP.md` §3-1). 텔레옵 스크립트(`vision/`)도 같은 공용 venv에서 실행한다.
+`mlagents/mlagents_envs==1.2.0.dev0`은 `requirements-mlagents.txt`에 Release 23 커밋으로 고정했다.
+설치 후 `pip check`와 `mlagents-learn --help`를 반드시 확인한다. 텔레옵 스크립트(`vision/`)도
+같은 공용 venv에서 실행한다.
 
 ### 3. (선택) unity-cli — 에디터를 CLI로 제어 (임포트/프로브 자동화에 사용)
 - https://github.com/akiojin/unity-cli 설치 후 Unity 프로젝트에 커넥터 패키지 추가.
@@ -87,10 +90,12 @@ python probe_test.py <이름> --urdf <hand.urdf>         # 전 관절 사각파 
 ```
 자세한 절차·함정 목록은 `tools/urdf_hand_import/README.md`.
 
-## 현재 상태 / 알려진 이슈 (2026-07-13)
+## 현재 상태 / 알려진 이슈 (2026-07-14)
 
 - ✅ DG5F 4변형 임포트·물리검증·구동검증 완료, 굽힘 텔레옵 전 채널 PASS(상관 1.00)
 - ✅ 엄지 손끝 위치 리타게팅 v2 + 핀치 스냅 (OK 사인 접촉 프로브 검증 완료)
 - ⚠️ **엄지 라이브 움직임이 부드럽지 않음** — 진행 중. 후보: 데드밴드 동결/재가동 경계,
   CCD 스텝 제한, 비전 깊이 노이즈. `docs/WORKLOG.md` §20-3 미해결 항목 참고.
-- ⬜ 벌림(n_1)·새끼접기(5_1) 채널 게이트 해제, UR5e+DG5F 결합, ML-Agents (로드맵 문서)
+- ✅ UR5e+DG5F 결합 및 빨간 공 파지 ML-Agents 학습환경 구현
+- ⏳ ML-Agents 50k smoke 학습, 5M 본학습, 고정 시드 100회 평가 남음
+- ⬜ 벌림(n_1)·새끼접기(5_1) 채널 게이트 해제

@@ -32,8 +32,8 @@ kiwisolver==1.5.0
 matplotlib==3.7.5
 mediapipe==0.10.11
 ml-dtypes==0.2.0
-mlagents @ file:///home/lkb/.local/src/ml-agents-release23/ml-agents
-mlagents_envs @ file:///home/lkb/.local/src/ml-agents-release23/ml-agents-envs
+mlagents @ git+https://github.com/Unity-Technologies/ml-agents.git@a2777719560e4676be99e2ea128c5eb1fbeb3dbb#subdirectory=ml-agents
+mlagents_envs @ git+https://github.com/Unity-Technologies/ml-agents.git@a2777719560e4676be99e2ea128c5eb1fbeb3dbb#subdirectory=ml-agents-envs
 mpmath==1.3.0
 networkx==3.4.2
 numpy==1.23.5

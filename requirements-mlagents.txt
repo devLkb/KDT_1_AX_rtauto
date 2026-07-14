@@ -2,7 +2,9 @@
 # 2026-07-14 현재 vision/.vision은 mediapipe==0.10.11 + protobuf==3.20.3 조합으로
 # mlagents와 같은 venv에서 pip check 통과. 더 높은 mediapipe(예: 0.10.14+)를 쓰면
 # protobuf 4.x 충돌 가능성이 있으므로 vision/requirements-vision-mlagents.constraints.txt를 유지.
-# 현재 로컬 venv의 mlagents/mlagents_envs는 release23 소스 설치본(1.2.0.dev0)이다.
+# Release 23 exact source commit. PyPI 1.1.0 still caps grpcio at 1.48.2 and
+# conflicts with this repo's verified grpcio 1.53.2 environment.
 -c vision/requirements-vision-mlagents.constraints.txt
 
-mlagents
+mlagents-envs @ git+https://github.com/Unity-Technologies/ml-agents.git@a2777719560e4676be99e2ea128c5eb1fbeb3dbb#subdirectory=ml-agents-envs
+mlagents @ git+https://github.com/Unity-Technologies/ml-agents.git@a2777719560e4676be99e2ea128c5eb1fbeb3dbb#subdirectory=ml-agents
