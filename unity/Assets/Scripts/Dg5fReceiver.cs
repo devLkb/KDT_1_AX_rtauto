@@ -1,6 +1,7 @@
 // Dg5fReceiver.cs
 // Python 비전 프로세스(dg5f/vision_node_dg5f.py)가 보내는 DG5F 20관절 각도(UDP) 수신.
-// 패킷: float32 x 20, little-endian ('<20f'), 값 = DG5F 관절각[deg] (관절공간, 매핑은 Python 담당).
+// 패킷: float32 little-endian. v1='<20f'(관절각[deg]) / v2='<24f'(+엄지끝 정규화좌표 3, 핀치 플래그 1)
+//       / v3='<25f'(+엄지-검지 끝거리 비율 1). 길이로 버전 판별 — 상위 버전 필드는 없으면 미제공 처리.
 // 채널 순서(계약): [0..3]엄지 1_1~1_4 / [4..7]검지 2_1~2_4 / [8..11]중지 / [12..15]약지 / [16..19]새끼
 // 포트 5006 — SVH(5005)와 공존.
 // ⚠️ udp_test_receiver 같은 로컬 수신기가 같은 포트에 살아있으면 패킷을 뺏김 (SVH 포트 함정과 동일).
@@ -21,9 +22,12 @@ public class Dg5fReceiver : MonoBehaviour
 
     readonly float[] _latest = new float[ChannelCount];
     // v2 패킷(24f): 20 관절각 + 엄지끝 정규화좌표(ex,ey,ez) + 핀치 플래그
+    // v3 패킷(25f): + 엄지-검지 끝거리 비율(손길이 정규화, 연속값) — 핀치 연속 블렌딩용
     readonly float[] _tip = new float[4];
+    float _pinchDist;
     volatile bool _hasData;
     volatile bool _hasTip;
+    volatile bool _hasPinchDist;
     long _lastPacketUtcTicks; // 수신 스레드에서 Unity Time API 사용 불가 → DateTime 사용
 
     UdpClient _client;
@@ -59,6 +63,7 @@ public class Dg5fReceiver : MonoBehaviour
                 byte[] data = _client.Receive(ref remote);
                 if (data.Length < ChannelCount * 4) continue;
                 bool v2 = data.Length >= (ChannelCount + 4) * 4;
+                bool v3 = data.Length >= (ChannelCount + 5) * 4;
                 lock (_lock)
                 {
                     for (int i = 0; i < ChannelCount; i++)
@@ -66,10 +71,13 @@ public class Dg5fReceiver : MonoBehaviour
                     if (v2)
                         for (int i = 0; i < 4; i++)
                             _tip[i] = BitConverter.ToSingle(data, (ChannelCount + i) * 4);
+                    if (v3)
+                        _pinchDist = BitConverter.ToSingle(data, (ChannelCount + 4) * 4);
                 }
                 Interlocked.Exchange(ref _lastPacketUtcTicks, DateTime.UtcNow.Ticks);
                 _hasData = true;
                 if (v2) _hasTip = true;
+                if (v3) _hasPinchDist = true;
             }
             catch (Exception e)
             {
@@ -97,6 +105,15 @@ public class Dg5fReceiver : MonoBehaviour
             tipNormalized = new Vector3(_tip[0], _tip[1], _tip[2]);
             pinch = _tip[3] > 0.5f;
         }
+        return true;
+    }
+
+    /// v3 패킷의 엄지-검지 끝거리 비율(손길이 정규화). v3 미수신이면 false — 이진 핀치로 폴백할 것.
+    public bool GetPinchDistance(out float distanceRatio)
+    {
+        distanceRatio = float.PositiveInfinity;
+        if (!_hasPinchDist) return false;
+        lock (_lock) { distanceRatio = _pinchDist; }
         return true;
     }
 

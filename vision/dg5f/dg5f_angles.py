@@ -62,11 +62,29 @@ def _abduction(lm, finger):
     return ang if side >= 0 else -ang
 
 
+def _thumb_elevation(lm):
+    """엄지 중수골(CMC→MCP)의 손바닥 평면 이탈각[rad, 부호有] — thumb_cmc 신프록시.
+    옛 프록시(손목-CMC-MCP 3점각)는 세 점이 준일직선이라 노이즈 과대(§20-2 게이트 원인).
+    평면 이탈각(arcsin)은 전 구간 조건수 양호. 부호: 손바닥 법선 쪽 = +.
+    라이브에서 방향 반대면 채널 테이블 (dg_min, dg_max) 스왑 (관례 동일)."""
+    lm = np.asarray(lm)
+    n = np.cross(lm[INDEX[0]] - lm[WRIST], lm[PINKY[0]] - lm[WRIST])
+    nn = np.linalg.norm(n)
+    if nn < 1e-9:
+        return 0.0
+    n /= nn
+    v = lm[THUMB[1]] - lm[THUMB[0]]
+    vn = np.linalg.norm(v)
+    if vn < 1e-9:
+        return 0.0
+    return float(np.arcsin(np.clip(np.dot(v / vn, n), -1.0, 1.0)))
+
+
 def compute_raw(lm):
     """landmark → 20채널 raw 사람각도[rad], 패킷 순서."""
     return [
         # 엄지
-        _bend(lm, WRIST, THUMB[0], THUMB[1]),          # 0 thumb_cmc
+        _thumb_elevation(lm),                          # 0 thumb_cmc (앞뒤, 신프록시)
         _angle(lm[INDEX[0]], lm[WRIST], lm[THUMB[3]]), # 1 thumb_opp (SVH와 동일 proxy)
         _bend(lm, THUMB[0], THUMB[1], THUMB[2]),       # 2 thumb_mcp
         _bend(lm, THUMB[1], THUMB[2], THUMB[3]),       # 3 thumb_ip
@@ -122,9 +140,9 @@ LEFT_MIRROR_CHANNELS = {
 
 DG5F_CHANNELS = [
     # name          hmin   hmax    dg_min  dg_max  gated
-    # thumb_cmc: 프록시(손목-CMC-MCP 각)가 3점 준일직선이라 노이즈 과대 + 타 엄지채널과
-    # 교차간섭 → 게이트 중립 0° 고정 (2026-07-13 라이브에서 엄지 요동 원인). 해제는 추후.
-    ("thumb_cmc",   0.10,  0.80,    0.0,   60.0,  True),
+    # thumb_cmc: 신프록시(중수골 평면 이탈각)로 게이트 해제(2026-07-14) — 엄지 앞뒤 재현.
+    # 옛 3점각 프록시는 노이즈로 게이트했었음(§20-2). ⚠️보정 재실행 필요(calibrate_dg5f).
+    ("thumb_cmc",   0.15,  0.85,    0.0,   65.0,  False),
     # thumb_opp: 방향은 핀치 탐색으로 확정. dg_min -15 = 휴지 상태를 약간 대향으로 —
     # 대향 0 근처에서 엄지 굽힘 방향이 시각적으로 반전돼 보이는 결합 특성 완화.
     ("thumb_opp",   0.10,  0.55,  -15.0, -120.0,  False),

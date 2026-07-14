@@ -2,7 +2,9 @@
 """DG5F 비전 노드: 웹캠 → MediaPipe → 20관절 각도[deg] → One Euro → UDP.
 
 svh/vision_node.py의 단일 카메라 경로를 DG5F 20채널용으로 개조.
-  - 패킷: float32 × 20, little-endian ('<20f'), 값 = DG5F 관절각[deg]
+  - 패킷(v3): float32 × 25, little-endian ('<25f')
+    [0..19] DG5F 관절각[deg] / [20..22] 엄지끝 정규화좌표 / [23] 핀치 플래그
+    / [24] 엄지-검지 끝거리 비율(연속) — Unity 핀치 연속 블렌딩용
   - 포트: 5006 (SVH 5005와 공존 — 동시 실행 가능)
   - 로그: 실행마다 새 CSV (vision_dg5f_YYYYMMDD_HHMM.csv) — 덮어쓰기 함정 방지
   - occlusion 시 마지막 유효값 hold (SVH와 동일 정책)
@@ -63,6 +65,8 @@ def main():
                                 beta=FILTER_BETA) for n in CHANNEL_NAMES}
     tip_filters = [OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
                                  beta=0.001) for _ in range(3)]
+    pinch_filter = OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
+                                 beta=0.001)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     last_send = last_log = 0.0
     last_valid = None
@@ -96,7 +100,8 @@ def main():
                 pinch_on = pinch_d < PINCH_ON
             tip_f = [f(v) for f, v in zip(tip_filters, tip)]
             vals = ([filters[n](v) for n, v in zip(CHANNEL_NAMES, mapped)]
-                    + tip_f + [1.0 if pinch_on else 0.0])
+                    + tip_f + [1.0 if pinch_on else 0.0]
+                    + [pinch_filter(pinch_d)])
             last_valid = vals
         elif last_valid is not None:
             vals = last_valid                                # occlusion hold
@@ -109,11 +114,12 @@ def main():
                         + ",".join(f"{v:.3f}" for v in r) + ","
                         + ",".join(f"{v:.3f}" for v in vals[:20]) + "\n")
             if (now - last_send) >= (1.0 / SEND_HZ_CAP):
-                sock.sendto(struct.pack("<24f", *vals), (UNITY_IP, UNITY_PORT))
+                sock.sendto(struct.pack("<25f", *vals), (UNITY_IP, UNITY_PORT))
                 last_send = now
                 if now - last_log >= LOG_EVERY_SEC:
                     print("[send]", " ".join(f"{v:5.1f}" for v in vals[:4]),
-                          f"| tip ({vals[20]:.2f},{vals[21]:.2f},{vals[22]:.2f}) pinch={vals[23]:.0f}")
+                          f"| tip ({vals[20]:.2f},{vals[21]:.2f},{vals[22]:.2f})"
+                          f" pinch={vals[23]:.0f} d={vals[24]:.2f}")
                     last_log = now
 
         cv2.imshow("dg5f vision (q to quit)", frame)
