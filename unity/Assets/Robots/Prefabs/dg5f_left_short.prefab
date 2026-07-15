@@ -1726,8 +1726,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fThumbIK
   enableIK: 1
-  maxStepDeg: 1.5
-  iterations: 2
+  maxStepDeg: 0.8
+  iterations: 1
   pinchOffset: 0.012
   robotThumbMaxReach: 0.124
   reachOffset: {x: 0.174, y: -0.038, z: -0.092}
@@ -1741,6 +1741,7 @@ MonoBehaviour:
   - 1
   - 1
   priorStepRatio: 0.3
+  priorAngleLerp: 4
   cmcFeedforward: 0
   feedforwardJoint: 1
   pinchNear: 0.32

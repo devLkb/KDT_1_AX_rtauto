@@ -31,11 +31,11 @@ public class Dg5fThumbIK : MonoBehaviour
     [Tooltip("끄면 엄지도 관절각 채널(레거시)로 구동")]
     public bool enableIK = true;
 
-    [Tooltip("관절당 스텝 제한(도/FixedUpdate) — 급출발 방지")]
-    public float maxStepDeg = 2.5f;
+    [Tooltip("관절당 스텝 제한(도/FixedUpdate). §25-4 리플레이 A/B(2026-07-15): 1.5×2iter(150°/s)는 비전 노이즈를 ×21 증폭(추격·오버슈트) — 0.8×1iter(40°/s)로 떨림 1/10 + 오차 절반(1.50→0.70cm). 엄지가 굼뜨면 1.0~1.2로 (iterations는 1 유지)")]
+    public float maxStepDeg = 0.8f;
 
-    [Tooltip("CCD 반복 횟수/FixedUpdate")]
-    public int iterations = 3;
+    [Tooltip("CCD 반복 횟수/FixedUpdate — §25-4: 1 초과는 노이즈 증폭에 가담(실효 슬루가 배수로 늘어남)")]
+    public int iterations = 1;
 
     [Tooltip("핀치 스냅 시 검지 끝에서 이만큼 앞(접촉면)에 목표")]
     public float pinchOffset = 0.012f;
@@ -67,6 +67,12 @@ public class Dg5fThumbIK : MonoBehaviour
 
     [Tooltip("prior 틱당 이동 상한 = 이 비율 × CCD 스텝 상한. 1 이상이면 prior가 CCD를 이겨 리밋사이클(실측 p2p 17~23°)")]
     public float priorStepRatio = 0.3f;
+
+    [Tooltip("prior/ff가 쓰는 사람 관절각의 시간 스무딩(/s). §25-4(2026-07-15): 각도 채널 노이즈가 prior를 통해 매 틱 관절을 당기고 CCD가 되당기는 줄다리기 → 정지 시 로봇 고주파가 목표의 3~5배로 증폭(실측 15~22cm/s vs 목표 5). prior는 자세 힌트라 대역폭 불필요 — 강하게 스무딩. 0이면 원시값")]
+    public float priorAngleLerp = 4f;
+
+    readonly float[] _priorSmoothed = new float[4];
+    bool _priorSmoothedInit;
 
     // ---- 앞뒤(깊이) 피드포워드 (2단계에서 비활성, §25 2026-07-15) ----
     // 구정책(§20-5/20-7): 1_2를 elevation ff 전담, CCD 제외(권한=_pinchW). 당시 근거였던
@@ -286,6 +292,26 @@ public class Dg5fThumbIK : MonoBehaviour
 
         bool hasAngles = _rx.GetAngles(_priorAngles);
 
+        // prior 각도 스무딩 — 원시 채널 노이즈가 틱 단위로 관절을 흔들지 않게 (§25-4)
+        if (hasAngles)
+        {
+            if (!_priorSmoothedInit)
+            {
+                for (int i = 0; i < 4; i++) _priorSmoothed[i] = _priorAngles[i];
+                _priorSmoothedInit = true;
+            }
+            else if (priorAngleLerp > 0f)
+            {
+                float kA = 1f - Mathf.Exp(-priorAngleLerp * Time.fixedDeltaTime);
+                for (int i = 0; i < 4; i++)
+                    _priorSmoothed[i] = Mathf.Lerp(_priorSmoothed[i], _priorAngles[i], kA);
+            }
+            else
+            {
+                for (int i = 0; i < 4; i++) _priorSmoothed[i] = _priorAngles[i];
+            }
+        }
+
         // 자세 prior: 여유자유도를 사람 관절각(패킷 0..3) 쪽으로 약하게 당김.
         // CCD 뒤에 적용 — 위치 오차가 커지면 다음 틱 CCD가 되돌리므로 위치 우선이 유지된다.
         // 핀치 블렌딩이 걸릴수록 (1-_pinchW)로 약화 — 접촉이 자세보다 우선.
@@ -301,7 +327,7 @@ public class Dg5fThumbIK : MonoBehaviour
                 var ab = _thumb[i];
                 if (w <= 0f || ab == null) continue;
                 var d = ab.xDrive;
-                float prior = Mathf.Clamp(_priorAngles[i], d.lowerLimit, d.upperLimit);
+                float prior = Mathf.Clamp(_priorSmoothed[i], d.lowerLimit, d.upperLimit);
                 float delta = Mathf.Clamp((prior - d.target) * kP * Mathf.Clamp01(w),
                                           -priorCap, priorCap);
                 float act = ab.jointPosition[0] * Mathf.Rad2Deg;
@@ -318,7 +344,7 @@ public class Dg5fThumbIK : MonoBehaviour
             var ab = _thumb[feedforwardJoint];
             var d = ab.xDrive;
             float kF = (1f - Mathf.Exp(-cmcFeedforward * Time.fixedDeltaTime)) * (1f - _pinchW);
-            float goal = Mathf.Clamp(_priorAngles[feedforwardJoint], d.lowerLimit, d.upperLimit);
+            float goal = Mathf.Clamp(_priorSmoothed[feedforwardJoint], d.lowerLimit, d.upperLimit);
             float nt = Mathf.Lerp(d.target, goal, kF);
             float act = ab.jointPosition[0] * Mathf.Rad2Deg;
             nt = Mathf.Clamp(nt, act - windupDeg, act + windupDeg);

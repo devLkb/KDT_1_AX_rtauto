@@ -36,6 +36,11 @@ LOG_CSV = time.strftime("vision_dg5f_%Y%m%d_%H%M.csv")
 # One Euro: 값 단위가 deg(0~115)라 SVH(rad) 대비 beta를 1/57 스케일로 낮춤.
 # min_cutoff 1.0→0.6 (2026-07-13 라이브: 엄지 대향 지터 1.1°/프레임 → 저속 지터 억제 강화)
 FILTER_FREQ, FILTER_MIN_CUTOFF, FILTER_BETA = 30.0, 0.6, 0.0005
+# 엄지 tip 위치(정규화 0~1) 전용 — §25-4(2026-07-15): 정지 중 노이즈가 초당 0.2유닛(2.6cm)
+# 저속 드리프트라 min_cutoff 0.6Hz는 전부 통과(입력 2.6=필터후 2.6cm 실측), beta 0.001은
+# 속도보상 무력. → min_cutoff 0.15(드리프트 차단) + beta 0.5(의도 동작 속도 1~3유닛/s에서
+# 컷오프를 0.6~1.7Hz로 열어 지연 방지). 떨리면 min_cutoff↓, 굼뜨면 beta↑ 순으로 튜닝.
+TIP_MIN_CUTOFF, TIP_BETA = 0.15, 0.5
 # --------------------------------------------------------
 
 
@@ -63,8 +68,8 @@ def main():
 
     filters = {n: OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
                                 beta=FILTER_BETA) for n in CHANNEL_NAMES}
-    tip_filters = [OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
-                                 beta=0.001) for _ in range(3)]
+    tip_filters = [OneEuroFilter(freq=FILTER_FREQ, min_cutoff=TIP_MIN_CUTOFF,
+                                 beta=TIP_BETA) for _ in range(3)]
     pinch_filter = OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
                                  beta=0.001)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
