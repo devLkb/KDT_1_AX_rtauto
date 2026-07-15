@@ -51,9 +51,8 @@ namespace KDT.GraspTraining.Editor
             ConfigureJointDrives(robot);
 
             PhysicsMaterial surface = GetOrCreatePhysicsMaterial();
-            GameObject table = CreateTable(area.transform, surface);
+            GameObject pedestal = CreatePedestal(area.transform, surface);
             Rigidbody ball = CreateBall(area.transform, surface);
-            Transform spawnCenter = CreateMarker(area.transform, "BallSpawnCenter", new Vector3(0.35f, 0.45f, 0.25f));
 
             Transform palm = FindTransform(robot, "ll_dg_palm");
             var tips = new Transform[Dg5fGraspSpec.FingerCount];
@@ -73,16 +72,14 @@ namespace KDT.GraspTraining.Editor
             var agent = robot.GetComponent<Dg5fGraspAgent>();
             if (agent == null) agent = robot.AddComponent<Dg5fGraspAgent>();
             agent.ball = ball;
-            agent.spawnCenter = spawnCenter;
+            agent.pedestal = pedestal.transform;
+            agent.pedestalCollider = pedestal.GetComponent<Collider>();
             agent.robotBase = robot.transform;
             agent.palm = palm;
             agent.graspPoint = graspPoint;
             agent.fingerTips = tips;
             agent.contactSensors = sensors;
-            agent.tableTopY = 0.43f;
-            // Agent.MaxStep is measured in 50 Hz Academy steps: 750 = 15 seconds
-            // and 150 policy decisions at DecisionPeriod 5.
-            agent.MaxStep = 750;
+            agent.MaxStep = 0;
 
             var behavior = robot.GetComponent<BehaviorParameters>();
             if (behavior == null) behavior = robot.AddComponent<BehaviorParameters>();
@@ -102,7 +99,7 @@ namespace KDT.GraspTraining.Editor
             requester.DecisionPeriod = 5;
             requester.TakeActionsBetweenDecisions = false;
 
-            ConfigureCamera(table.transform.position);
+            ConfigureCamera(pedestal.transform.position);
             Selection.activeGameObject = area;
 
             PrefabUtility.SaveAsPrefabAssetAndConnect(area, TrainingPrefabPath, InteractionMode.AutomatedAction);
@@ -143,15 +140,22 @@ namespace KDT.GraspTraining.Editor
             }
         }
 
-        static GameObject CreateTable(Transform parent, PhysicsMaterial material)
+        static GameObject CreatePedestal(Transform parent, PhysicsMaterial material)
         {
-            var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            table.name = "GraspTable";
-            table.transform.SetParent(parent, false);
-            table.transform.localPosition = new Vector3(0.35f, 0.40f, 0.25f);
-            table.transform.localScale = new Vector3(0.30f, 0.06f, 0.30f);
-            table.GetComponent<Collider>().material = material;
-            return table;
+            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pedestal.name = "GraspPedestal";
+            pedestal.transform.SetParent(parent, false);
+            pedestal.transform.localPosition = new Vector3(0.35f, 0.215f, 0.25f);
+            // Unity's cylinder is 1 m wide and 2 m tall before scaling.
+            // A 30 cm round top reads as a real pedestal instead of the old narrow board.
+            pedestal.transform.localScale = new Vector3(0.30f, 0.215f, 0.30f);
+
+            UnityEngine.Object.DestroyImmediate(pedestal.GetComponent<Collider>());
+            var collider = pedestal.AddComponent<MeshCollider>();
+            collider.sharedMesh = pedestal.GetComponent<MeshFilter>().sharedMesh;
+            collider.convex = true;
+            collider.material = material;
+            return pedestal;
         }
 
         static Rigidbody CreateBall(Transform parent, PhysicsMaterial material)
@@ -170,14 +174,6 @@ namespace KDT.GraspTraining.Editor
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             body.interpolation = RigidbodyInterpolation.None;
             return body;
-        }
-
-        static Transform CreateMarker(Transform parent, string name, Vector3 localPosition)
-        {
-            var marker = new GameObject(name).transform;
-            marker.SetParent(parent, false);
-            marker.localPosition = localPosition;
-            return marker;
         }
 
         static Transform CreateGraspPoint(Transform palm, Transform[] tips)

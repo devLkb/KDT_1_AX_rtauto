@@ -26,27 +26,5 @@ behaviors:
     summary_freq: 10000
     threaded: true
 
-environment_parameters:
-  lesson:
-    curriculum:
-      - name: Reach
-        completion_criteria:
-          measure: reward
-          behavior: DG5FGrasp
-          signal_smoothing: true
-          min_lesson_length: 200
-          threshold: 0.8
-        value: 0.0
-      - name: Grasp
-        completion_criteria:
-          measure: reward
-          behavior: DG5FGrasp
-          signal_smoothing: true
-          min_lesson_length: 200
-          threshold: 0.8
-        value: 1.0
-      - name: LiftAndHold
-        value: 2.0
-
 torch_settings:
   device: cpu
