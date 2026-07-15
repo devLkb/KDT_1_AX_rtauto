@@ -1,6 +1,7 @@
-# DG5F 거리 기반 공 파지 학습 실행 가이드
+# DG5F 단계형 공 파지·상승·유지 학습 실행 가이드
 
-이 문서는 `DG5FGrasp` v2 환경을 빌드하고 통신 smoke와 본학습을 실행하는 절차를 설명한다.
+이 문서는 `DG5FGraspV4` v4.0 환경을 빌드하고 통신 smoke와 본학습을 실행하는 절차를 설명한다.
+환경과 PPO가 동작하는 전체 과정은 [`ML_AGENTS_LEARNING_FLOW.md`](ML_AGENTS_LEARNING_FLOW.md)를 참고한다.
 모든 명령은 저장소 루트에서 실행하고 Python 명령은 `vision/.vision` 가상환경을 사용한다.
 
 ## 1. 사전 확인
@@ -8,7 +9,7 @@
 - Unity: `6000.4.0f1`
 - Unity package: `com.unity.ml-agents` 4.0.0
 - Python: 3.10.x, `vision/.vision`
-- contract: [`AGENT_SPEC.md`](AGENT_SPEC.md) v2.0.0
+- contract: [`AGENT_SPEC.md`](AGENT_SPEC.md) v4.1.0
 
 ```bash
 vision/.vision/bin/pip check
@@ -34,10 +35,10 @@ UNITY_EDITOR=/home/lkb/Unity/Hub/Editor/6000.4.0f1/Editor/Unity
 - `unity/Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`
 
 `TrainingArea.prefab`은 공·받침대·UR5e/DG5F Agent를 하나로 묶은 재사용 단위다.
-씬에는 이 prefab을 X축 4열 x Y축 5행으로 20개 배치한다. 모든 Agent는 같은 `DG5FGrasp`
+씬에는 이 prefab을 X축 4열 x Y축 5행으로 20개 배치한다. 모든 Agent는 같은 `DG5FGraspV4`
 policy를 공유하지만 공, 받침대, 접촉 센서, episode 상태는 서로 독립이다.
 
-생성된 Agent는 43 observations, 7 continuous actions, 10Hz decision, `MaxStep=0`을 사용한다.
+생성된 Agent는 57 observations, 7 continuous actions, 10Hz decision, `MaxStep=0`을 사용한다.
 
 ## 3. Linux 학습 환경 빌드
 
@@ -66,14 +67,14 @@ sed -i 's/max_steps: 5000000/max_steps: 512/' /tmp/dg5f_grasp_512.yaml
 CONFIG=/tmp/dg5f_grasp_512.yaml \
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
 RESULTS_DIR=/tmp/dg5f_grasp_results \
-RUN_ID=dg5f_grasp_panel_v3_comm_512 \
+RUN_ID=dg5f_grasp_v4_comm_512 \
 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh --force
 ```
 
 합격 조건:
 
-1. `DG5FGrasp?team=0` 연결
+1. `DG5FGraspV4?team=0` 연결
 2. observation/action shape 오류 없음
 3. 512 step 이상 도달(20 Agent batch 처리로 최종 step은 초과 가능)
 4. Unity crash, `NaN`, communicator timeout 없음
@@ -86,18 +87,19 @@ sed -i 's/max_steps: 5000000/max_steps: 50000/' /tmp/dg5f_grasp_50k.yaml
 
 CONFIG=/tmp/dg5f_grasp_50k.yaml \
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_panel_v3_smoke_50k \
+RUN_ID=dg5f_grasp_v4_smoke_50k \
 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh
 ```
 
 확인할 항목:
 
-- 즉시 reset 반복이나 60초 정체 reset 누락 없음
-- 공 이탈·낙하·비유한 좌표 발생 시 reward 추가 없이 reset
-- 물리 관통 reset이 임계 깊이/시간에서만 발생
+- 즉시 실패 reset 반복, 무한 episode 또는 20초 timeout 누락 없음
+- 공 이탈·낙하·비유한 좌표 발생 시 원인별 실패 벌점(Timeout `-0.1`, GripLost/Dropped `-0.5`,
+  안전 위반 `-1.0`)과 원인을 기록한 뒤 reset
+- 물리 관통 reset이 임계 깊이/시간에서만 발생하고 단계 보너스가 반복 지급되지 않음
 - checkpoint와 ONNX 생성
-- cumulative distance cost와 episode length가 유한
+- cumulative reward, episode length, 상승·유지·이동량 통계가 유한
 
 ## 6. TensorBoard
 
@@ -112,10 +114,25 @@ vision/.vision/bin/tensorboard --logdir training/results --port 6006
 - policy entropy
 - `Grasp/Success`
 - `Grasp/CompletionSeconds`
+- `Curriculum/Stage`
+- `Grasp/MaxLiftHeightMeters`, `Grasp/HoldSeconds`
+- `Motion/NormalizedArmTravel`
+- `Failure/*` 원인별 rate
+
+stock ML-Agents는 `Grasp/Success`를 curriculum criterion으로 사용할 수 없으므로 기본 config는
+lesson 0으로 고정된다. 최소 200회 고정 정책 평가에서 성공률 80% 이상을 확인한 뒤 다음 config를
+생성한다. 조건 미달이면 스크립트가 non-zero로 종료한다.
+
+```bash
+vision/.vision/bin/python training/scripts/promote_dg5f_lesson.py \
+  --current-stage 0 --episodes 200 --successes 160 \
+  --base-config training/config/dg5f_grasp.yaml \
+  --output /tmp/dg5f_grasp_stage1.yaml
+```
 
 ## 7. 5M 본학습
 
-launcher 기본 RUN_ID가 `dg5f_grasp_panel_v3`이므로 다음 명령에서 생략할 수 있다.
+launcher 기본 RUN_ID가 `dg5f_grasp_v4`이므로 다음 명령에서 생략할 수 있다.
 
 ```bash
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
@@ -123,13 +140,13 @@ NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh
 ```
 
-이전 결과와 checkpoint는 삭제하거나 `--force`로 덮어쓰지 않는다. 이전 checkpoint는 v3 계약에 재사용하지 않는다.
+이전 결과와 checkpoint는 삭제하거나 `--force`로 덮어쓰지 않는다. 이전 checkpoint는 V4 계약에 재사용하지 않는다.
 
-### 중단 후 v3 재개
+### 중단 후 V4 재개
 
 ```bash
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_panel_v3 NUM_ENVS=1 TIME_SCALE=10 \
+RUN_ID=dg5f_grasp_v4 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh --resume
 ```
 
@@ -140,7 +157,7 @@ training/scripts/train_dg5f_grasp.sh --resume
 3. Unity Play를 누른다.
 
 ```bash
-RUN_ID=dg5f_grasp_panel_v3_editor_debug \
+RUN_ID=dg5f_grasp_v4_editor_debug \
 NUM_ENVS=1 TIME_SCALE=1 \
 training/scripts/train_dg5f_grasp.sh
 ```
@@ -152,7 +169,7 @@ training/scripts/train_dg5f_grasp.sh
 | `VENV` | `vision/.vision` | Python 가상환경 |
 | `CONFIG` | `training/config/dg5f_grasp.yaml` | ML-Agents YAML |
 | `RESULTS_DIR` | `training/results` | checkpoint/TensorBoard 결과 |
-| `RUN_ID` | `dg5f_grasp_panel_v3` | 학습 실행 식별자 |
+| `RUN_ID` | `dg5f_grasp_v4` | 학습 실행 식별자 |
 | `ENV_PATH` | 빈 값 | Linux player 경로; 빈 값이면 Editor 연결 |
 | `NUM_ENVS` | `1` | 병렬 Unity 프로세스 수. 프로세스마다 Agent 20개 |
 | `TIME_SCALE` | `10` | Unity simulation 배속 |
@@ -171,14 +188,13 @@ training/scripts/train_dg5f_grasp.sh
 
 ### 기존 RUN_ID 오류
 
-- 같은 v3 실험 재개: `--resume`
+- 같은 V4 실험 재개: `--resume`
 - 새 실험: 새 RUN_ID
 - `--force`: 해당 결과를 명시적으로 폐기할 때만 사용
 
 ### Episode가 예상보다 길어짐
 
-고정 시간 제한은 없다. 공이 안전 경계를 벗어나지 않았고 2cm 의미 있는 개선이 간헐적으로 발생하면 episode가 계속될 수 있다.
-정체 판정은 벽시계가 아니라 Unity 시뮬레이션 시간 60초를 사용한다.
+V4는 `MaxStep=0`을 유지하지만 자체 상태기계가 Unity 시뮬레이션 시간 정확히 20초에서 timeout 실패를 기록한다. 벽시계가 아니라 physics time을 사용한다.
 
 ### `Failed to open plugin: ...libassimp.so`
 

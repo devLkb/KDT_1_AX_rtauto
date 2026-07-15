@@ -29,7 +29,8 @@
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
 - ML-Agents 학습 씬: `Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`.
-  Agent 계약은 `docs/AGENT_SPEC.md`, 설계 설명은 `docs/ML_AGENTS_DESIGN.md`,
+  Unity·강화학습을 처음 접하면 `docs/ML_AGENTS_LEARNING_FLOW.md`부터 읽는다.
+  정확한 Agent 계약은 `docs/AGENT_SPEC.md`, 설계 근거는 `docs/ML_AGENTS_DESIGN.md`,
   빌드·smoke·본학습 실행법은 `docs/ML_AGENTS_TRAINING_GUIDE.md` 참고.
 
 ### 2. Python — **3.10.12 권장, 비전+ML-Agents 공용 가상환경 1개**
@@ -98,5 +99,5 @@ python probe_test.py <이름> --urdf <hand.urdf>         # 전 관절 사각파 
 - ⚠️ **엄지 라이브 움직임이 부드럽지 않음** — 진행 중. 후보: 데드밴드 동결/재가동 경계,
   CCD 스텝 제한, 비전 깊이 노이즈. `docs/WORKLOG.md` §20-3 미해결 항목 참고.
 - ✅ UR5e+DG5F 결합 및 빨간 공 파지 ML-Agents 학습환경 구현
-- ⏳ ML-Agents 50k smoke 학습, 5M 본학습, 고정 시드 100회 평가 남음
+- ⏳ ML-Agents 50k smoke 학습, 5M 본학습, 미학습 고정 시드 500회 평가 남음
 - ⬜ 벌림(n_1)·새끼접기(5_1) 채널 게이트 해제

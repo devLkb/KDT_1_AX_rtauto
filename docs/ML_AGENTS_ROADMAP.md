@@ -14,7 +14,8 @@
 - ✅ EditMode 계약 테스트 및 PlayMode 100회 리셋 테스트 추가.
 - ✅ v1 Linux `-nographics` 플레이어 빌드 및 512-step Python↔Unity PPO 통신 smoke 통과.
 - ✅ v2 player 재빌드 및 `max_steps=512` Python↔Unity PPO 통신 smoke 통과.
-- ⏳ 남음: 1/10/20배속 접촉 안정성 프로브, 50k smoke 학습, 5M 본학습, 고정 시드 100회 평가.
+- ⏳ 남음: 1/10/20배속 접촉 안정성 프로브, 50k smoke 학습, 5M 본학습,
+  미학습 고정 시드 500회 최종 평가.
 - 동결된 최신 계약은 [AGENT_SPEC.md](AGENT_SPEC.md)를 따른다. 아래 과거 SVH/9-DoF 예시는 역사적 로드맵으로 유지한다.
 
 ---
