@@ -201,44 +201,35 @@ def map_to_dg5f(raw, hand="right"):
 #   엄지만 "손끝 위치"를 보내고 Unity에서 IK(CCD).
 #   축: ez=손목→중지MCP(손가락 방향), ey=새끼MCP→검지MCP(측면), ex=cross(ey,ez)
 #       (손바닥 법선). 해부학 랜드마크 기반이라 좌/우·거울 불변.
-#   값(2026-07-14 체인 길이 정규화로 변경 — Unity Dg5fThumbIK와 계약):
-#       리치벡터 = (엄지끝 − 엄지CMC) / 사람 엄지 체인 길이(CMC→MCP→IP→TIP 마디 합)
-#       = "내 엄지를 몇 %, 어느 방향으로 뻗었나" (크기 최대 ~1.0).
-#       Unity가 로봇 엄지 베이스(1_1) + 리치 × 로봇 체인 길이로 복원.
-#   왜: 구버전(원점=중지MCP, 손길이로 나눔)은 사람/로봇 엄지 비율 차이로 목표가
-#       로봇 작업공간 밖에 떨어짐 → CCD 리밋사이클 = §20-4 떨림의 근본 원인.
-#       체인 길이 자로 재면 사람이 가는 곳 ≈ 로봇이 갈 수 있는 곳으로 매핑됨.
-#   체인 길이 추정: MediaPipe 마디합은 z 노이즈로 프레임마다 출렁여 매 프레임
-#       나누면 스케일 노이즈 증폭 → 보정값(thumb_chain_ratio × 현재 손길이) 우선,
-#       없으면 느린 EMA 폴백. (비율은 카메라 거리 불변량이라 안정)
+#   값(2026-07-15 기준 길이 재정의 — Unity Dg5fThumbIK.robotThumbMaxReach와 계약):
+#       리치벡터 = (엄지끝 − 엄지CMC) / 사람 엄지 "최대 도달거리"(쭉 편 직선, 보정)
+#       = '펴짐 비율' 0~1. 크기 1.0 초과분(노이즈·보정오차)은 클램프 후 전송.
+#       Unity가 로봇 엄지 베이스(1_1) + 리치 × 로봇 실효 최대 도달거리로 복원.
+#   왜(§24 분석, 2026-07-15): 구버전 기준(마디합)은 두 가지가 틀렸음 —
+#       ① 사람 마디합 보정이 MediaPipe z 압축으로 ~17% 과소(직선 최대 0.996 >
+#          마디합 0.828 모순 실측) → 명령 20% 과대.
+#       ② 로봇 마디합 14.81cm는 "다 폈을 때" 길이인데 현 제어 정책(1_2=elevation
+#          ff 전담)의 실효 최대 도달은 12.4cm(84%) → n=1.0부터 이미 도달 불가.
+#       둘이 겹쳐 목표가 상시 3~6cm 도달권 밖 → CCD 리밋사이클(떨림→정지).
+#       "최대 도달거리" 기준이면 사람 100% 폄 = 로봇 100% 폄으로 정의상 정렬.
 # =========================================================================
 # 핀치 히스테리시스(vision_node에서 적용): 걸림 <PINCH_ON, 풀림 >PINCH_OFF
 #   단일 임계는 경계 근처에서 플래그가 깜빡여 엄지가 두 목표 사이를 왕복(까딱임) — 실측 교훈.
 PINCH_ON, PINCH_OFF = 0.30, 0.42
 
-_thumb_ratio_calib = None    # dg5f_calibration.json의 thumb_chain_ratio (있으면 고정 사용)
-_thumb_ratio_ema = None      # 보정 없을 때 폴백 EMA (19Hz 기준 ~2.5s 수렴)
-_THUMB_RATIO_EMA_ALPHA = 0.02
-
-
-def _thumb_chain_len(lm, hand_len):
-    """사람 엄지 체인 길이의 안정 추정치. 보정값 우선, 없으면 느린 EMA."""
-    global _thumb_ratio_ema
-    if _thumb_ratio_calib is not None:
-        return _thumb_ratio_calib * hand_len
-    chain = (np.linalg.norm(lm[THUMB[1]] - lm[THUMB[0]])
-             + np.linalg.norm(lm[THUMB[2]] - lm[THUMB[1]])
-             + np.linalg.norm(lm[THUMB[3]] - lm[THUMB[2]]))
-    r = chain / hand_len
-    _thumb_ratio_ema = (r if _thumb_ratio_ema is None
-                        else _thumb_ratio_ema + _THUMB_RATIO_EMA_ALPHA * (r - _thumb_ratio_ema))
-    return _thumb_ratio_ema * hand_len
+# 사람 엄지 최대 도달거리 비율 = |엄지끝−CMC| 직선 / 손길이(손목→중지MCP), 쭉 편 상태.
+# 보정(calibrate_dg5f.py v2)이 p95로 실측 저장. 기본값 1.0은 2026-07-15 라이브 역산(0.996) 근사.
+DEFAULT_THUMB_REACH_RATIO = 1.0
+CALIB_VERSION = 2  # v2부터 thumb_reach_ratio(직선 최대). v1의 thumb_chain_ratio(마디합)와 비호환.
+_thumb_reach_calib = None
 
 
 def compute_thumb_tip(lm):
-    """landmark → (엄지 리치벡터[3, 체인 길이 정규화], 엄지-검지 끝거리 비율).
+    """landmark → (엄지 리치벡터[3, '펴짐 비율' 0~1], 엄지-검지 끝거리 비율).
 
-    리치벡터 축은 손바닥 해부학 좌표계, 크기는 사람 엄지 체인 길이 기준(≤~1.0).
+    리치벡터 축은 손바닥 해부학 좌표계, 크기 = |엄지끝−CMC| / (손길이 × 최대도달 비율)
+    → 쭉 펴면 ~1.0, 초과분은 방향 유지한 채 크기 1.0으로 클램프(목표가 도달 상한을
+    넘지 않는다는 보장을 송신 단계에서 확립).
     pinch_d는 기존과 동일하게 손길이 정규화 — 핀치 임계(0.30/0.42 등) 튜닝 유지.
     """
     lm = np.asarray(lm)
@@ -251,7 +242,11 @@ def compute_thumb_tip(lm):
     ex = np.cross(ey_raw, ez)
     ex /= max(np.linalg.norm(ex), 1e-9)
     ey = np.cross(ez, ex)
-    v = (lm[THUMB[3]] - lm[THUMB[0]]) / max(_thumb_chain_len(lm, hand_len), 1e-9)
+    ratio = _thumb_reach_calib if _thumb_reach_calib is not None else DEFAULT_THUMB_REACH_RATIO
+    v = (lm[THUMB[3]] - lm[THUMB[0]]) / max(hand_len * ratio, 1e-9)
+    m = float(np.linalg.norm(v))
+    if m > 1.0:
+        v = v / m
     tip = (float(np.dot(v, ex)), float(np.dot(v, ey)), float(np.dot(v, ez)))
     pinch_d = float(np.linalg.norm(lm[THUMB[3]] - lm[INDEX[3]]) / hand_len)
     return tip, pinch_d
@@ -263,7 +258,7 @@ _CALIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def _load_calibration():
-    global DG5F_CHANNELS, _thumb_ratio_calib
+    global DG5F_CHANNELS, _thumb_reach_calib
     if not os.path.exists(_CALIB_PATH):
         return False
     try:
@@ -273,12 +268,16 @@ def _load_calibration():
     except Exception as e:
         print(f"[dg5f_angles] 보정 파일 읽기 실패({e}) — 기본값 사용")
         return False
-    tr = data.get("thumb_chain_ratio")
-    if tr:
-        _thumb_ratio_calib = float(tr)
-        print(f"[dg5f_angles] 엄지 체인 비율 보정값 사용: {_thumb_ratio_calib:.3f}")
+    # 버전 게이트: v1의 thumb_chain_ratio(마디합, ~17% 과소)는 의미가 달라 읽지 않음.
+    ver = int(data.get("version", 1))
+    tr = data.get("thumb_reach_ratio")
+    if ver >= CALIB_VERSION and tr:
+        _thumb_reach_calib = float(tr)
+        print(f"[dg5f_angles] 엄지 최대도달 비율 보정값 사용: {_thumb_reach_calib:.3f}")
     else:
-        print("[dg5f_angles] thumb_chain_ratio 없음 — EMA 폴백 (calibrate_dg5f.py 재보정 권장)")
+        print(f"[dg5f_angles] ⚠️ 보정 파일이 구버전(v{ver}, 마디합 기준)이거나 thumb_reach_ratio 없음 — "
+              f"기본값 {DEFAULT_THUMB_REACH_RATIO} 사용. calibrate_dg5f.py로 재보정하세요"
+              " (엄지를 최대한 쭉 펴는 동작 포함). human_ranges(각도 범위)는 그대로 사용.")
     DG5F_CHANNELS = [
         (n, float(hr[n]["min"]) if n in hr else hmin,
             float(hr[n]["max"]) if n in hr else hmax, dmin, dmax, g)

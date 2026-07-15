@@ -9,7 +9,9 @@ xDrive.target이 기대값으로 들어가는지 확인하는 용도 (SVH 프로
   python probe_sender.py open          # 펴기
   python probe_sender.py cycle         # 주먹↔펴기 2초 주기 반복
   python probe_sender.py oktip         # v2 핀치 스냅 검증 (엄지 IK → 검지 끝 1.2cm)
-  python probe_sender.py tipfar        # v3 체인 정규화 검증 (핀치 해제, 해부학 목표)
+  python probe_sender.py tipfar        # v3 리치 복원 검증 (핀치 해제, 펴짐 75% 목표)
+  python probe_sender.py tipmax        # 펴짐 100% → 목표가 정확히 robotThumbMaxReach
+  python probe_sender.py tipover       # |n|=1.4 위반 패킷 → Unity 안전망 클램프 검증
   python probe_sender.py fist left     # 왼손 모델용 (미러 채널 부호 반전)
   (Ctrl+C 종료)
 """
@@ -59,11 +61,22 @@ def main():
                 base = mirror_left(OK) if hand == "left" else OK
                 vals = base + [0.25, 0.55, 0.45, 1.0]
             elif mode == "tipfar":
-                # v3 체인 정규화 검증: 핀치 해제(끝거리비 0.8) 상태의 해부학 목표.
-                # 리치 크기 |(0.25,0.55,0.45)|≈0.75 = "사람 엄지 75% 뻗음" →
-                # 로봇 엄지 끝이 베이스에서 체인 길이 75% 지점에 수렴해야 함(리밋사이클 없이)
+                # v3 리치 복원 검증(2026-07-15 기준 길이 재정의): 핀치 해제(끝거리비 0.8).
+                # 리치 크기 |(0.25,0.55,0.45)|≈0.75 = "펴짐 비율 75%" →
+                # 로봇 엄지 끝이 1_1에서 0.75×robotThumbMaxReach(=9.3cm) 지점에 수렴해야 함
                 base = mirror_left(OPEN) if hand == "left" else OPEN
                 vals = base + [0.25, 0.55, 0.45, 0.0, 0.8]
+            elif mode == "tipmax":
+                # 펴짐 100%: |(0.30,0.36,0.88)|≈1.00 → 목표가 정확히 robotThumbMaxReach
+                # (=12.4cm) 구면 위에 찍혀야 함 (완료기준: 사람 100% 폄 = 로봇 도달 상한)
+                base = mirror_left(OPEN) if hand == "left" else OPEN
+                vals = base + [0.30, 0.36, 0.88, 0.0, 0.8]
+            elif mode == "tipover":
+                # 계약 위반 패킷(|n|=1.4>1, 구버전 송신기/오보정 상황 재현) —
+                # Python은 송신 전 클램프하므로 정상 경로에선 안 나옴. Unity 쪽
+                # robotThumbMaxReach 구면 안전망이 12.4cm로 깎는지 검증용.
+                base = mirror_left(OPEN) if hand == "left" else OPEN
+                vals = base + [0.42, 0.50, 1.21, 0.0, 0.8]
             else:  # cycle
                 vals = fist if int((time.time() - t0) / 2.0) % 2 == 0 else open_
             fmt = "<%df" % len(vals)
