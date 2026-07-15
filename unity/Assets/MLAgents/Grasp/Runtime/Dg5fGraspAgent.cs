@@ -8,7 +8,7 @@ using UnityEngine;
 namespace KDT.GraspTraining
 {
     /// <summary>
-    /// PPO Agent for staged reach, grasp, lift, and hold training with UR5e + DG5F.
+    /// PPO Agent for v1 reach training with UR5e + DG5F.
     /// This component is the sole xDrive writer in the training scene.
     /// </summary>
     public sealed class Dg5fGraspAgent : Agent
@@ -37,22 +37,14 @@ namespace KDT.GraspTraining
         ArticulationBody[] _allJoints;
         ArticulationBody[] _armJoints;
         ArticulationBody[] _handJoints;
-        Collider[] _robotColliders;
-        Collider[] _handColliders;
         float[] _armTargetDeg;
-        float[] _currentArmPositionDeg;
         float _closure;
         float _initialBallHeight;
         float _supportTopHeight;
-        float[] _previousArmPositionDeg;
-        float _previousReachPotential;
-        float _previousContactPotential;
-        float _previousLiftPotential;
-        float _previousHoldPotential;
-        float _normalizedArmTravel;
-        float _movementSinceDecision;
-        Dg5fCurriculumStage _curriculumStage;
-        Dg5fEpisodeState _episodeState;
+        float _previousApproachPotential;
+        float _bestGraspDistance;
+        float _episodeSeconds;
+        int _ballReleaseFixedSteps;
         bool _episodeActive;
         System.Random _random;
         StatsRecorder _stats;
@@ -60,14 +52,9 @@ namespace KDT.GraspTraining
         public float CurrentClosure => _closure;
         public float CurrentSupportTopHeight => _supportTopHeight;
         public Vector3 CurrentBallLocalPosition => robotBase.InverseTransformPoint(ball.position);
-        public Dg5fGraspPhase CurrentPhase => _episodeState.Phase;
-        public int CurrentCurriculumStage => _curriculumStage.Index;
-        public float CurrentGraspSeconds => _episodeState.GraspSeconds;
-        public float CurrentHoldSeconds => _episodeState.HoldSeconds;
-        public float CurrentEpisodeSeconds => _episodeState.EpisodeSeconds;
-        public float MaximumLiftMeters => _episodeState.MaximumLiftMeters;
-        public float MaximumHoldSeconds => _episodeState.MaximumHoldSeconds;
-        public float NormalizedArmTravel => _normalizedArmTravel;
+        public float CurrentEpisodeSeconds => _episodeSeconds;
+        public float CurrentGraspDistance => GraspDistance();
+        public float BestGraspDistance => _bestGraspDistance;
 
         public float CurrentArmTargetDeg(int index)
         {
@@ -82,12 +69,10 @@ namespace KDT.GraspTraining
             ValidateConfiguration();
 
             _armTargetDeg = new float[Dg5fGraspSpec.ArmJointCount];
-            _previousArmPositionDeg = new float[Dg5fGraspSpec.ArmJointCount];
-            _currentArmPositionDeg = new float[Dg5fGraspSpec.ArmJointCount];
             foreach (var body in _allJoints)
                 _initialTargetDeg[body] = body.xDrive.target;
 
-            // The exact 20-second limit is measured in physics time by the V4 state machine.
+            // The exact 20-second limit is measured in simulation time.
             MaxStep = 0;
             _random = new System.Random(spawnSeed);
             _stats = Academy.Instance.StatsRecorder;
@@ -124,9 +109,6 @@ namespace KDT.GraspTraining
                     contactSensors[finger] = fingerTips[finger].GetComponent<GraspContactSensor>();
                 if (contactSensors[finger] != null) contactSensors[finger].targetBall = ball;
             }
-
-            if (robotBase != null) _robotColliders = robotBase.GetComponentsInChildren<Collider>(true);
-            if (palm != null) _handColliders = palm.GetComponentsInChildren<Collider>(true);
         }
 
         static Transform FindByName(IEnumerable<Transform> transforms, string name)
@@ -180,10 +162,6 @@ namespace KDT.GraspTraining
                 throw new InvalidOperationException(
                     "[Dg5fGraspAgent] Missing ball/pedestal/robotBase/palm/graspPoint reference.");
             }
-            if (_handColliders == null || _handColliders.Length == 0)
-                throw new InvalidOperationException("[Dg5fGraspAgent] No palm/finger colliders were found.");
-            if (_robotColliders == null || _robotColliders.Length == 0)
-                throw new InvalidOperationException("[Dg5fGraspAgent] No robot colliders were found.");
             for (int i = 0; i < _armJoints.Length; i++)
                 if (_armJoints[i] == null)
                     throw new InvalidOperationException($"[Dg5fGraspAgent] Missing arm joint: {Dg5fGraspSpec.ArmLinks[i]}");
@@ -199,22 +177,13 @@ namespace KDT.GraspTraining
         {
             _episodeActive = false;
             _closure = 0f;
-            int stageIndex = Mathf.RoundToInt(
-                Academy.Instance.EnvironmentParameters.GetWithDefault(
-                    "lesson",
-                    Dg5fGraspSpec.CurriculumStages.Length - 1));
-            _curriculumStage = Dg5fGraspSpec.GetCurriculumStage(stageIndex);
             ResetRobot();
             ResetBall();
             foreach (var sensor in contactSensors) sensor.ResetContacts();
 
-            _episodeState.Reset();
-            _normalizedArmTravel = 0f;
-            _movementSinceDecision = 0f;
-            _previousReachPotential = Dg5fGraspSpec.ReachPotential(GraspDistance());
-            _previousContactPotential = 0f;
-            _previousLiftPotential = 0f;
-            _previousHoldPotential = 0f;
+            _episodeSeconds = 0f;
+            _bestGraspDistance = GraspDistance();
+            _previousApproachPotential = Dg5fGraspSpec.ApproachPotential(_bestGraspDistance);
             _episodeActive = true;
         }
 
@@ -237,7 +206,6 @@ namespace KDT.GraspTraining
                     initial,
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]);
-                _previousArmPositionDeg[i] = FirstOrZero(_armJoints[i].jointPosition) * Mathf.Rad2Deg;
             }
             ApplyArmTargets();
             ApplyGripTargets();
@@ -249,34 +217,15 @@ namespace KDT.GraspTraining
             if (ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = ballCollider.bounds.extents.y;
-            Physics.SyncTransforms();
-
-            Vector3 ballLocalPosition = default;
             Vector3 localGraspPoint = robotBase.InverseTransformPoint(graspPoint.position);
             float centerAzimuthDegrees = Mathf.Atan2(localGraspPoint.z, localGraspPoint.x) * Mathf.Rad2Deg;
-            bool found = false;
-            for (int attempt = 0; attempt < 1024; attempt++)
-            {
-                ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
-                    Next01(),
-                    Next01(),
-                    ballRadius,
-                    _curriculumStage,
-                    centerAzimuthDegrees);
-                if (Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius)
-                    && HasRobotSpawnClearance(
-                        robotBase.TransformPoint(ballLocalPosition),
-                        ballRadius))
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                throw new InvalidOperationException(
-                    "[Dg5fGraspAgent] Could not sample a valid workspace pose with robot clearance.");
-            }
+            Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
+                Next01(),
+                Next01(),
+                ballRadius,
+                centerAzimuthDegrees);
+            if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
+                throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
 
             _supportTopHeight = Dg5fGraspSpec.SupportTopHeight;
 
@@ -291,35 +240,10 @@ namespace KDT.GraspTraining
             ball.rotation = robotBase.rotation * Quaternion.Euler(0f, Next01() * 360f, 0f);
             Physics.SyncTransforms();
 
-            ball.isKinematic = false;
-            ball.useGravity = true;
-            ball.linearVelocity = Vector3.zero;
-            ball.angularVelocity = Vector3.zero;
             _initialBallHeight = ball.position.y;
-        }
-
-        bool HasRobotSpawnClearance(Vector3 ballCenter, float ballRadius)
-        {
-            foreach (var robotCollider in _robotColliders)
-            {
-                if (robotCollider == null
-                    || !robotCollider.enabled
-                    || !robotCollider.gameObject.activeInHierarchy
-                    || robotCollider.isTrigger)
-                {
-                    continue;
-                }
-
-                Vector3 closestPoint = robotCollider.ClosestPoint(ballCenter);
-                float centerToSurfaceDistance = Vector3.Distance(ballCenter, closestPoint);
-                if (!Dg5fGraspSpec.HasMinimumRobotSpawnClearance(
-                    centerToSurfaceDistance,
-                    ballRadius))
-                {
-                    return false;
-                }
-            }
-            return true;
+            // Articulation collider transforms lag direct jointPosition writes by one
+            // physics step. Keep the ball kinematic for that step, then release it.
+            _ballReleaseFixedSteps = 2;
         }
 
         float Next01()
@@ -382,19 +306,18 @@ namespace KDT.GraspTraining
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]));
 
-            // 49..52: Reach/Grasp/Lift/Hold one-hot.
-            for (int phase = 0; phase < 4; phase++)
-                sensor.AddObservation((int)_episodeState.Phase == phase ? 1f : 0f);
+            // 49..52: v1/v2/v3/v4 objective one-hot. v1 is Reach.
+            sensor.AddObservation(1f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
 
-            // 53..54: continuous grasp and hold progress.
+            // 53..56: forward-compatible task progress slots.
+            sensor.AddObservation(Dg5fGraspSpec.ApproachPotential(GraspDistance()));
+            sensor.AddObservation(Dg5fGraspSpec.ApproachPotential(_bestGraspDistance));
+            sensor.AddObservation(Dg5fGraspSpec.ApproachSuccessDistance / Dg5fGraspSpec.MaximumBallDistance);
             sensor.AddObservation(Mathf.Clamp01(
-                _episodeState.GraspSeconds / Dg5fGraspSpec.StableGraspSeconds));
-            sensor.AddObservation(Mathf.Clamp01(
-                _episodeState.HoldSeconds / Mathf.Max(1e-5f, _curriculumStage.HoldTargetSeconds)));
-
-            // 55..56: current curriculum lift and hold targets.
-            sensor.AddObservation(Mathf.Clamp01(_curriculumStage.LiftTargetMeters / 0.10f));
-            sensor.AddObservation(Mathf.Clamp01(_curriculumStage.HoldTargetSeconds / 5f));
+                _episodeSeconds / Dg5fGraspSpec.EpisodeTimeoutSeconds));
         }
 
         static void AddClampedVector(VectorSensor sensor, Vector3 value, float scale)
@@ -421,10 +344,10 @@ namespace KDT.GraspTraining
             var continuous = actions.ContinuousActions;
             if (continuous.Length != Dg5fGraspSpec.ActionSize)
                 throw new InvalidOperationException($"Expected {Dg5fGraspSpec.ActionSize} continuous actions, got {continuous.Length}.");
-            if (!_episodeActive) return;
+            if (!_episodeActive || _ballReleaseFixedSteps > 0) return;
 
-            float decisionMovement = _movementSinceDecision;
-            _movementSinceDecision = 0f;
+            AddReward(Dg5fGraspSpec.DecisionTimePenalty);
+            ScoreApproachProgress();
 
             for (int i = 0; i < _armTargetDeg.Length; i++)
             {
@@ -439,29 +362,6 @@ namespace KDT.GraspTraining
 
             ApplyArmTargets();
             ApplyGripTargets();
-
-            float reachPotential = Dg5fGraspSpec.ReachPotential(GraspDistance());
-            float contactPotential = CurrentContactPotential();
-            float liftPotential = _episodeState.Phase >= Dg5fGraspPhase.Lift
-                ? Dg5fGraspSpec.LiftPotential(CurrentLiftMeters(), _curriculumStage.LiftTargetMeters)
-                : 0f;
-            float holdPotential = Dg5fGraspSpec.HoldPotential(
-                _episodeState.HoldSeconds,
-                _curriculumStage.HoldTargetSeconds);
-            float decisionReward = Dg5fGraspSpec.DecisionTimePenalty
-                + Dg5fGraspSpec.PotentialDelta(_previousReachPotential, reachPotential)
-                + Dg5fGraspSpec.PotentialDelta(_previousContactPotential, contactPotential)
-                + Dg5fGraspSpec.PotentialDelta(_previousLiftPotential, liftPotential)
-                + Dg5fGraspSpec.PotentialDelta(_previousHoldPotential, holdPotential)
-                + Dg5fGraspSpec.MovementPenalty(
-                    decisionMovement,
-                    _curriculumStage.MovementPenaltyLambda);
-
-            _previousReachPotential = reachPotential;
-            _previousContactPotential = contactPotential;
-            _previousLiftPotential = liftPotential;
-            _previousHoldPotential = holdPotential;
-            AddReward(decisionReward);
         }
 
         void ApplyArmTargets()
@@ -472,18 +372,6 @@ namespace KDT.GraspTraining
                 drive.target = Mathf.Clamp(_armTargetDeg[i], drive.lowerLimit, drive.upperLimit);
                 _armJoints[i].xDrive = drive;
             }
-        }
-
-        void SampleArmMovement()
-        {
-            for (int i = 0; i < _currentArmPositionDeg.Length; i++)
-                _currentArmPositionDeg[i] = FirstOrZero(_armJoints[i].jointPosition) * Mathf.Rad2Deg;
-            float movement = Dg5fGraspSpec.NormalizedArmMovement(
-                _previousArmPositionDeg,
-                _currentArmPositionDeg);
-            _normalizedArmTravel += movement;
-            _movementSinceDecision += movement;
-            Array.Copy(_currentArmPositionDeg, _previousArmPositionDeg, _currentArmPositionDeg.Length);
         }
 
         void ApplyGripTargets()
@@ -501,69 +389,57 @@ namespace KDT.GraspTraining
         {
             if (!_episodeActive || ball == null || robotBase == null) return;
 
+            if (_ballReleaseFixedSteps > 0)
+            {
+                _ballReleaseFixedSteps--;
+                if (_ballReleaseFixedSteps == 0) ReleaseBall();
+                return;
+            }
+
             Vector3 ballLocalPosition = robotBase.InverseTransformPoint(ball.position);
-            bool finitePhysics = HasFinitePhysicsState();
-            if (!finitePhysics)
+            if (!HasFinitePhysicsState())
             {
-                FinishEpisode(false, Dg5fFailureReason.NonFinitePhysics);
-                return;
-            }
-            SampleArmMovement();
-
-            if (ballLocalPosition.y < _supportTopHeight)
-            {
-                FinishEpisode(false, Dg5fFailureReason.Dropped);
+                FinishEpisode(false, "NonFinitePhysics");
                 return;
             }
 
-            bool workspaceValid = ballLocalPosition.magnitude <= Dg5fGraspSpec.MaximumBallDistance;
-            bool penetration = MaximumHandPedestalPenetration()
-                >= Dg5fGraspSpec.PenetrationDepthMeters;
-            Dg5fEpisodeStepResult result = _episodeState.Advance(
-                CurrentEpisodeInput(workspaceValid, penetration, finitePhysics),
-                _curriculumStage,
-                Time.fixedDeltaTime);
+            if (Dg5fGraspSpec.ShouldResetForBall(ballLocalPosition, _supportTopHeight))
+            {
+                FinishEpisode(false, "BallOutOfBounds");
+                return;
+            }
 
-            if (result.StableGraspReached)
-                AddReward(Dg5fGraspSpec.StableGraspReward);
-            if (result.LiftTargetReached)
-                AddReward(Dg5fGraspSpec.LiftTargetReward);
-            if (result.Succeeded)
-                FinishEpisode(true, Dg5fFailureReason.None);
-            else if (result.Failed)
-                FinishEpisode(false, result.FailureReason);
+            _episodeSeconds += Time.fixedDeltaTime;
+            float distance = GraspDistance();
+            _bestGraspDistance = Mathf.Min(_bestGraspDistance, distance);
+            if (Dg5fGraspSpec.HasReachedApproachTarget(distance))
+            {
+                FinishEpisode(true, "None");
+                return;
+            }
+            if (Dg5fGraspSpec.ReachedEpisodeTimeout(_episodeSeconds))
+                FinishEpisode(false, "Timeout");
         }
 
-        float CurrentContactPotential()
+        void ReleaseBall()
         {
-            bool thumbContact = contactSensors[0].IsTouching;
-            bool opposingContact = false;
-            for (int i = 1; i < contactSensors.Length; i++)
-                opposingContact |= contactSensors[i].IsTouching;
-            return Dg5fGraspSpec.ContactPotential(thumbContact, opposingContact);
+            ball.isKinematic = false;
+            ball.useGravity = true;
+            ball.linearVelocity = Vector3.zero;
+            ball.angularVelocity = Vector3.zero;
+            _initialBallHeight = ball.position.y;
+            _bestGraspDistance = GraspDistance();
+            _previousApproachPotential = Dg5fGraspSpec.ApproachPotential(_bestGraspDistance);
         }
 
-        Dg5fEpisodeInput CurrentEpisodeInput(
-            bool workspaceValid,
-            bool penetration = false,
-            bool physicsFinite = true)
+        void ScoreApproachProgress()
         {
-            bool thumbContact = contactSensors[0].IsTouching;
-            bool opposingContact = false;
-            for (int i = 1; i < contactSensors.Length; i++)
-                opposingContact |= contactSensors[i].IsTouching;
-            return new Dg5fEpisodeInput(
-                Dg5fGraspSpec.HasGraspContact(thumbContact, opposingContact),
-                CurrentLiftMeters(),
-                ball.linearVelocity.magnitude,
-                workspaceValid,
-                penetration,
-                physicsFinite);
-        }
-
-        float CurrentLiftMeters()
-        {
-            return ball.position.y - _initialBallHeight;
+            float distance = GraspDistance();
+            float currentPotential = Dg5fGraspSpec.ApproachPotential(distance);
+            AddReward(Dg5fGraspSpec.PotentialDelta(_previousApproachPotential, currentPotential));
+            _previousApproachPotential = currentPotential;
+            if (Dg5fGraspSpec.IsFinite(distance))
+                _bestGraspDistance = Mathf.Min(_bestGraspDistance, distance);
         }
 
         bool HasFinitePhysicsState()
@@ -596,69 +472,20 @@ namespace KDT.GraspTraining
             return true;
         }
 
-        float MaximumHandPedestalPenetration()
-        {
-            float maximumDepth = 0f;
-            foreach (var handCollider in _handColliders)
-            {
-                if (handCollider == null || !handCollider.enabled || handCollider.isTrigger) continue;
-                if (Physics.ComputePenetration(
-                    handCollider,
-                    handCollider.transform.position,
-                    handCollider.transform.rotation,
-                    pedestalCollider,
-                    pedestalCollider.transform.position,
-                    pedestalCollider.transform.rotation,
-                    out _,
-                    out float depth))
-                {
-                    maximumDepth = Mathf.Max(maximumDepth, depth);
-                }
-            }
-            return maximumDepth;
-        }
-
-        void FinishEpisode(bool success, Dg5fFailureReason failureReason)
+        void FinishEpisode(bool success, string failureReason)
         {
             if (!_episodeActive) return;
             _episodeActive = false;
-            if (!success && failureReason == Dg5fFailureReason.None)
-                throw new ArgumentException("Every failed episode requires a failure reason.", nameof(failureReason));
+            ScoreApproachProgress();
+            if (success) AddReward(Dg5fGraspSpec.ApproachSuccessReward);
 
-            float finalHoldPotential = Dg5fGraspSpec.HoldPotential(
-                _episodeState.HoldSeconds,
-                _curriculumStage.HoldTargetSeconds);
-            float finalReward = Dg5fGraspSpec.TerminalReward(success, failureReason)
-                + Dg5fGraspSpec.PotentialDelta(_previousHoldPotential, finalHoldPotential)
-                + Dg5fGraspSpec.MovementPenalty(
-                    _movementSinceDecision,
-                    _curriculumStage.MovementPenaltyLambda);
-            _previousHoldPotential = finalHoldPotential;
-            _movementSinceDecision = 0f;
-            AddReward(finalReward);
-            _stats.Add("Grasp/Success", success ? 1f : 0f, StatAggregationMethod.Average);
-            _stats.Add("Curriculum/Stage", _curriculumStage.Index, StatAggregationMethod.Average);
-            _stats.Add("Grasp/CompletionSeconds", _episodeState.EpisodeSeconds, StatAggregationMethod.Average);
-            _stats.Add("Grasp/MaxLiftHeightMeters", _episodeState.MaximumLiftMeters, StatAggregationMethod.Average);
-            _stats.Add("Grasp/HoldSeconds", _episodeState.MaximumHoldSeconds, StatAggregationMethod.Average);
-            _stats.Add("Motion/NormalizedArmTravel", _normalizedArmTravel, StatAggregationMethod.Average);
-            RecordFailureStats(failureReason);
+            _stats.Add("Reach/Success", success ? 1f : 0f, StatAggregationMethod.Average);
+            _stats.Add("Reach/CompletionSeconds", _episodeSeconds, StatAggregationMethod.Average);
+            _stats.Add("Reach/FinalDistanceMeters", GraspDistance(), StatAggregationMethod.Average);
+            _stats.Add("Reach/BestDistanceMeters", _bestGraspDistance, StatAggregationMethod.Average);
+            if (!success)
+                _stats.Add($"Failure/{failureReason}", 1f, StatAggregationMethod.Average);
             EndEpisode();
-        }
-
-        void RecordFailureStats(Dg5fFailureReason reason)
-        {
-            Dg5fFailureReason[] reasons =
-            {
-                Dg5fFailureReason.GripLost,
-                Dg5fFailureReason.Dropped,
-                Dg5fFailureReason.WorkspaceExit,
-                Dg5fFailureReason.Penetration,
-                Dg5fFailureReason.NonFinitePhysics,
-                Dg5fFailureReason.Timeout
-            };
-            foreach (Dg5fFailureReason candidate in reasons)
-                _stats.Add($"Failure/{candidate}", reason == candidate ? 1f : 0f, StatAggregationMethod.Average);
         }
 
         float GraspDistance()
