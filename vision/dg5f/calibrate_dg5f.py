@@ -24,7 +24,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from dg5f_angles import compute_raw, CHANNEL_NAMES
+from dg5f_angles import compute_raw, CHANNEL_NAMES, WRIST, THUMB, MIDDLE
 
 CAM_INDEX = 0
 FRAME_W, FRAME_H = 640, 480
@@ -74,6 +74,7 @@ def main():
     obs_min = {n: float("inf") for n in CHANNEL_NAMES}
     obs_max = {n: float("-inf") for n in CHANNEL_NAMES}
     samples = {n: [] for n in CHANNEL_NAMES}  # 백분위수 계산용 전체 샘플
+    ratio_samples = []  # 엄지 체인 길이/손길이 비율 (체인 정규화용, 중앙값 저장)
 
     csv_file = open(CSV_PATH, "w", newline="")
     writer = csv.writer(csv_file)
@@ -92,7 +93,17 @@ def main():
             hlm = res.multi_hand_landmarks[0]
             mp.solutions.drawing_utils.draw_landmarks(
                 frame, hlm, mp_hands.HAND_CONNECTIONS)
-            raw = compute_raw(landmarks_to_xyz(hlm))
+            xyz = landmarks_to_xyz(hlm)
+            raw = compute_raw(xyz)
+
+            # 엄지 체인 비율 샘플 — compute_thumb_tip의 리치 정규화 스케일.
+            # 매 프레임 원시값은 z 노이즈로 출렁여서 여기서 모아 중앙값으로 저장.
+            hand_len = np.linalg.norm(xyz[MIDDLE[0]] - xyz[WRIST])
+            if hand_len > 1e-6:
+                chain = (np.linalg.norm(xyz[THUMB[1]] - xyz[THUMB[0]])
+                         + np.linalg.norm(xyz[THUMB[2]] - xyz[THUMB[1]])
+                         + np.linalg.norm(xyz[THUMB[3]] - xyz[THUMB[2]]))
+                ratio_samples.append(chain / hand_len)
 
             now = time.time()
             writer.writerow([f"{now:.3f}"] + [f"{v:.4f}" for v in raw])
@@ -120,7 +131,6 @@ def main():
     cv2.destroyAllWindows()
     csv_file.close()
 
-    import numpy as np
     human_ranges = {}
     print(f"\n===== 보정 결과 (백분위 {PCT_LO}/{PCT_HI}% + 물리캡, dg5f_calibration.json 저장) =====")
     for name in CHANNEL_NAMES:
@@ -145,6 +155,12 @@ def main():
         "created": time.strftime("%Y-%m-%d %H:%M"),
         "human_ranges": human_ranges,
     }
+    if len(ratio_samples) >= 30:
+        out["thumb_chain_ratio"] = round(float(np.median(ratio_samples)), 4)
+        print(f"  thumb_chain_ratio = {out['thumb_chain_ratio']:.3f} "
+              f"(엄지 체인/손길이 중앙값, {len(ratio_samples)}샘플)")
+    else:
+        print("  ⚠️ thumb_chain_ratio 샘플 부족 — 런타임 EMA 폴백으로 동작")
     with open("dg5f_calibration.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"[저장] dg5f_calibration.json + 원시 로그 {CSV_PATH}")

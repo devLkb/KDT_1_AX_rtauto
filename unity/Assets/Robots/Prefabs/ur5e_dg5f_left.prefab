@@ -740,23 +740,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fThumbIK
   enableIK: 1
-  maxStepDeg: 2.5
-  iterations: 3
+  maxStepDeg: 1.5
+  iterations: 2
   pinchOffset: 0.012
-  targetLerp: 10
+  reachClamp: 0.95
+  targetLerp: 6
   softZone: 0.015
   windupDeg: 15
   priorGain: 3
   priorWeights:
-  - 0
   - 1
+  - 0
   - 1
   - 1
   priorStepRatio: 0.3
   cmcFeedforward: 8
+  feedforwardJoint: 1
   pinchNear: 0.32
   pinchFar: 0.55
   stallTime: 0.6
+  rearmDist: 0.008
 --- !u!114 &8474401730388956802
 MonoBehaviour:
   m_ObjectHideFlags: 0
