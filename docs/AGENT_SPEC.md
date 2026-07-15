@@ -106,6 +106,13 @@ reward = -0.01 * clamp(distance(GraspPoint, ball) / 0.85m, 0, 1)
 4. 모든 fingertip 접촉 기록 초기화
 5. 성공·관통·정체 타이머 초기화
 
+## Parallel training topology
+
+- `TrainingArea.prefab`: 공, 받침대, UR5e/DG5F Agent를 포함하는 독립 학습 단위
+- 씬당 5열 x 4행, 총 20개 prefab instance
+- 20개 Agent 모두 `DG5FGrasp` policy 공유
+- 총 Agent 수: `20 x NUM_ENVS` (기본 `NUM_ENVS=1`, 총 20개)
+
 ## Commands
 
 ```bash
@@ -124,7 +131,7 @@ UNITY_EDITOR=/home/lkb/Unity/Hub/Editor/6000.4.0f1/Editor/Unity
 
 # Headless training (RUN_ID defaults to dg5f_grasp_v2)
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-NUM_ENVS=2 TIME_SCALE=10 training/scripts/train_dg5f_grasp.sh
+NUM_ENVS=1 TIME_SCALE=10 training/scripts/train_dg5f_grasp.sh
 ```
 
 ## Versioning rule

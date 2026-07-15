@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;
@@ -10,6 +12,35 @@ namespace KDT.GraspTraining.PlayModeTests
 {
     public sealed class GraspTrainingSceneTests
     {
+        [UnityTest]
+        public IEnumerator TrainingSceneContainsTwentyIndependentPrefabAreas()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+
+            var agents = Object.FindObjectsByType<Dg5fGraspAgent>(FindObjectsSortMode.None);
+            Assert.That(agents, Has.Length.EqualTo(20));
+            Assert.That(agents.Select(agent => agent.transform.root).Distinct().Count(), Is.EqualTo(20));
+            Assert.That(agents.Select(agent => agent.ball).Distinct().Count(), Is.EqualTo(20));
+            Assert.That(agents.Select(agent => agent.pedestal).Distinct().Count(), Is.EqualTo(20));
+            Assert.That(agents.Select(agent => agent.spawnSeed).Distinct().Count(), Is.EqualTo(20));
+
+            var areaPositions = new HashSet<Vector3>();
+            foreach (var agent in agents)
+            {
+                Transform area = agent.transform.root;
+                Assert.That(area.name, Does.StartWith("DG5F_GraspTrainingArea_"));
+                Assert.That(areaPositions.Add(area.position), Is.True, "Training areas must not overlap.");
+                Assert.That(agent.ball.transform.IsChildOf(area), Is.True);
+                Assert.That(agent.pedestal.IsChildOf(area), Is.True);
+                Assert.That(agent.GetComponent<BehaviorParameters>().BehaviorName,
+                    Is.EqualTo(Dg5fGraspSpec.BehaviorName));
+                foreach (var sensor in agent.contactSensors)
+                    Assert.That(sensor.targetBall, Is.SameAs(agent.ball));
+            }
+        }
+
         [UnityTest]
         public IEnumerator TrainingSceneLoadsWithVersionTwoContractAndSingleDriveOwner()
         {

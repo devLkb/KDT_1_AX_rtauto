@@ -7,7 +7,8 @@ Step-by-step execution runbook: [`docs/ML_AGENTS_TRAINING_GUIDE.md`](../docs/ML_
 - PPO config: `config/dg5f_grasp.yaml`
 - launcher: `scripts/train_dg5f_grasp.sh`
 - generated builds/results are ignored by Git
-- default execution is CPU with two parallel headless environments
+- each Unity environment contains 20 independent training-area prefab instances
+- default execution is CPU with one headless environment, for 20 agents total
 - the implementation gate includes a 512-step built-player communication smoke; it is not a convergence claim
 - `CONFIG`, `RESULTS_DIR`, `RUN_ID`, `ENV_PATH`, `NUM_ENVS`, and `TIME_SCALE` are overridable
 

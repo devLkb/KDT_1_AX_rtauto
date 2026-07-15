@@ -33,6 +33,10 @@ UNITY_EDITOR=/home/lkb/Unity/Hub/Editor/6000.4.0f1/Editor/Unity
 - `unity/Assets/MLAgents/Grasp/TrainingArea.prefab`
 - `unity/Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`
 
+`TrainingArea.prefab`은 공·받침대·UR5e/DG5F Agent를 하나로 묶은 재사용 단위다.
+씬에는 이 prefab을 5열 x 4행으로 20개 배치한다. 모든 Agent는 같은 `DG5FGrasp`
+policy를 공유하지만 공, 받침대, 접촉 센서, episode 상태는 서로 독립이다.
+
 생성된 Agent는 43 observations, 7 continuous actions, 10Hz decision, `MaxStep=0`을 사용한다.
 
 ## 3. Linux 학습 환경 빌드
@@ -71,7 +75,7 @@ training/scripts/train_dg5f_grasp.sh --force
 
 1. `DG5FGrasp?team=0` 연결
 2. observation/action shape 오류 없음
-3. 512 step 도달
+3. 512 step 이상 도달(20 Agent batch 처리로 최종 step은 초과 가능)
 4. Unity crash, `NaN`, communicator timeout 없음
 
 ## 5. 50k stability smoke
@@ -115,7 +119,7 @@ launcher 기본 RUN_ID가 `dg5f_grasp_v2`이므로 다음 명령에서 생략할
 
 ```bash
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-NUM_ENVS=2 TIME_SCALE=10 \
+NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh
 ```
 
@@ -125,7 +129,7 @@ v1 결과와 checkpoint는 삭제하거나 `--force`로 덮어쓰지 않는다. 
 
 ```bash
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_v2 NUM_ENVS=2 TIME_SCALE=10 \
+RUN_ID=dg5f_grasp_v2 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh --resume
 ```
 
@@ -150,7 +154,7 @@ training/scripts/train_dg5f_grasp.sh
 | `RESULTS_DIR` | `training/results` | checkpoint/TensorBoard 결과 |
 | `RUN_ID` | `dg5f_grasp_v2` | 학습 실행 식별자 |
 | `ENV_PATH` | 빈 값 | Linux player 경로; 빈 값이면 Editor 연결 |
-| `NUM_ENVS` | `2` | 병렬 Unity 환경 수 |
+| `NUM_ENVS` | `1` | 병렬 Unity 프로세스 수. 프로세스마다 Agent 20개 |
 | `TIME_SCALE` | `10` | Unity simulation 배속 |
 
 ## 10. 문제 해결

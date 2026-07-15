@@ -20,6 +20,9 @@ namespace KDT.GraspTraining.Editor
         const string TrainingScenePath = TrainingRoot + "/DG5F_GraspTraining.unity";
         const string BallMaterialPath = TrainingRoot + "/GraspBall.mat";
         const string PhysicsMaterialPath = TrainingRoot + "/GraspSurface.physicMaterial";
+        const int TrainingAreaCount = 20;
+        const int TrainingAreaColumns = 5;
+        const float TrainingAreaSpacing = 3f;
 
         static readonly HashSet<string> CompetingDriverTypes = new HashSet<string>
         {
@@ -99,16 +102,55 @@ namespace KDT.GraspTraining.Editor
             requester.DecisionPeriod = 5;
             requester.TakeActionsBetweenDecisions = false;
 
-            ConfigureCamera(pedestal.transform.position);
+            PrefabUtility.SaveAsPrefabAssetAndConnect(area, TrainingPrefabPath, InteractionMode.AutomatedAction);
+            PopulateTrainingAreas(area);
+            ConfigureCamera(LayoutCenter());
             Selection.activeGameObject = area;
 
-            PrefabUtility.SaveAsPrefabAssetAndConnect(area, TrainingPrefabPath, InteractionMode.AutomatedAction);
             EditorSceneManager.SaveScene(scene, TrainingScenePath);
             AddSceneToBuildSettings(TrainingScenePath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             Debug.Log($"[GraspTrainingSceneBuilder] Built {TrainingPrefabPath} and {TrainingScenePath}");
+        }
+
+        static void PopulateTrainingAreas(GameObject firstArea)
+        {
+            GameObject trainingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TrainingPrefabPath);
+            if (trainingPrefab == null)
+                throw new InvalidOperationException($"Missing generated training prefab: {TrainingPrefabPath}");
+
+            ConfigureTrainingAreaInstance(firstArea, 0);
+            for (int index = 1; index < TrainingAreaCount; index++)
+            {
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(trainingPrefab);
+                ConfigureTrainingAreaInstance(instance, index);
+            }
+        }
+
+        static void ConfigureTrainingAreaInstance(GameObject area, int index)
+        {
+            int row = index / TrainingAreaColumns;
+            int column = index % TrainingAreaColumns;
+            area.name = $"DG5F_GraspTrainingArea_{index:00}";
+            area.transform.SetPositionAndRotation(
+                new Vector3(column * TrainingAreaSpacing, 0f, row * TrainingAreaSpacing),
+                Quaternion.identity);
+
+            var agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
+            if (agent == null)
+                throw new InvalidOperationException($"Training area {index} has no {nameof(Dg5fGraspAgent)}.");
+            agent.spawnSeed = 12345 + index;
+        }
+
+        static Vector3 LayoutCenter()
+        {
+            int rows = Mathf.CeilToInt((float)TrainingAreaCount / TrainingAreaColumns);
+            return new Vector3(
+                (TrainingAreaColumns - 1) * TrainingAreaSpacing * 0.5f,
+                0f,
+                (rows - 1) * TrainingAreaSpacing * 0.5f);
         }
 
         static void DisableCompetingDrivers(GameObject robot)
@@ -230,8 +272,8 @@ namespace KDT.GraspTraining.Editor
         {
             Camera camera = UnityEngine.Object.FindAnyObjectByType<Camera>();
             if (camera == null) return;
-            camera.transform.position = new Vector3(1.15f, 0.9f, 1.15f);
-            camera.transform.LookAt(focus + Vector3.up * 0.1f);
+            camera.transform.position = focus + new Vector3(10f, 14f, 10f);
+            camera.transform.LookAt(focus + Vector3.up * 0.3f);
         }
 
         static void AddSceneToBuildSettings(string scenePath)
