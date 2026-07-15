@@ -6,9 +6,9 @@ namespace KDT.GraspTraining.Tests
     public sealed class Dg5fGraspSpecTests
     {
         [Test]
-        public void VersionTwoKeepsObservationActionAndClosureContracts()
+        public void VersionThreeKeepsObservationActionAndClosureContracts()
         {
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.1.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("3.1.0"));
             Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(43));
             Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
             Assert.That(Dg5fGraspSpec.LeftFistDeg, Has.Length.EqualTo(20));
@@ -58,6 +58,40 @@ namespace KDT.GraspTraining.Tests
             float midpoint = Dg5fGraspSpec.AreaUniformRadius(0.5f);
             float expectedSquared = (0.25f * 0.25f + 0.70f * 0.70f) * 0.5f;
             Assert.That(midpoint * midpoint, Is.EqualTo(expectedSquared).Within(1e-6f));
+        }
+
+        [TestCase(0f, 0f)]
+        [TestCase(0.5f, 0.25f)]
+        [TestCase(1f, 1f)]
+        public void SpawnHeightIsFixedAtPanelTop(float radiusSample, float azimuthSample)
+        {
+            const float ballRadius = 0.02f;
+            Vector3 position = Dg5fGraspSpec.SpawnBallLocalPosition(
+                radiusSample,
+                azimuthSample,
+                ballRadius);
+
+            Assert.That(
+                position.y,
+                Is.EqualTo(Dg5fGraspSpec.SupportTopHeight + ballRadius).Within(1e-6f));
+        }
+
+        [Test]
+        public void SpawnValidationRejectsPanelOverhangAndWrongHeight()
+        {
+            const float ballRadius = 0.02f;
+            float height = Dg5fGraspSpec.SupportTopHeight + ballRadius;
+            const float oversizedBallRadius = 0.21f;
+            float oversizedHeight = Dg5fGraspSpec.SupportTopHeight + oversizedBallRadius;
+
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(new Vector3(0.25f, height, 0f), ballRadius), Is.True);
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(
+                new Vector3(Dg5fGraspSpec.MaximumSpawnRadius, oversizedHeight, 0f),
+                oversizedBallRadius), Is.False);
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(
+                new Vector3(0f, oversizedHeight, Dg5fGraspSpec.MaximumSpawnRadius),
+                oversizedBallRadius), Is.False);
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(new Vector3(0.25f, height + 0.01f, 0f), ballRadius), Is.False);
         }
 
         [TestCase(0.07f, 0.02f, true)]

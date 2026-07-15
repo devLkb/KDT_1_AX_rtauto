@@ -8,7 +8,7 @@ namespace KDT.GraspTraining
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "2.1.0";
+        public const string SpecVersion = "3.1.0";
         public const string BehaviorName = "DG5FGrasp";
         public const int ObservationSize = 43;
         public const int ActionSize = 7;
@@ -18,8 +18,10 @@ namespace KDT.GraspTraining
 
         public const float MinimumSpawnRadius = 0.25f;
         public const float MaximumSpawnRadius = 0.70f;
-        public const float MinimumPedestalTopHeight = 0.25f;
-        public const float MaximumPedestalTopHeight = 0.65f;
+        public const float SupportTopHeight = 0f;
+        public const float PanelWidth = 1.80f;
+        public const float PanelDepth = 1.80f;
+        public const float PanelThickness = 0.25f;
         public const float MaximumSpawnBallDistance = 0.80f;
         public const float MinimumRobotSpawnClearance = 0.05f;
         public const float MaximumBallDistance = 0.85f;
@@ -86,18 +88,13 @@ namespace KDT.GraspTraining
         public static Vector3 SpawnBallLocalPosition(
             float radiusUnitSample,
             float azimuthUnitSample,
-            float heightUnitSample,
             float ballRadius)
         {
             float horizontalRadius = AreaUniformRadius(radiusUnitSample);
             float azimuth = Mathf.Clamp01(azimuthUnitSample) * Mathf.PI * 2f;
-            float topHeight = Mathf.Lerp(
-                MinimumPedestalTopHeight,
-                MaximumPedestalTopHeight,
-                Mathf.Clamp01(heightUnitSample));
             return new Vector3(
                 Mathf.Cos(azimuth) * horizontalRadius,
-                topHeight + Mathf.Max(0f, ballRadius),
+                SupportTopHeight + Mathf.Max(0f, ballRadius),
                 Mathf.Sin(azimuth) * horizontalRadius);
         }
 
@@ -105,11 +102,13 @@ namespace KDT.GraspTraining
         {
             if (!IsFinite(ballLocalPosition)) return false;
             float horizontalRadius = new Vector2(ballLocalPosition.x, ballLocalPosition.z).magnitude;
-            float pedestalTopHeight = ballLocalPosition.y - Mathf.Max(0f, ballRadius);
+            float nonNegativeBallRadius = Mathf.Max(0f, ballRadius);
+            float pedestalTopHeight = ballLocalPosition.y - nonNegativeBallRadius;
             return horizontalRadius >= MinimumSpawnRadius
                 && horizontalRadius <= MaximumSpawnRadius
-                && pedestalTopHeight >= MinimumPedestalTopHeight
-                && pedestalTopHeight <= MaximumPedestalTopHeight
+                && Mathf.Abs(ballLocalPosition.x) + nonNegativeBallRadius <= PanelWidth * 0.5f
+                && Mathf.Abs(ballLocalPosition.z) + nonNegativeBallRadius <= PanelDepth * 0.5f
+                && Mathf.Approximately(pedestalTopHeight, SupportTopHeight)
                 && ballLocalPosition.magnitude <= MaximumSpawnBallDistance;
         }
 

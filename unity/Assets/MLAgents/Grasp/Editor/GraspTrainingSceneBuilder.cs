@@ -21,7 +21,7 @@ namespace KDT.GraspTraining.Editor
         const string BallMaterialPath = TrainingRoot + "/GraspBall.mat";
         const string PhysicsMaterialPath = TrainingRoot + "/GraspSurface.physicMaterial";
         const int TrainingAreaCount = 20;
-        const int TrainingAreaColumns = 5;
+        const int TrainingAreaColumns = 4;
         const float TrainingAreaSpacing = 3f;
 
         static readonly HashSet<string> CompetingDriverTypes = new HashSet<string>
@@ -49,7 +49,9 @@ namespace KDT.GraspTraining.Editor
             var area = new GameObject("DG5F_GraspTrainingArea");
             var robot = (GameObject)PrefabUtility.InstantiatePrefab(sourceRobot, area.transform);
             robot.name = "UR5e_DG5F_Agent";
-            robot.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            robot.transform.SetLocalPositionAndRotation(
+                Vector3.up * Dg5fGraspSpec.PanelThickness,
+                Quaternion.identity);
             DisableCompetingDrivers(robot);
             ConfigureJointDrives(robot);
 
@@ -135,7 +137,7 @@ namespace KDT.GraspTraining.Editor
             int column = index % TrainingAreaColumns;
             area.name = $"DG5F_GraspTrainingArea_{index:00}";
             area.transform.SetPositionAndRotation(
-                new Vector3(column * TrainingAreaSpacing, 0f, row * TrainingAreaSpacing),
+                new Vector3(column * TrainingAreaSpacing, row * TrainingAreaSpacing, 0f),
                 Quaternion.identity);
 
             var agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
@@ -149,8 +151,8 @@ namespace KDT.GraspTraining.Editor
             int rows = Mathf.CeilToInt((float)TrainingAreaCount / TrainingAreaColumns);
             return new Vector3(
                 (TrainingAreaColumns - 1) * TrainingAreaSpacing * 0.5f,
-                0f,
-                (rows - 1) * TrainingAreaSpacing * 0.5f);
+                (rows - 1) * TrainingAreaSpacing * 0.5f,
+                0f);
         }
 
         static void DisableCompetingDrivers(GameObject robot)
@@ -184,18 +186,18 @@ namespace KDT.GraspTraining.Editor
 
         static GameObject CreatePedestal(Transform parent, PhysicsMaterial material)
         {
-            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pedestal.name = "GraspPedestal";
+            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pedestal.name = "GraspPanel";
             pedestal.transform.SetParent(parent, false);
-            pedestal.transform.localPosition = new Vector3(0.35f, 0.215f, 0.25f);
-            // Unity's cylinder is 1 m wide and 2 m tall before scaling.
-            // A 30 cm round top reads as a real pedestal instead of the old narrow board.
-            pedestal.transform.localScale = new Vector3(0.30f, 0.215f, 0.30f);
+            pedestal.transform.SetLocalPositionAndRotation(
+                Vector3.up * Dg5fGraspSpec.PanelThickness * 0.5f,
+                Quaternion.identity);
+            pedestal.transform.localScale = new Vector3(
+                Dg5fGraspSpec.PanelWidth,
+                Dg5fGraspSpec.PanelThickness,
+                Dg5fGraspSpec.PanelDepth);
 
-            UnityEngine.Object.DestroyImmediate(pedestal.GetComponent<Collider>());
-            var collider = pedestal.AddComponent<MeshCollider>();
-            collider.sharedMesh = pedestal.GetComponent<MeshFilter>().sharedMesh;
-            collider.convex = true;
+            var collider = pedestal.GetComponent<BoxCollider>();
             collider.material = material;
             return pedestal;
         }
@@ -205,7 +207,10 @@ namespace KDT.GraspTraining.Editor
             var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             ball.name = "GraspBall";
             ball.transform.SetParent(parent, false);
-            ball.transform.localPosition = new Vector3(0.35f, 0.45f, 0.25f);
+            ball.transform.localPosition = new Vector3(
+                0.35f,
+                Dg5fGraspSpec.PanelThickness + 0.02f,
+                0.25f);
             ball.transform.localScale = Vector3.one * 0.04f;
             ball.GetComponent<Collider>().material = material;
             ball.GetComponent<Renderer>().sharedMaterial = GetOrCreateBallMaterial();
@@ -272,8 +277,8 @@ namespace KDT.GraspTraining.Editor
         {
             Camera camera = UnityEngine.Object.FindAnyObjectByType<Camera>();
             if (camera == null) return;
-            camera.transform.position = focus + new Vector3(10f, 14f, 10f);
-            camera.transform.LookAt(focus + Vector3.up * 0.3f);
+            camera.transform.position = focus + Vector3.back * 18f;
+            camera.transform.LookAt(focus);
         }
 
         static void AddSceneToBuildSettings(string scenePath)

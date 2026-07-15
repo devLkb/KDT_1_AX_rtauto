@@ -34,7 +34,7 @@ UNITY_EDITOR=/home/lkb/Unity/Hub/Editor/6000.4.0f1/Editor/Unity
 - `unity/Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`
 
 `TrainingArea.prefab`은 공·받침대·UR5e/DG5F Agent를 하나로 묶은 재사용 단위다.
-씬에는 이 prefab을 5열 x 4행으로 20개 배치한다. 모든 Agent는 같은 `DG5FGrasp`
+씬에는 이 prefab을 X축 4열 x Y축 5행으로 20개 배치한다. 모든 Agent는 같은 `DG5FGrasp`
 policy를 공유하지만 공, 받침대, 접촉 센서, episode 상태는 서로 독립이다.
 
 생성된 Agent는 43 observations, 7 continuous actions, 10Hz decision, `MaxStep=0`을 사용한다.
@@ -66,7 +66,7 @@ sed -i 's/max_steps: 5000000/max_steps: 512/' /tmp/dg5f_grasp_512.yaml
 CONFIG=/tmp/dg5f_grasp_512.yaml \
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
 RESULTS_DIR=/tmp/dg5f_grasp_results \
-RUN_ID=dg5f_grasp_v2_comm_512 \
+RUN_ID=dg5f_grasp_panel_v3_comm_512 \
 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh --force
 ```
@@ -86,7 +86,7 @@ sed -i 's/max_steps: 5000000/max_steps: 50000/' /tmp/dg5f_grasp_50k.yaml
 
 CONFIG=/tmp/dg5f_grasp_50k.yaml \
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_v2_smoke_50k \
+RUN_ID=dg5f_grasp_panel_v3_smoke_50k \
 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh
 ```
@@ -115,7 +115,7 @@ vision/.vision/bin/tensorboard --logdir training/results --port 6006
 
 ## 7. 5M 본학습
 
-launcher 기본 RUN_ID가 `dg5f_grasp_v2`이므로 다음 명령에서 생략할 수 있다.
+launcher 기본 RUN_ID가 `dg5f_grasp_panel_v3`이므로 다음 명령에서 생략할 수 있다.
 
 ```bash
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
@@ -123,13 +123,13 @@ NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh
 ```
 
-v1 결과와 checkpoint는 삭제하거나 `--force`로 덮어쓰지 않는다. v1 checkpoint는 v2 계약에 재사용하지 않는다.
+이전 결과와 checkpoint는 삭제하거나 `--force`로 덮어쓰지 않는다. 이전 checkpoint는 v3 계약에 재사용하지 않는다.
 
-### 중단 후 v2 재개
+### 중단 후 v3 재개
 
 ```bash
 ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_v2 NUM_ENVS=1 TIME_SCALE=10 \
+RUN_ID=dg5f_grasp_panel_v3 NUM_ENVS=1 TIME_SCALE=10 \
 training/scripts/train_dg5f_grasp.sh --resume
 ```
 
@@ -140,7 +140,7 @@ training/scripts/train_dg5f_grasp.sh --resume
 3. Unity Play를 누른다.
 
 ```bash
-RUN_ID=dg5f_grasp_v2_editor_debug \
+RUN_ID=dg5f_grasp_panel_v3_editor_debug \
 NUM_ENVS=1 TIME_SCALE=1 \
 training/scripts/train_dg5f_grasp.sh
 ```
@@ -152,7 +152,7 @@ training/scripts/train_dg5f_grasp.sh
 | `VENV` | `vision/.vision` | Python 가상환경 |
 | `CONFIG` | `training/config/dg5f_grasp.yaml` | ML-Agents YAML |
 | `RESULTS_DIR` | `training/results` | checkpoint/TensorBoard 결과 |
-| `RUN_ID` | `dg5f_grasp_v2` | 학습 실행 식별자 |
+| `RUN_ID` | `dg5f_grasp_panel_v3` | 학습 실행 식별자 |
 | `ENV_PATH` | 빈 값 | Linux player 경로; 빈 값이면 Editor 연결 |
 | `NUM_ENVS` | `1` | 병렬 Unity 프로세스 수. 프로세스마다 Agent 20개 |
 | `TIME_SCALE` | `10` | Unity simulation 배속 |
@@ -171,7 +171,7 @@ training/scripts/train_dg5f_grasp.sh
 
 ### 기존 RUN_ID 오류
 
-- 같은 v2 실험 재개: `--resume`
+- 같은 v3 실험 재개: `--resume`
 - 새 실험: 새 RUN_ID
 - `--force`: 해당 결과를 명시적으로 폐기할 때만 사용
 

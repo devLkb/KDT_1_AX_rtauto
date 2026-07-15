@@ -42,7 +42,7 @@ namespace KDT.GraspTraining
         float[] _armTargetDeg;
         float _closure;
         float _initialBallHeight;
-        float _pedestalTopHeight;
+        float _supportTopHeight;
         float _contactHoldSeconds;
         float _penetrationHoldSeconds;
         float _bestGraspDistance;
@@ -53,7 +53,7 @@ namespace KDT.GraspTraining
         StatsRecorder _stats;
 
         public float CurrentClosure => _closure;
-        public float CurrentPedestalTopHeight => _pedestalTopHeight;
+        public float CurrentSupportTopHeight => _supportTopHeight;
         public Vector3 CurrentBallLocalPosition => robotBase.InverseTransformPoint(ball.position);
 
         public float CurrentArmTargetDeg(int index)
@@ -72,7 +72,7 @@ namespace KDT.GraspTraining
             foreach (var body in _allJoints)
                 _initialTargetDeg[body] = body.xDrive.target;
 
-            // v2 episodes end only through the explicit success/failure monitors.
+            // v3 episodes end only through the explicit success/failure monitors.
             MaxStep = 0;
             _random = new System.Random(spawnSeed);
             _stats = Academy.Instance.StatsRecorder;
@@ -83,7 +83,7 @@ namespace KDT.GraspTraining
             if (robotBase == null) robotBase = transform;
             if (pedestal == null)
             {
-                var found = GameObject.Find("GraspPedestal");
+                var found = GameObject.Find("GraspPanel") ?? GameObject.Find("GraspPedestal");
                 if (found != null) pedestal = found.transform;
             }
             if (pedestalCollider == null && pedestal != null)
@@ -185,7 +185,7 @@ namespace KDT.GraspTraining
             _episodeActive = false;
             _closure = 0f;
             ResetRobot();
-            ResetPedestalAndBall();
+            ResetBall();
             foreach (var sensor in contactSensors) sensor.ResetContacts();
 
             _contactHoldSeconds = 0f;
@@ -220,7 +220,7 @@ namespace KDT.GraspTraining
             ApplyGripTargets();
         }
 
-        void ResetPedestalAndBall()
+        void ResetBall()
         {
             Collider ballCollider = ball.GetComponent<Collider>();
             if (ballCollider == null)
@@ -233,7 +233,7 @@ namespace KDT.GraspTraining
             for (int attempt = 0; attempt < 1024; attempt++)
             {
                 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
-                    Next01(), Next01(), Next01(), ballRadius);
+                    Next01(), Next01(), ballRadius);
                 if (Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius)
                     && HasRobotSpawnClearance(
                         robotBase.TransformPoint(ballLocalPosition),
@@ -249,17 +249,7 @@ namespace KDT.GraspTraining
                     "[Dg5fGraspAgent] Could not sample a valid workspace pose with robot clearance.");
             }
 
-            _pedestalTopHeight = ballLocalPosition.y - ballRadius;
-            Vector3 pedestalLocalCenter = new Vector3(
-                ballLocalPosition.x,
-                _pedestalTopHeight * 0.5f,
-                ballLocalPosition.z);
-            pedestal.SetPositionAndRotation(
-                robotBase.TransformPoint(pedestalLocalCenter),
-                robotBase.rotation);
-            Vector3 pedestalScale = pedestal.localScale;
-            pedestalScale.y = _pedestalTopHeight / PedestalUnscaledHeight();
-            pedestal.localScale = pedestalScale;
+            _supportTopHeight = Dg5fGraspSpec.SupportTopHeight;
 
             if (!ball.isKinematic)
             {
@@ -301,19 +291,6 @@ namespace KDT.GraspTraining
                 }
             }
             return true;
-        }
-
-        float PedestalUnscaledHeight()
-        {
-            if (pedestalCollider is BoxCollider box) return box.size.y;
-            if (pedestalCollider is CapsuleCollider capsule) return capsule.height;
-            if (pedestalCollider is MeshCollider mesh && mesh.sharedMesh != null)
-                return mesh.sharedMesh.bounds.size.y;
-
-            float scaleY = Mathf.Abs(pedestal.lossyScale.y);
-            if (scaleY <= Mathf.Epsilon)
-                throw new InvalidOperationException("[Dg5fGraspAgent] Pedestal has zero vertical scale.");
-            return pedestalCollider.bounds.size.y / scaleY;
         }
 
         float Next01()
@@ -432,7 +409,7 @@ namespace KDT.GraspTraining
             if (!_episodeActive || ball == null || robotBase == null) return;
 
             Vector3 ballLocalPosition = robotBase.InverseTransformPoint(ball.position);
-            if (Dg5fGraspSpec.ShouldResetForBall(ballLocalPosition, _pedestalTopHeight))
+            if (Dg5fGraspSpec.ShouldResetForBall(ballLocalPosition, _supportTopHeight))
             {
                 FinishEpisode(false);
                 return;
