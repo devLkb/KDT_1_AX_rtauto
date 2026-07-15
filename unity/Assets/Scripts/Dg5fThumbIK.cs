@@ -9,12 +9,15 @@
 // 자세 prior: 패킷의 엄지 관절각 4채널(IK 활성 시 유휴)을 2순위 목표로 —
 //     여유자유도(4DOF vs 위치 3D)가 사람과 다른 자세로 배회하는 것 방지.
 //
-// 해부학 좌표계(Python dg5f_angles.compute_thumb_tip과 계약, 2026-07-14 체인 정규화):
+// 해부학 좌표계(Python dg5f_angles.compute_thumb_tip과 계약, 2026-07-15 기준 길이 재정의):
 //   축: ez=손목→중지MCP, ey=새끼MCP→검지MCP, ex=cross(ey,ez). 좌/우 모델 공통.
-//   값: 리치벡터 = (사람 엄지끝−엄지CMC) / 사람 엄지 체인 길이 → 여기서
-//       로봇 엄지 베이스(1_1 피벗) + 리치 × 로봇 체인 길이(1_1→…→tip 마디 합)로 복원.
-//   왜: 구버전(손길이 정규화)은 엄지 비율 차이로 도달 불가 목표 → CCD 리밋사이클(§20-4 떨림).
-//       체인 자로 재면 목표가 원리적으로 작업공간 안 + reachClamp 외곽 구면 투영이 안전망.
+//   값: 리치벡터 = (사람 엄지끝−엄지CMC) / 사람 엄지 "최대 도달거리"(쭉 편 직선, 보정 p95)
+//       = '펴짐 비율' 0~1 (Python이 송신 전 크기 1.0 클램프) → 여기서
+//       로봇 엄지 베이스(1_1 피벗) + 리치 × robotThumbMaxReach(로봇 실효 최대 도달)로 복원.
+//   왜(§24, 2026-07-15): 구버전 기준(마디합)은 사람 쪽 보정 ~17% 과소 + 로봇 쪽
+//       "마디합=도달거리" 가정 붕괴(1_2가 elevation ff 전담이라 실효 최대 84%)가 겹쳐
+//       목표가 상시 3~6cm 도달권 밖 → CCD 리밋사이클(떨림→정지)이 재발했었음.
+//       "최대 도달거리" 기준이면 사람 100% 폄 = 로봇 100% 폄으로 정의상 정렬.
 //   로봇 쪽 대응점: 손목=palm 링크 원점, 중지MCP=3_2, 검지MCP=2_2, 새끼MCP=5_3.
 //
 // 순차 CCD는 ArmTargetIK(§18)와 동일 패턴: 관절마다 예상 손끝을 회전 갱신,
@@ -37,8 +40,11 @@ public class Dg5fThumbIK : MonoBehaviour
     [Tooltip("핀치 스냅 시 검지 끝에서 이만큼 앞(접촉면)에 목표")]
     public float pinchOffset = 0.012f;
 
-    [Tooltip("작업공간 투영: 해부학 목표의 리치를 로봇 체인 길이 × 이 값 이내로 클램프 — 정규화가 못 거른 스파이크·극단 자세 안전망 (스냅 목표는 로봇 자신의 검지 끝이라 제외)")]
-    public float reachClamp = 0.95f;
+    [Tooltip("로봇 엄지 실효 최대 도달거리(m): |tip−1_1 피벗| 직선 상한. 패킷의 '펴짐 비율'(0~1)에 이 값을 곱해 목표 복원 + 초과 리치 구면 클램프의 반경. ⚠️ 1_2(대향 롤)가 elevation 피드포워드 전담인 현 제어 정책에 종속된 실측값(1_2≈0~20°대의 상한, URDF FK 스윕+라이브 로그 §24) — CCD가 1_2를 쓰도록 정책을 바꾸면 재측정 필요(기하학적 최대는 1_2=90°에서 14.8cm)")]
+    public float robotThumbMaxReach = 0.124f;
+
+    [Tooltip("가상 앵커 오프셋(해부학 축 정규화 단위, ×robotThumbMaxReach가 실거리): 사람 CMC와 로봇 1_1 피벗의 손바닥 대비 위치가 달라 명령 구름 전체가 작업공간에서 벗어나는 것을 평행이동으로 정합. DG5F 엄지 팁은 손바닥 법선(x)으로 최소 ~3cm 떠 있는데 사람 명령의 82%가 x<0.2라 오프셋 없이는 상시 도달 불가(2026-07-15 라이브 7,564명령 × URDF 작업공간 83k점 ICP 피팅 실측: 적용 시 작업공간 밖 89%→10%, 잔차 0.27cm). 왼손 모델 기준 측정 — 해부학 프레임이 좌우 대칭 정의라 우손도 동일 기대, 우손 사용 시 재검증 권장")]
+    public Vector3 reachOffset = new Vector3(0.174f, -0.038f, -0.092f);
 
     // ---- 출렁임 방지 (§18/§18-2 팔 IK에서 확립한 처방) ----
     [Tooltip("목표 위치 스무딩 속도(/s) — 비전 노이즈·핀치 전환 점프 완화. 라이브 노이즈 추적 완화로 10→6 (2026-07-14)")]
@@ -56,22 +62,22 @@ public class Dg5fThumbIK : MonoBehaviour
     [Tooltip("사람 관절각 prior 수렴 속도(/s). 0이면 prior 비활성")]
     public float priorGain = 3f;
 
-    [Tooltip("관절별 prior 가중(1_1~1_4). feedforwardJoint(기본 1_2)는 0 — ff가 전담하는 관절에 prior까지 걸면 이중 제어(§20-4 리밋사이클 교훈)")]
-    public float[] priorWeights = { 1f, 0f, 1f, 1f };
+    [Tooltip("관절별 prior 가중(1_1~1_4). 2단계(2026-07-15, §25): 1_2도 1 — CCD가 위치를 주도하고 elevation은 여기(약한 prior, 틱당 priorStepRatio×stepCap 캡)로만 들어옴. ⚠️구정책(ff 전담, cmcFeedforward>0)으로 되돌릴 땐 이중 제어 방지 위해 1_2를 0으로")]
+    public float[] priorWeights = { 1f, 1f, 1f, 1f };
 
     [Tooltip("prior 틱당 이동 상한 = 이 비율 × CCD 스텝 상한. 1 이상이면 prior가 CCD를 이겨 리밋사이클(실측 p2p 17~23°)")]
     public float priorStepRatio = 0.3f;
 
-    // ---- 앞뒤(깊이) 피드포워드: 사람 elevation 채널을 깊이 관절에 직결 ----
-    // 엄지끝 위치만으로는 앞뒤 성분이 깊이(z) 노이즈 축에 실리고 여유자유도에 흡수돼
-    // 재현 안 됨(2026-07-14 분석). 평시 CCD는 이 관절을 건드리지 않고(권한 = _pinchW)
-    // ff가 전담 — 같은 관절을 두 컨트롤러가 다투지 않아 리밋사이클 없음. 핀치 시 역할 교대.
-    // §20-7 실측으로 목적지 1_1→1_2 이동: 1_1은 손바닥 평면 안 스윕(법선 1.5cm뿐),
-    // 깊이는 1_2(대향 롤)가 만듦(굽힌 채 스윕 시 법선 3→8.3cm). Python도 프록시 교차 배선됨.
-    [Tooltip("피드포워드 수렴 속도(/s). 0이면 해당 관절도 CCD 전담")]
-    public float cmcFeedforward = 8f;
+    // ---- 앞뒤(깊이) 피드포워드 (2단계에서 비활성, §25 2026-07-15) ----
+    // 구정책(§20-5/20-7): 1_2를 elevation ff 전담, CCD 제외(권한=_pinchW). 당시 근거였던
+    // "위치만으로 깊이 재현 불가"는 가상 앵커 정합(reachOffset)으로 소멸 — 오히려 ff 전담이
+    // 작업공간을 x≥0.24로 묶어 명령 82%가 도달 불가(잔차 1.4~2.5cm+정지 떨림 연료)였음.
+    // 2단계 = cmcFeedforward 0(CCD가 1_2 포함 4관절 전담) + elevation은 priorWeights[1]로만.
+    // ⚠️원복 = cmcFeedforward 8 + priorWeights[1] 0 (이중 제어 금지 규칙 §20-4).
+    [Tooltip("피드포워드 수렴 속도(/s). 0=비활성(2단계 기본): CCD가 1_2 포함 전담, elevation은 prior로만. >0=구정책(1_2를 ff 전담, CCD 제외 — 반드시 priorWeights[1]=0과 함께)")]
+    public float cmcFeedforward = 0f;
 
-    [Tooltip("피드포워드가 전담할 엄지 관절 인덱스(0=1_1 .. 3=1_4). 기본 1=1_2(깊이/대향 롤, §20-7 실측)")]
+    [Tooltip("(구정책용) 피드포워드가 전담할 엄지 관절 인덱스(0=1_1 .. 3=1_4). cmcFeedforward=0이면 미사용")]
     public int feedforwardJoint = 1;
 
     // ---- 핀치 연속 블렌딩: v3 끝거리비로 해부학 목표↔검지끝 스냅을 연속 전환 ----
@@ -88,7 +94,15 @@ public class Dg5fThumbIK : MonoBehaviour
     [Tooltip("디버그 구체 지름(m)")]
     public float debugSphereSize = 0.012f;
 
+    [Tooltip("엄지 UDP 원본·세 마커 위치·달성 비율을 CSV 기록 — Logs/thumbik_*.csv, 분석: dg5f/analyze_thumbik.py")]
+    public bool debugLogCsv = true;
+
+    [Tooltip("CSV N샘플마다 디스크 flush")]
+    public int debugLogFlushEvery = 100;
+
     Transform _dbgRaw, _dbgTarget, _dbgTip;
+    System.IO.StreamWriter _logW;
+    int _logCount;
 
     public bool Active { get; private set; }
 
@@ -169,7 +183,8 @@ public class Dg5fThumbIK : MonoBehaviour
             prev = _thumb[i].transform.position;
         }
         _robotChainLen += (_thumbTip.position - prev).magnitude;
-        Debug.Log($"[Dg5fThumbIK] 준비 완료 — 로봇 엄지 체인 {_robotChainLen * 100:F1}cm");
+        Debug.Log($"[Dg5fThumbIK] 준비 완료 — 마디합 {_robotChainLen * 100:F1}cm, "
+                  + $"실효 최대 도달(robotThumbMaxReach) {robotThumbMaxReach * 100:F1}cm");
     }
 
     void FixedUpdate()
@@ -180,25 +195,31 @@ public class Dg5fThumbIK : MonoBehaviour
         if (_rx.secondsSinceLastPacket > 1.0f) { SetDebugMarkersVisible(false); return; }
         Active = true;
 
-        // 체인 정규화 복원: 로봇 엄지 베이스 + 사람 리치(≤~1) × 로봇 체인 길이
-        Vector3 reach = (_palm.TransformDirection(_exL) * tipN.x
-                         + _palm.TransformDirection(_eyL) * tipN.y
-                         + _palm.TransformDirection(_ezL) * tipN.z) * _robotChainLen;
-        // 작업공간 투영(외곽 구면): 정규화가 못 거른 잔여(스파이크·극단 자세)를 경계 안으로
-        // — 도달 불가 목표로 인한 CCD 리밋사이클(§20-4) 예방. stall damper는 최후 안전망.
-        float maxReach = _robotChainLen * reachClamp;
-        if (reach.sqrMagnitude > maxReach * maxReach)
-            reach *= maxReach / reach.magnitude;
-        Vector3 anatomical = _palm.TransformPoint(_thumbBaseL) + reach;
+        // 리치 복원(2026-07-15 기준 길이 재정의): '펴짐 비율'(0~1) × 로봇 실효 최대 도달거리.
+        // Python이 송신 전 크기 1.0으로 클램프하지만, 구버전 송신기/오보정 패킷 대비
+        // 여기서도 같은 반경으로 구면 클램프 — 목표가 도달 상한을 절대 못 넘게.
+        Vector3 exW = _palm.TransformDirection(_exL);
+        Vector3 eyW = _palm.TransformDirection(_eyL);
+        Vector3 ezW = _palm.TransformDirection(_ezL);
+        Vector3 reach = (exW * tipN.x + eyW * tipN.y + ezW * tipN.z) * robotThumbMaxReach;
+        if (reach.sqrMagnitude > robotThumbMaxReach * robotThumbMaxReach)
+            reach *= robotThumbMaxReach / reach.magnitude;
+        // 가상 앵커: 1_1 피벗 + reachOffset — 사람/로봇 엄지 작업공간 정합용 평행이동(1단계, §25)
+        Vector3 virtualBase = _palm.TransformPoint(_thumbBaseL)
+            + (exW * reachOffset.x + eyW * reachOffset.y + ezW * reachOffset.z) * robotThumbMaxReach;
+        Vector3 anatomical = virtualBase + reach;
         Vector3 raw = anatomical;
         _pinchW = 0f;
+        float pinchD = float.NaN; // v2 폴백이면 NaN 유지 (CSV 기록용)
         if (_indexTip != null)
         {
             // 스냅 목표(로봇 검지 끝 + 접촉 오프셋)와 해부학 목표를 끝거리비로 연속 블렌딩.
             // v3 미수신(구버전 vision_node)이면 기존 이진 핀치 플래그로 폴백 — 목표 점프 감수.
             Vector3 snap = _indexTip.position
                            + (_thumbTip.position - _indexTip.position).normalized * pinchOffset;
-            _pinchW = _rx.GetPinchDistance(out float pinchD)
+            bool hasPinchD = _rx.GetPinchDistance(out pinchD);
+            if (!hasPinchD) pinchD = float.NaN;
+            _pinchW = hasPinchD
                 ? 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(pinchNear, pinchFar, pinchD))
                 : (pinch ? 1f : 0f);
             raw = Vector3.Lerp(anatomical, snap, _pinchW);
@@ -304,6 +325,62 @@ public class Dg5fThumbIK : MonoBehaviour
             d.target = Mathf.Clamp(nt, d.lowerLimit, d.upperLimit);
             ab.xDrive = d;
         }
+
+        if (debugLogCsv) LogDebugCsv(tipN, pinchD, anatomical, target, err, stepCap);
+    }
+
+    // ---- 디버그 CSV: UDP 원본 비율 vs 로봇 달성 비율 + 세 마커 위치 ----
+    // ach_* = (로봇 엄지끝 − 엄지 베이스)를 해부학 축으로 분해 ÷ 로봇 체인 길이
+    //       — UDP의 n_*과 같은 좌표계·같은 스케일이라 축별 직접 비교 가능.
+    //       corr(n,ach)<0이면 축 부호 반전, 상시 편차면 프레임/오프셋, err_red 크고
+    //       stall_scale 바닥이면 도달 불가 목표에서 damper가 정지시킨 것.
+    void LogDebugCsv(Vector3 tipN, float pinchD, Vector3 yellow, Vector3 red, float err, float stepCap)
+    {
+        if (_logW == null)
+        {
+            string dir = System.IO.Path.Combine(Application.dataPath, "../Logs");
+            System.IO.Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir,
+                "thumbik_" + System.DateTime.Now.ToString("yyyyMMdd_HHmm") + ".csv");
+            _logW = new System.IO.StreamWriter(path, false, System.Text.Encoding.UTF8);
+            _logW.WriteLine("t_unix,n_x,n_y,n_z,pinch_d,pinch_w,"
+                + "yel_x,yel_y,yel_z,red_x,red_y,red_z,grn_x,grn_y,grn_z,"
+                + "ach_x,ach_y,ach_z,err_red,err_yel,stall_scale,step_cap,"
+                + "tgt_1_1,tgt_1_2,tgt_1_3,tgt_1_4,act_1_1,act_1_2,act_1_3,act_1_4");
+            Debug.Log("[Dg5fThumbIK] 디버그 CSV 기록 시작: " + path);
+        }
+        Vector3 grn = _thumbTip.position;
+        // ach도 '펴짐 비율' 단위(1.0=robotThumbMaxReach), 기준점 = 가상 앵커(1_1+reachOffset)
+        // — 패킷 n_*과 같은 원점·같은 스케일이라 축별 직접 비교(corr/bias) 유지
+        Vector3 exW2 = _palm.TransformDirection(_exL);
+        Vector3 eyW2 = _palm.TransformDirection(_eyL);
+        Vector3 ezW2 = _palm.TransformDirection(_ezL);
+        Vector3 relW = grn - _palm.TransformPoint(_thumbBaseL)
+            - (exW2 * reachOffset.x + eyW2 * reachOffset.y + ezW2 * reachOffset.z) * robotThumbMaxReach;
+        Vector3 ach = new Vector3(
+            Vector3.Dot(relW, exW2),
+            Vector3.Dot(relW, eyW2),
+            Vector3.Dot(relW, ezW2)) / robotThumbMaxReach;
+
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        double t = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+        var sb = new System.Text.StringBuilder(t.ToString("F3", ci));
+        System.Action<float> A = v => sb.Append(',').Append(v.ToString("F4", ci));
+        A(tipN.x); A(tipN.y); A(tipN.z); A(pinchD); A(_pinchW);
+        A(yellow.x); A(yellow.y); A(yellow.z);
+        A(red.x); A(red.y); A(red.z);
+        A(grn.x); A(grn.y); A(grn.z);
+        A(ach.x); A(ach.y); A(ach.z);
+        A(err); A(Vector3.Distance(yellow, grn)); A(_stallScale); A(stepCap);
+        for (int i = 0; i < 4; i++) A(_thumb[i].xDrive.target);
+        for (int i = 0; i < 4; i++) A(_thumb[i].jointPosition[0] * Mathf.Rad2Deg);
+        _logW.WriteLine(sb.ToString());
+        if (++_logCount % Mathf.Max(1, debugLogFlushEvery) == 0) _logW.Flush();
+    }
+
+    void OnDestroy()
+    {
+        if (_logW != null) { _logW.Flush(); _logW.Dispose(); _logW = null; }
     }
 
     // ---- 디버그 마커 ----
