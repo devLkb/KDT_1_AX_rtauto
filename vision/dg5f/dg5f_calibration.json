@@ -1,83 +1,88 @@
 {
- "note": "calibrate_dg5f.py 자동 생성 — dg5f_angles.py가 임포트 시 읽음. 재보정하면 덮어써짐. | thumb_cmc 항목 제거(2026-07-14): 프록시가 평면이탈각으로 교체돼 옛 보정값 무효 — calibrate_dg5f 재실행 필요",
- "method": "percentile 2.0/98.0 + human cap",
- "created": "2026-07-13 17:17",
- "human_ranges": {
-  "thumb_opp": {
-   "min": 0.124,
-   "max": 0.61
+  "note": "calibrate_dg5f.py 자동 생성 — dg5f_angles.py가 임포트 시 읽음. 재보정하면 덮어써짐. | 2026-07-14 §20-7: thumb_cmc<->thumb_opp 값 스왑(프록시 교차 재배선 — 스윕→1_1, elevation→1_2)",
+  "method": "percentile 2.0/98.0 + human cap",
+  "created": "2026-07-14 18:09",
+  "human_ranges": {
+    "thumb_cmc": {
+      "min": 0.159,
+      "max": 0.683
+    },
+    "thumb_opp": {
+      "min": 0.041,
+      "max": 0.319
+    },
+    "thumb_mcp": {
+      "min": 0.042,
+      "max": 0.707
+    },
+    "thumb_ip": {
+      "min": 0.027,
+      "max": 1.288
+    },
+    "index_abd": {
+      "min": -0.332,
+      "max": 0.176
+    },
+    "index_mcp": {
+      "min": 0.1,
+      "max": 0.607
+    },
+    "index_pip": {
+      "min": 0.05,
+      "max": 1.9
+    },
+    "index_dip": {
+      "min": 0.019,
+      "max": 1.26
+    },
+    "middle_abd": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "middle_mcp": {
+      "min": 0.074,
+      "max": 0.865
+    },
+    "middle_pip": {
+      "min": 0.054,
+      "max": 1.9
+    },
+    "middle_dip": {
+      "min": 0.021,
+      "max": 1.6
+    },
+    "ring_abd": {
+      "min": -0.314,
+      "max": 0.176
+    },
+    "ring_mcp": {
+      "min": 0.015,
+      "max": 1.26
+    },
+    "ring_pip": {
+      "min": 0.027,
+      "max": 1.9
+    },
+    "ring_dip": {
+      "min": 0.031,
+      "max": 1.6
+    },
+    "pinky_cmc": {
+      "min": 0.016,
+      "max": 0.905
+    },
+    "pinky_lat": {
+      "min": -0.805,
+      "max": 0.578
+    },
+    "pinky_mcp": {
+      "min": 0.032,
+      "max": 1.7
+    },
+    "pinky_pip": {
+      "min": 0.056,
+      "max": 1.547
+    }
   },
-  "thumb_mcp": {
-   "min": 0.02,
-   "max": 0.654
-  },
-  "thumb_ip": {
-   "min": 0.021,
-   "max": 1.033
-  },
-  "index_abd": {
-   "min": -0.3,
-   "max": 0.027
-  },
-  "index_mcp": {
-   "min": 0.059,
-   "max": 0.44
-  },
-  "index_pip": {
-   "min": 0.049,
-   "max": 1.9
-  },
-  "index_dip": {
-   "min": 0.012,
-   "max": 1.501
-  },
-  "middle_abd": {
-   "min": 0.0,
-   "max": 0.0
-  },
-  "middle_mcp": {
-   "min": 0.062,
-   "max": 0.325
-  },
-  "middle_pip": {
-   "min": 0.023,
-   "max": 1.9
-  },
-  "middle_dip": {
-   "min": 0.008,
-   "max": 1.386
-  },
-  "ring_abd": {
-   "min": -0.015,
-   "max": 0.179
-  },
-  "ring_mcp": {
-   "min": 0.026,
-   "max": 0.328
-  },
-  "ring_pip": {
-   "min": 0.018,
-   "max": 1.9
-  },
-  "ring_dip": {
-   "min": 0.008,
-   "max": 1.6
-  },
-  "pinky_cmc": {
-   "min": 0.02,
-   "max": 0.488
-  },
-  "pinky_mcp": {
-   "min": 0.04,
-   "max": 0.976
-  },
-  "pinky_pip": {
-   "min": 0.013,
-   "max": 1.9
-  },
-  "pinky_dip": {
-   "min": 0.042,
-   "max": 1.377
-  }
- }
+  "thumb_chain_ratio": 0.8282
 }

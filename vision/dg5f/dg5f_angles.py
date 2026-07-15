@@ -83,9 +83,13 @@ def _thumb_elevation(lm):
 def compute_raw(lm):
     """landmark → 20채널 raw 사람각도[rad], 패킷 순서."""
     return [
-        # 엄지
-        _thumb_elevation(lm),                          # 0 thumb_cmc (앞뒤, 신프록시)
-        _angle(lm[INDEX[0]], lm[WRIST], lm[THUMB[3]]), # 1 thumb_opp (SVH와 동일 proxy)
+        # 엄지 — ⚠️2026-07-14 프록시 교차 재배선(§20-7, 로봇 기하 실측 근거):
+        #   1_1은 앞뒤 관절이 아니라 손바닥 평면 안 스윕(풀스윕 시 법선 1.5cm/전방 13.4cm),
+        #   깊이(앞뒤)는 1_2(대향 롤)가 만듦(굽힌 채 1_2 스윕 시 법선 3→8.3cm).
+        #   따라서 사람 가로 스윕→1_1, 사람 앞뒤(elevation)→1_2 로 교차 배선.
+        #   (§20-5의 elevation→1_1 직결은 관절 오배정이었음)
+        _angle(lm[INDEX[0]], lm[WRIST], lm[THUMB[3]]), # 0 → 1_1: 가로 스윕 proxy
+        _thumb_elevation(lm),                          # 1 → 1_2: 앞뒤(elevation) proxy
         _bend(lm, THUMB[0], THUMB[1], THUMB[2]),       # 2 thumb_mcp
         _bend(lm, THUMB[1], THUMB[2], THUMB[3]),       # 3 thumb_ip
         # 검지
@@ -140,12 +144,13 @@ LEFT_MIRROR_CHANNELS = {
 
 DG5F_CHANNELS = [
     # name          hmin   hmax    dg_min  dg_max  gated
-    # thumb_cmc: 신프록시(중수골 평면 이탈각)로 게이트 해제(2026-07-14) — 엄지 앞뒤 재현.
-    # 옛 3점각 프록시는 노이즈로 게이트했었음(§20-2). ⚠️보정 재실행 필요(calibrate_dg5f).
-    ("thumb_cmc",   0.15,  0.85,    0.0,   65.0,  False),
-    # thumb_opp: 방향은 핀치 탐색으로 확정. dg_min -15 = 휴지 상태를 약간 대향으로 —
-    # 대향 0 근처에서 엄지 굽힘 방향이 시각적으로 반전돼 보이는 결합 특성 완화.
-    ("thumb_opp",   0.10,  0.55,  -15.0, -120.0,  False),
+    # ⚠️채널 이름은 관절 기준(thumb_cmc=1_1, thumb_opp=1_2)이고, 프록시는 §20-7에서
+    # 교차 재배선됨: thumb_cmc(1_1)의 사람각 = 가로 스윕, thumb_opp(1_2) = 앞뒤 elevation.
+    # human 기본범위도 프록시에 맞춰 교차. 보정 파일 값도 2026-07-14 함께 스왑됨.
+    ("thumb_cmc",   0.10,  0.55,    0.0,   65.0,  False),
+    # thumb_opp(1_2): 사람 elevation(앞뒤) → 대향 롤. dg_min -15 = 휴지 약간 대향(§20-2),
+    # dg_max -120: 실측상 깊이(법선) 성분은 1_2≈80°서 최대, 120°까지 전방 유지(§20-7).
+    ("thumb_opp",   0.15,  0.85,  -15.0, -120.0,  False),
     ("thumb_mcp",   0.05,  0.90,    0.0,   80.0,  False),
     ("thumb_ip",    0.05,  1.20,    0.0,   80.0,  False),
     ("index_abd",  -0.30,  0.30,  -25.0,   20.0,  True),
@@ -191,20 +196,51 @@ def map_to_dg5f(raw, hand="right"):
 
 
 # =========================================================================
-# 엄지 손끝 위치 리타게팅 (v2 프로토콜 — 관절각 20개 + 엄지끝 위치 3 + 핀치 1)
+# 엄지 손끝 위치 리타게팅 (패킷 [20..22] 위치 3 + [23] 핀치 + [24] 끝거리비)
 #   채널별 선형 매핑은 엄지의 결합 운동(대향×굽힘×접기)을 재현 못함 →
-#   엄지만 "손바닥 해부학 좌표계 기준 엄지끝 위치"를 보내고 Unity에서 IK(CCD).
-#   좌표계: 원점=중지 MCP, ez=손목→중지MCP(손가락 방향), ey=새끼MCP→검지MCP(측면),
-#           ex=cross(ey,ez)(손바닥 법선). 해부학 랜드마크 기반이라 좌/우·거울 불변.
-#   단위: |손목→중지MCP| 길이로 정규화 (무차원 — Unity가 로봇 치수로 복원).
+#   엄지만 "손끝 위치"를 보내고 Unity에서 IK(CCD).
+#   축: ez=손목→중지MCP(손가락 방향), ey=새끼MCP→검지MCP(측면), ex=cross(ey,ez)
+#       (손바닥 법선). 해부학 랜드마크 기반이라 좌/우·거울 불변.
+#   값(2026-07-14 체인 길이 정규화로 변경 — Unity Dg5fThumbIK와 계약):
+#       리치벡터 = (엄지끝 − 엄지CMC) / 사람 엄지 체인 길이(CMC→MCP→IP→TIP 마디 합)
+#       = "내 엄지를 몇 %, 어느 방향으로 뻗었나" (크기 최대 ~1.0).
+#       Unity가 로봇 엄지 베이스(1_1) + 리치 × 로봇 체인 길이로 복원.
+#   왜: 구버전(원점=중지MCP, 손길이로 나눔)은 사람/로봇 엄지 비율 차이로 목표가
+#       로봇 작업공간 밖에 떨어짐 → CCD 리밋사이클 = §20-4 떨림의 근본 원인.
+#       체인 길이 자로 재면 사람이 가는 곳 ≈ 로봇이 갈 수 있는 곳으로 매핑됨.
+#   체인 길이 추정: MediaPipe 마디합은 z 노이즈로 프레임마다 출렁여 매 프레임
+#       나누면 스케일 노이즈 증폭 → 보정값(thumb_chain_ratio × 현재 손길이) 우선,
+#       없으면 느린 EMA 폴백. (비율은 카메라 거리 불변량이라 안정)
 # =========================================================================
 # 핀치 히스테리시스(vision_node에서 적용): 걸림 <PINCH_ON, 풀림 >PINCH_OFF
 #   단일 임계는 경계 근처에서 플래그가 깜빡여 엄지가 두 목표 사이를 왕복(까딱임) — 실측 교훈.
 PINCH_ON, PINCH_OFF = 0.30, 0.42
 
+_thumb_ratio_calib = None    # dg5f_calibration.json의 thumb_chain_ratio (있으면 고정 사용)
+_thumb_ratio_ema = None      # 보정 없을 때 폴백 EMA (19Hz 기준 ~2.5s 수렴)
+_THUMB_RATIO_EMA_ALPHA = 0.02
+
+
+def _thumb_chain_len(lm, hand_len):
+    """사람 엄지 체인 길이의 안정 추정치. 보정값 우선, 없으면 느린 EMA."""
+    global _thumb_ratio_ema
+    if _thumb_ratio_calib is not None:
+        return _thumb_ratio_calib * hand_len
+    chain = (np.linalg.norm(lm[THUMB[1]] - lm[THUMB[0]])
+             + np.linalg.norm(lm[THUMB[2]] - lm[THUMB[1]])
+             + np.linalg.norm(lm[THUMB[3]] - lm[THUMB[2]]))
+    r = chain / hand_len
+    _thumb_ratio_ema = (r if _thumb_ratio_ema is None
+                        else _thumb_ratio_ema + _THUMB_RATIO_EMA_ALPHA * (r - _thumb_ratio_ema))
+    return _thumb_ratio_ema * hand_len
+
 
 def compute_thumb_tip(lm):
-    """landmark → (엄지끝 정규화 좌표[3], 엄지-검지 끝거리 비율). 손바닥 해부학 좌표계."""
+    """landmark → (엄지 리치벡터[3, 체인 길이 정규화], 엄지-검지 끝거리 비율).
+
+    리치벡터 축은 손바닥 해부학 좌표계, 크기는 사람 엄지 체인 길이 기준(≤~1.0).
+    pinch_d는 기존과 동일하게 손길이 정규화 — 핀치 임계(0.30/0.42 등) 튜닝 유지.
+    """
     lm = np.asarray(lm)
     wrist, mid_mcp = lm[WRIST], lm[MIDDLE[0]]
     hand_len = np.linalg.norm(mid_mcp - wrist)
@@ -215,7 +251,7 @@ def compute_thumb_tip(lm):
     ex = np.cross(ey_raw, ez)
     ex /= max(np.linalg.norm(ex), 1e-9)
     ey = np.cross(ez, ex)
-    v = (lm[THUMB[3]] - mid_mcp) / hand_len
+    v = (lm[THUMB[3]] - lm[THUMB[0]]) / max(_thumb_chain_len(lm, hand_len), 1e-9)
     tip = (float(np.dot(v, ex)), float(np.dot(v, ey)), float(np.dot(v, ez)))
     pinch_d = float(np.linalg.norm(lm[THUMB[3]] - lm[INDEX[3]]) / hand_len)
     return tip, pinch_d
@@ -227,15 +263,22 @@ _CALIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def _load_calibration():
-    global DG5F_CHANNELS
+    global DG5F_CHANNELS, _thumb_ratio_calib
     if not os.path.exists(_CALIB_PATH):
         return False
     try:
         with open(_CALIB_PATH, "r", encoding="utf-8") as f:
-            hr = json.load(f).get("human_ranges", {})
+            data = json.load(f)
+        hr = data.get("human_ranges", {})
     except Exception as e:
         print(f"[dg5f_angles] 보정 파일 읽기 실패({e}) — 기본값 사용")
         return False
+    tr = data.get("thumb_chain_ratio")
+    if tr:
+        _thumb_ratio_calib = float(tr)
+        print(f"[dg5f_angles] 엄지 체인 비율 보정값 사용: {_thumb_ratio_calib:.3f}")
+    else:
+        print("[dg5f_angles] thumb_chain_ratio 없음 — EMA 폴백 (calibrate_dg5f.py 재보정 권장)")
     DG5F_CHANNELS = [
         (n, float(hr[n]["min"]) if n in hr else hmin,
             float(hr[n]["max"]) if n in hr else hmax, dmin, dmax, g)

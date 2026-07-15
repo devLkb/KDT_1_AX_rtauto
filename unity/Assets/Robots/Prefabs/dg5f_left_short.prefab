@@ -1729,10 +1729,23 @@ MonoBehaviour:
   maxStepDeg: 1.5
   iterations: 2
   pinchOffset: 0.012
-  targetLerp: 10
-  deadband: 0.008
-  rearmBand: 0.018
+  reachClamp: 0.95
+  targetLerp: 6
+  softZone: 0.015
   windupDeg: 15
+  priorGain: 3
+  priorWeights:
+  - 1
+  - 0
+  - 1
+  - 1
+  priorStepRatio: 0.3
+  cmcFeedforward: 8
+  feedforwardJoint: 1
+  pinchNear: 0.32
+  pinchFar: 0.55
+  stallTime: 0.6
+  rearmDist: 0.008
 --- !u!1 &2471573509831744633
 GameObject:
   m_ObjectHideFlags: 0
