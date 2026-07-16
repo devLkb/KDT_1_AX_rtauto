@@ -28,13 +28,13 @@ import mediapipe as mp
 import numpy as np
 
 from dg5f_angles import compute_raw, CHANNEL_NAMES, WRIST, THUMB, MIDDLE
+from dg5f_paths import CALIB_PATH, unique_log_path
 
 CAM_INDEX = 0
 FRAME_W, FRAME_H = 640, 480
 LOG_EVERY_SEC = 0.5
-# 로그는 스크립트 위치 기준 logs/ 하위에 저장 — 실행 CWD와 무관
-LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-CSV_PATH = os.path.join(LOG_DIR, time.strftime("calib_log_%Y%m%d_%H%M.csv"))
+# 경로 규칙은 dg5f_paths가 소유 — 초 단위 + 중복 시 접미사라 덮어쓰기 불가
+CSV_PATH = unique_log_path("calib_log")
 
 # 극값 대신 백분위수 사용 — MediaPipe 스파이크가 min/max를 오염시키는 것 방지
 # (2026-07-13 실측: 절대 극값 방식은 pip max가 2.6~2.9rad(물리 불가)로 오염됐었음)
@@ -175,9 +175,11 @@ def main():
                   "'엄지 쭉 펴기' 동작을 포함해 재보정 권장.")
     else:
         print(f"  ⚠️ thumb_straight_ratio 샘플 부족 — 런타임 기본값({0.97})으로 동작")
-    with open("dg5f_calibration.json", "w", encoding="utf-8") as f:
+    # ⚠️ 절대 CWD 상대로 저장하지 말 것 — dg5f_angles의 로드 경로와 어긋난다(2026-07-16 발각).
+    #    저장·로드가 dg5f_paths.CALIB_PATH 하나를 공유한다.
+    with open(CALIB_PATH, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
-    print(f"[저장] dg5f_calibration.json + 원시 로그 {CSV_PATH}")
+    print(f"[저장] {CALIB_PATH} + 원시 로그 {CSV_PATH}")
     print("→ vision_node_dg5f.py 다시 실행하면 자동 적용됩니다.")
 
 

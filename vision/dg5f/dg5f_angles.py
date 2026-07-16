@@ -21,6 +21,8 @@ import os
 
 import numpy as np
 
+from dg5f_paths import CALIB_PATH
+
 # --- MediaPipe landmark 인덱스 ---
 WRIST = 0
 THUMB = [1, 2, 3, 4]      # CMC, MCP, IP, TIP
@@ -225,6 +227,69 @@ DEFAULT_THUMB_STRAIGHT = 0.97
 CALIB_VERSION = 3  # v3: thumb_straight_ratio(직진도). v2 thumb_reach_ratio(직선/손길이)는 폐기.
 _thumb_straight_calib = None
 
+# 손가락(검지~새끼) 직진도 상한 — 엄지(0.97)와 분리한다. 해부학이 달라서: 엄지는 쭉 펴도
+# IP에 자연 굴곡이 남지만 손가락은 거의 일직선이라 직진도가 1.0에 더 가깝다.
+# ⚠️ 실측 전 잠정값(2026-07-16). 틀렸을 때 방향:
+#    - 실제보다 **낮으면** 사람이 다 펴기 전에 비율이 1.0 포화 → 로봇이 먼저 쭉 펴짐(무해)
+#    - 실제보다 **높으면** 쭉 펴도 로봇이 덜 펴짐 → §26에서 엄지가 겪은 바로 그 증상
+#    그래서 보수적으로 낮게 잡는다. 라이브에서 쭉 폈을 때 [send] |idx|가 1.0에 못 미치면
+#    이 값을 낮출 것. (엄지처럼 calibrate가 손가락별 p95를 저장하게 만드는 건 추후 과제)
+DEFAULT_FINGER_STRAIGHT = 0.98
+
+# 리치벡터를 싣는 손가락(패킷 [25..36] 순서 고정) — 엄지는 [20..22]에 따로 있어 제외.
+TIP_FINGERS = [("index", INDEX), ("middle", MIDDLE), ("ring", RING), ("pinky", PINKY)]
+
+# =========================================================================
+# 패킷 레이아웃 (Unity Dg5fReceiver와 계약 — 수신기는 **길이로** 버전 판별)
+#   v1 <20f>: [0..19] 관절각[deg]
+#   v2 <24f>: + [20..22] 엄지 리치벡터, [23] 핀치 플래그
+#   v3 <25f>: + [24] 엄지-검지 끝거리비
+#   v4 <37f>: + [25..36] 검지/중지/약지/새끼 리치벡터 (각 3, TIP_FINGERS 순서)
+# ⚠️ 수신기 판별이 `>=`라 v4를 v3까지만 아는 구 Unity에 쏴도 앞 25개만 읽고 뒤는 무시된다
+#    → Python만 먼저 v4로 올려도 엄지 동작 불변(하위호환). 역방향(신 Unity+구 Python)도
+#    손가락 리치벡터 미수신으로 판정돼 각도 방식 폴백.
+# =========================================================================
+PACKET_FMT = "<37f"
+PACKET_LEN = 37
+
+
+def _anat_frame(lm):
+    """손바닥 해부학 좌표계 → (ex, ey, ez, hand_len). 손길이 퇴화면 None.
+
+    축: ez=손목→중지MCP(손가락 방향), ey=새끼MCP→검지MCP(측면), ex=cross(ey,ez)(손바닥 법선).
+    해부학 랜드마크 기반이라 좌/우·거울 불변 — 엄지·손가락 전부 이 프레임을 공유한다.
+    """
+    wrist, mid_mcp = lm[WRIST], lm[MIDDLE[0]]
+    hand_len = float(np.linalg.norm(mid_mcp - wrist))
+    if hand_len < 1e-6:
+        return None
+    ez = (mid_mcp - wrist) / hand_len
+    ey_raw = lm[INDEX[0]] - lm[PINKY[0]]
+    ex = np.cross(ey_raw, ez)
+    ex /= max(np.linalg.norm(ex), 1e-9)
+    ey = np.cross(ez, ex)
+    return ex, ey, ez, hand_len
+
+
+def _reach_vector(lm, chain_idx, cap, ex, ey, ez):
+    """리치벡터 = 해부학 축 단위방향 × 펴짐 비율(직진도). 퇴화 프레임이면 (0,0,0).
+
+    chain_idx = [앵커, 중간1, 중간2, 끝] landmark 인덱스 (엄지=CMC 기준, 손가락=MCP 기준).
+    직진도 = |끝−앵커| ÷ (같은 프레임 마디합 × 상한), 1.0 클램프.
+    같은 프레임 같은 랜드마크끼리의 비라서 삼각부등식으로 항상 0~1이고, 일직선이면
+    이방성 z 압축이 분자·분모에 똑같이 걸려 비가 보존 — 어느 방향으로 뻗어도 1.0 (§26).
+    """
+    d = lm[chain_idx[3]] - lm[chain_idx[0]]
+    straight = float(np.linalg.norm(d))
+    chain = float(np.linalg.norm(lm[chain_idx[1]] - lm[chain_idx[0]])
+                  + np.linalg.norm(lm[chain_idx[2]] - lm[chain_idx[1]])
+                  + np.linalg.norm(lm[chain_idx[3]] - lm[chain_idx[2]]))
+    if straight < 1e-9 or chain < 1e-9:
+        return (0.0, 0.0, 0.0)
+    m = min(1.0, straight / (chain * cap))
+    u = d / straight
+    return (m * float(np.dot(u, ex)), m * float(np.dot(u, ey)), m * float(np.dot(u, ez)))
+
 
 def compute_thumb_tip(lm):
     """landmark → (엄지 리치벡터[3, '펴짐 비율' 0~1], 엄지-검지 끝거리 비율).
@@ -236,33 +301,39 @@ def compute_thumb_tip(lm):
     pinch_d는 기존과 동일하게 손길이 정규화 — 핀치 임계(0.30/0.42 등) 튜닝 유지.
     """
     lm = np.asarray(lm)
-    wrist, mid_mcp = lm[WRIST], lm[MIDDLE[0]]
-    hand_len = np.linalg.norm(mid_mcp - wrist)
-    if hand_len < 1e-6:
+    frame = _anat_frame(lm)
+    if frame is None:
         return (0.0, 0.0, 0.0), 0.0
-    ez = (mid_mcp - wrist) / hand_len
-    ey_raw = lm[INDEX[0]] - lm[PINKY[0]]
-    ex = np.cross(ey_raw, ez)
-    ex /= max(np.linalg.norm(ex), 1e-9)
-    ey = np.cross(ez, ex)
-    d = lm[THUMB[3]] - lm[THUMB[0]]
-    straight = float(np.linalg.norm(d))
-    chain = float(np.linalg.norm(lm[THUMB[1]] - lm[THUMB[0]])
-                  + np.linalg.norm(lm[THUMB[2]] - lm[THUMB[1]])
-                  + np.linalg.norm(lm[THUMB[3]] - lm[THUMB[2]]))
-    if straight < 1e-9 or chain < 1e-9:
-        return (0.0, 0.0, 0.0), float(np.linalg.norm(lm[THUMB[3]] - lm[INDEX[3]]) / hand_len)
+    ex, ey, ez, hand_len = frame
     cap = _thumb_straight_calib if _thumb_straight_calib is not None else DEFAULT_THUMB_STRAIGHT
-    m = min(1.0, straight / (chain * cap))
-    u = d / straight
-    tip = (m * float(np.dot(u, ex)), m * float(np.dot(u, ey)), m * float(np.dot(u, ez)))
+    tip = _reach_vector(lm, THUMB, cap, ex, ey, ez)
     pinch_d = float(np.linalg.norm(lm[THUMB[3]] - lm[INDEX[3]]) / hand_len)
     return tip, pinch_d
 
 
+def compute_finger_tips(lm):
+    """landmark → 검지·중지·약지·새끼 리치벡터 12 float (패킷 [25..36], TIP_FINGERS 순서).
+
+    엄지와 **같은** §26 직진도 정의를 그대로 쓴다 — 앵커만 CMC 대신 각 손가락 MCP.
+    사람 MCP ↔ 로봇 n_1 피벗 대응: 로봇 n_1은 벌림 관절이라 마디 길이에 기여하지 않아
+    사람 3마디 ↔ 로봇 4관절이어도 체인 대응이 성립한다.
+    Unity는 IK 컴포넌트가 붙은 손가락 값만 골라 쓴다 — 나머지는 그냥 무시(각도 방식 유지).
+    """
+    lm = np.asarray(lm)
+    frame = _anat_frame(lm)
+    if frame is None:
+        return [0.0] * 12
+    ex, ey, ez, _ = frame
+    out = []
+    for _name, idx in TIP_FINGERS:
+        out.extend(_reach_vector(lm, idx, DEFAULT_FINGER_STRAIGHT, ex, ey, ez))
+    return out
+
+
 # --- 보정 파일 자동 로드 (calibrate_raw.py 방식과 동일 스키마) ---
-_CALIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "dg5f_calibration.json")
+# ⚠️ 경로는 dg5f_paths.CALIB_PATH 하나로 통일 — calibrate_dg5f.py(저장)와 여기(로드)가
+#    서로 다른 경로를 쓰다 2026-07-16에 발각됨(저장은 CWD 상대, 로드는 스크립트 기준).
+_CALIB_PATH = CALIB_PATH
 
 
 def _load_calibration():
