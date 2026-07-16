@@ -27,6 +27,7 @@ vision/**/*.csv
 vision/**/vision_dg5f_*.csv
 vision/**/calib_log_*.csv
 *.log
+*.pid
 
 # ML-Agents training/build outputs
 training/results/
