@@ -80,4 +80,4 @@ python probe_sender.py fist left
 
 - Unity Play 중 같은 포트(5006)에 로컬 테스트 수신기 띄우지 말 것 (패킷 뺏김 — SVH 함정).
 - IK/파지 수동 실험 시 `Dg5fHandDriver.enableTracking` 끄기 (매 프레임 덮어씀).
-- vision 로그는 실행마다 새 파일 (`vision_dg5f_YYYYMMDD_HHMM.csv`) — truncate 함정 방지.
+- vision 로그는 실행마다 새 파일 (`logs/vision_dg5f_YYYYMMDD_HHMM.csv`) — truncate 함정 방지. calib 로그(`logs/calib_log_*.csv`)도 같은 폴더.

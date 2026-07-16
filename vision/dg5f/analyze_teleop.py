@@ -27,6 +27,8 @@ import pandas as pd
 
 from dg5f_angles import CHANNEL_NAMES, DG5F_CHANNELS
 
+# 비전 로그(vision_dg5f_*.csv)는 스크립트 위치 기준 logs/ 하위
+VISION_LOGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 # 새 환경에서는 여기만 수정하거나 --logs-dir/--urdf-dir 인자 사용
 UNITY_LOGS = os.environ.get(
     "DG5F_UNITY_LOGS", r"C:\Users\dltmd\UnityProjects\cli_test\KDT_robot_AI\Logs")
@@ -121,7 +123,8 @@ def main():
             print(f"{name:10s} {corr:9.2f} {lag:6.0f} {r2:12.2f}  {verdict}")
         return
 
-    vpath = latest("vision_dg5f_*.csv") if args.vision == "latest" else args.vision
+    vpath = (latest(os.path.join(VISION_LOGS, "vision_dg5f_*.csv"))
+             if args.vision == "latest" else args.vision)
     upath = (latest(os.path.join(UNITY_LOGS, "unity_dg5f_*.csv"))
              if args.unity == "latest" else args.unity)
     v = pd.read_csv(vpath)

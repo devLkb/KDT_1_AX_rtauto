@@ -9,8 +9,8 @@ svh/calibrate_raw.py의 DG5F 20채널 버전. 관절 매핑 전에 반드시 이
   1) 손을 카메라에 잘 보이게 두고, 다음 동작을 각각 3회 이상 천천히 반복:
      - 완전히 펴기 ↔ 주먹 꽉 쥐기 (굽힘 채널들)
      - 엄지를 손바닥 반대로 쫙 벌렸다 ↔ 새끼 쪽으로 최대 오므리기 (엄지 대향)
-     - ⚠️ 엄지를 최대한 쭉 펴세요 (여러 방향으로, 각 2초 유지 — 엄지 최대도달
-       비율 thumb_reach_ratio 보정에 필수. 안 펴면 라이브에서 엄지가 덜 뻗음)
+     - 엄지를 최대한 쭉 펴세요 (여러 방향으로, 각 2초 유지 — 엄지 직진도 상한
+       thumb_straight_ratio 보정용. 생략해도 기본값 0.97로 동작하는 선택 항목)
      - 손가락 쫙 벌리기 ↔ 모으기 (벌림 채널 — 지금은 게이트지만 미리 보정)
   2) 화면에 [현재 | 관측min | 관측max] 실시간 표시. 충분히 움직였으면 q 종료.
   3) dg5f_calibration.json 자동 저장 → vision_node_dg5f.py가 자동으로 읽음.
@@ -20,6 +20,7 @@ svh/calibrate_raw.py의 DG5F 20채널 버전. 관절 매핑 전에 반드시 이
 """
 import csv
 import json
+import os
 import time
 
 import cv2
@@ -31,7 +32,9 @@ from dg5f_angles import compute_raw, CHANNEL_NAMES, WRIST, THUMB, MIDDLE
 CAM_INDEX = 0
 FRAME_W, FRAME_H = 640, 480
 LOG_EVERY_SEC = 0.5
-CSV_PATH = time.strftime("calib_log_%Y%m%d_%H%M.csv")
+# 로그는 스크립트 위치 기준 logs/ 하위에 저장 — 실행 CWD와 무관
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+CSV_PATH = os.path.join(LOG_DIR, time.strftime("calib_log_%Y%m%d_%H%M.csv"))
 
 # 극값 대신 백분위수 사용 — MediaPipe 스파이크가 min/max를 오염시키는 것 방지
 # (2026-07-13 실측: 절대 극값 방식은 pip max가 2.6~2.9rad(물리 불가)로 오염됐었음)
@@ -76,13 +79,14 @@ def main():
     obs_min = {n: float("inf") for n in CHANNEL_NAMES}
     obs_max = {n: float("-inf") for n in CHANNEL_NAMES}
     samples = {n: [] for n in CHANNEL_NAMES}  # 백분위수 계산용 전체 샘플
-    # 엄지 최대도달 비율 샘플 = |엄지끝−CMC| 직선 / 손길이.
-    # v1은 마디합(CMC→MCP→IP→TIP 거리합)을 쟀으나 MediaPipe z 압축으로 ~17% 과소
-    # 측정됨(2026-07-15 §24: 직선 최대 0.996 > 마디합 0.828 = 기하학적 모순 실측).
-    # "상한값"이 필요하므로 집계는 p95 (max는 스파이크에 취약해 금지, median은 굽힌
-    # 프레임이 섞여 과소).
-    reach_samples = []
+    # 엄지 직진도 샘플 = |엄지끝−CMC| 직선 / 같은 프레임 엄지 마디합 (v3, §26).
+    # v2의 직선/손길이는 MediaPipe z 압축의 방향 의존 오차를 그대로 받아 세션·방향에
+    # 따라 최대치가 0.65~1.0으로 요동 — 같은 프레임 같은 랜드마크끼리의 비(직진도)는
+    # 삼각부등식으로 항상 0~1이고 쭉 펴면 방향 불문 1 근처. 여기서는 그 상한(쭉 폈을 때
+    # 실측치)을 p95로 저장 (max는 스파이크 취약, median은 굽힌 프레임 섞여 과소).
+    straight_samples = []
 
+    os.makedirs(LOG_DIR, exist_ok=True)
     csv_file = open(CSV_PATH, "w", newline="")
     writer = csv.writer(csv_file)
     writer.writerow(["timestamp"] + CHANNEL_NAMES)
@@ -103,11 +107,13 @@ def main():
             xyz = landmarks_to_xyz(hlm)
             raw = compute_raw(xyz)
 
-            # 엄지 최대도달 비율 샘플 — compute_thumb_tip의 리치 정규화 스케일(v2).
-            hand_len = np.linalg.norm(xyz[MIDDLE[0]] - xyz[WRIST])
-            if hand_len > 1e-6:
-                reach_samples.append(
-                    float(np.linalg.norm(xyz[THUMB[3]] - xyz[THUMB[0]]) / hand_len))
+            # 엄지 직진도 샘플 — compute_thumb_tip의 '펴짐 비율' 상한 보정(v3).
+            chain = (np.linalg.norm(xyz[THUMB[1]] - xyz[THUMB[0]])
+                     + np.linalg.norm(xyz[THUMB[2]] - xyz[THUMB[1]])
+                     + np.linalg.norm(xyz[THUMB[3]] - xyz[THUMB[2]]))
+            if chain > 1e-6:
+                straight_samples.append(
+                    float(np.linalg.norm(xyz[THUMB[3]] - xyz[THUMB[0]]) / chain))
 
             now = time.time()
             writer.writerow([f"{now:.3f}"] + [f"{v:.4f}" for v in raw])
@@ -155,20 +161,20 @@ def main():
     out = {
         "note": "calibrate_dg5f.py 자동 생성 — dg5f_angles.py가 임포트 시 읽음. "
                 "재보정하면 덮어써짐.",
-        "version": 2,  # v2: thumb_reach_ratio(직선 최대). v1의 thumb_chain_ratio(마디합)는 폐기.
-        "method": f"percentile {PCT_LO}/{PCT_HI} + human cap; thumb_reach p95",
+        "version": 3,  # v3: thumb_straight_ratio(직진도). v2 thumb_reach_ratio(직선/손길이)는 폐기.
+        "method": f"percentile {PCT_LO}/{PCT_HI} + human cap; thumb_straight p95",
         "created": time.strftime("%Y-%m-%d %H:%M"),
         "human_ranges": human_ranges,
     }
-    if len(reach_samples) >= 30:
-        out["thumb_reach_ratio"] = round(float(np.percentile(reach_samples, 95)), 4)
-        print(f"  thumb_reach_ratio = {out['thumb_reach_ratio']:.3f} "
-              f"(|엄지끝-CMC| 직선/손길이 p95, {len(reach_samples)}샘플)")
-        if out["thumb_reach_ratio"] < 0.85:
-            print("  ⚠️ thumb_reach_ratio가 0.85 미만 — 엄지를 충분히 안 편 것 같음. "
+    if len(straight_samples) >= 30:
+        out["thumb_straight_ratio"] = round(float(np.percentile(straight_samples, 95)), 4)
+        print(f"  thumb_straight_ratio = {out['thumb_straight_ratio']:.3f} "
+              f"(|엄지끝-CMC| 직선/마디합 p95, {len(straight_samples)}샘플)")
+        if out["thumb_straight_ratio"] < 0.90:
+            print("  ⚠️ thumb_straight_ratio가 0.90 미만 — 엄지를 충분히 안 편 것 같음. "
                   "'엄지 쭉 펴기' 동작을 포함해 재보정 권장.")
     else:
-        print("  ⚠️ thumb_reach_ratio 샘플 부족 — 런타임 기본값(1.0)으로 동작")
+        print(f"  ⚠️ thumb_straight_ratio 샘플 부족 — 런타임 기본값({0.97})으로 동작")
     with open("dg5f_calibration.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"[저장] dg5f_calibration.json + 원시 로그 {CSV_PATH}")

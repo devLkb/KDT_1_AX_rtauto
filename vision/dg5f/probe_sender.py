@@ -61,20 +61,21 @@ def main():
                 base = mirror_left(OK) if hand == "left" else OK
                 vals = base + [0.25, 0.55, 0.45, 1.0]
             elif mode == "tipfar":
-                # v3 리치 복원 검증(2026-07-15 기준 길이 재정의): 핀치 해제(끝거리비 0.8).
+                # v3 리치 복원 검증(§26 방향별 도달): 핀치 해제(끝거리비 0.8).
                 # 리치 크기 |(0.25,0.55,0.45)|≈0.75 = "펴짐 비율 75%" →
-                # 로봇 엄지 끝이 1_1에서 0.75×robotThumbMaxReach(=9.3cm) 지점에 수렴해야 함
+                # 로봇 엄지 끝이 가상앵커에서 0.75×(그 방향 테이블 최대도달) 지점에 수렴해야 함
                 base = mirror_left(OPEN) if hand == "left" else OPEN
                 vals = base + [0.25, 0.55, 0.45, 0.0, 0.8]
             elif mode == "tipmax":
-                # 펴짐 100%: |(0.30,0.36,0.88)|≈1.00 → 목표가 정확히 robotThumbMaxReach
-                # (=12.4cm) 구면 위에 찍혀야 함 (완료기준: 사람 100% 폄 = 로봇 도달 상한)
+                # 펴짐 100%: |(0.30,0.36,0.88)|≈1.00 → 목표가 그 방향 작업공간 경계에
+                # 찍히고 로봇 엄지가 그 방향으로 완전히 뻗어야 함(§26 완료기준:
+                # 사람 100% 폄 = 로봇 100% 폄. 시각 확인: 노란공이 완전 폄 팁 위치와 일치)
                 base = mirror_left(OPEN) if hand == "left" else OPEN
                 vals = base + [0.30, 0.36, 0.88, 0.0, 0.8]
             elif mode == "tipover":
                 # 계약 위반 패킷(|n|=1.4>1, 구버전 송신기/오보정 상황 재현) —
                 # Python은 송신 전 클램프하므로 정상 경로에선 안 나옴. Unity 쪽
-                # robotThumbMaxReach 구면 안전망이 12.4cm로 깎는지 검증용.
+                # 비율 1.0 재클램프 안전망이 경계 위로 깎는지 검증용(tipmax와 같은 지점).
                 base = mirror_left(OPEN) if hand == "left" else OPEN
                 vals = base + [0.42, 0.50, 1.21, 0.0, 0.8]
             else:  # cycle
