@@ -23,8 +23,13 @@ behaviors:
     checkpoint_interval: 500000
     max_steps: 5000000
     time_horizon: 128
-    summary_freq: 1000
-    threaded: true
+    # 20 agents advance together; print progress frequently enough that a
+    # CPU-heavy Unity collection phase does not look stalled.
+    summary_freq: 200
+    # torch.set_default_device() is thread-local in the ax310 PyTorch build.
+    # ML-Agents' background update thread otherwise creates CPU trajectory
+    # tensors while the policy/critic parameters are on CUDA.
+    threaded: false
 
 torch_settings:
-  device: cpu
+  device: cuda
