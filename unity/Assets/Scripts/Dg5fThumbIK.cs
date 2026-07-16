@@ -9,15 +9,17 @@
 // 자세 prior: 패킷의 엄지 관절각 4채널(IK 활성 시 유휴)을 2순위 목표로 —
 //     여유자유도(4DOF vs 위치 3D)가 사람과 다른 자세로 배회하는 것 방지.
 //
-// 해부학 좌표계(Python dg5f_angles.compute_thumb_tip과 계약, 2026-07-15 기준 길이 재정의):
+// 해부학 좌표계(Python dg5f_angles.compute_thumb_tip과 계약, 2026-07-15 §26 방향별 도달 재정의):
 //   축: ez=손목→중지MCP, ey=새끼MCP→검지MCP, ex=cross(ey,ez). 좌/우 모델 공통.
-//   값: 리치벡터 = (사람 엄지끝−엄지CMC) / 사람 엄지 "최대 도달거리"(쭉 편 직선, 보정 p95)
-//       = '펴짐 비율' 0~1 (Python이 송신 전 크기 1.0 클램프) → 여기서
-//       로봇 엄지 베이스(1_1 피벗) + 리치 × robotThumbMaxReach(로봇 실효 최대 도달)로 복원.
-//   왜(§24, 2026-07-15): 구버전 기준(마디합)은 사람 쪽 보정 ~17% 과소 + 로봇 쪽
-//       "마디합=도달거리" 가정 붕괴(1_2가 elevation ff 전담이라 실효 최대 84%)가 겹쳐
-//       목표가 상시 3~6cm 도달권 밖 → CCD 리밋사이클(떨림→정지)이 재발했었음.
-//       "최대 도달거리" 기준이면 사람 100% 폄 = 로봇 100% 폄으로 정의상 정렬.
+//   값: 리치벡터 = 방향(단위벡터) × '펴짐 비율'(0~1). 펴짐 비율 = 사람 엄지 직진도
+//       (|끝−CMC| 직선 ÷ 같은 프레임 마디합, Python이 1.0 클램프) → 여기서
+//       가상 앵커 + 방향 × 비율 × "그 방향 로봇 최대 도달거리"(Start에서 관절리밋
+//       FK 스윕으로 구운 방향별 테이블)로 복원.
+//   왜(§26, 2026-07-15): §25의 단일 스칼라(robotThumbMaxReach=0.124) 복원은
+//       ① 1_2를 CCD로 반환(§25-2-3)한 뒤 재측정 안 된 구정책 실측값이고
+//       ② 방향별 최대 도달이 체인의 77~100%로 변하는 걸 표현 못해 — 사람이 쭉 펴도
+//       목표가 로봇 완전 폄보다 안쪽(라이브 실측: |n|=1.0에서 1_3≈−40°로 굽힌 채 도달).
+//       방향별 테이블이면 사람 100% 폄 = 그 방향 작업공간 경계로 정의상 정렬.
 //   로봇 쪽 대응점: 손목=palm 링크 원점, 중지MCP=3_2, 검지MCP=2_2, 새끼MCP=5_3.
 //
 // 순차 CCD는 ArmTargetIK(§18)와 동일 패턴: 관절마다 예상 손끝을 회전 갱신,
@@ -40,7 +42,7 @@ public class Dg5fThumbIK : MonoBehaviour
     [Tooltip("핀치 스냅 시 검지 끝에서 이만큼 앞(접촉면)에 목표")]
     public float pinchOffset = 0.012f;
 
-    [Tooltip("로봇 엄지 실효 최대 도달거리(m): |tip−1_1 피벗| 직선 상한. 패킷의 '펴짐 비율'(0~1)에 이 값을 곱해 목표 복원 + 초과 리치 구면 클램프의 반경. ⚠️ 1_2(대향 롤)가 elevation 피드포워드 전담인 현 제어 정책에 종속된 실측값(1_2≈0~20°대의 상한, URDF FK 스윕+라이브 로그 §24) — CCD가 1_2를 쓰도록 정책을 바꾸면 재측정 필요(기하학적 최대는 1_2=90°에서 14.8cm)")]
+    [Tooltip("reachOffset의 거리 단위(m) + 방향별 도달 테이블 빌드 실패 시 폴백 반경. §26(2026-07-15)부터 목표 복원 스케일은 이 스칼라가 아니라 Start에서 FK 스윕으로 굽는 방향별 최대도달 테이블이 담당 — 이 값을 바꾸면 reachOffset의 실거리가 같이 변하므로(ICP 피팅이 이 단위로 저장됨) 0.124 유지")]
     public float robotThumbMaxReach = 0.124f;
 
     [Tooltip("가상 앵커 오프셋(해부학 축 정규화 단위, ×robotThumbMaxReach가 실거리): 사람 CMC와 로봇 1_1 피벗의 손바닥 대비 위치가 달라 명령 구름 전체가 작업공간에서 벗어나는 것을 평행이동으로 정합. DG5F 엄지 팁은 손바닥 법선(x)으로 최소 ~3cm 떠 있는데 사람 명령의 82%가 x<0.2라 오프셋 없이는 상시 도달 불가(2026-07-15 라이브 7,564명령 × URDF 작업공간 83k점 ICP 피팅 실측: 적용 시 작업공간 밖 89%→10%, 잔차 0.27cm). 왼손 모델 기준 측정 — 해부학 프레임이 좌우 대칭 정의라 우손도 동일 기대, 우손 사용 시 재검증 권장")]
@@ -139,6 +141,19 @@ public class Dg5fThumbIK : MonoBehaviour
     Vector3 _thumbBaseL, _exL, _eyL, _ezL; // palm 로컬: 엄지 베이스(1_1 피벗) + 해부학 축 (Start에서 캐시)
     float _robotChainLen;                   // 로봇 엄지 체인 길이 |1_1→1_2→1_3→1_4→tip| (강체 마디합 — 포즈 불변)
 
+    // ---- 방향별 최대도달 테이블 (§26, 2026-07-15) ----
+    // Start에서 엄지 4관절 리밋 박스를 FK 스윕(13^4≈2.9만 포즈)해 가상 앵커 기준
+    // "방향 → 그 방향 최대 |tip−앵커|"를 구·좌표 bin(방위36×고도18)에 max로 적층.
+    // 사람 펴짐 비율 1.0 = 그 방향 작업공간 경계 → 로봇도 완전히 뻗어야 도달.
+    // 단일 스칼라(구 robotThumbMaxReach 복원)는 방향별 도달 차(체인의 77~100%)를 못
+    // 표현해 어떤 방향에선 목표가 안쪽(로봇이 덜 뻗음)·다른 방향에선 도달권 밖이었음.
+    // ⚠️ 앵커(reachOffset) 기준으로 굽므로 Play 중 reachOffset을 바꾸면 테이블이 낡음.
+    const int FK_STEPS = 13;   // 관절당 샘플 수 — 13^4=28,561 포즈, Start에서 수십 ms
+    const int AZ_BINS = 36;    // 방위각(ey-ez 평면) 10°/bin
+    const int EL_BINS = 18;    // 고도각(손바닥 법선 ex 성분) 10°/bin
+    float[,] _reachTable;      // [az, el] = 방향별 최대 도달거리(m), 빈 bin은 이웃 max로 충전
+    Vector3 _virtualBaseL;     // palm 로컬 가상 앵커 = 1_1 피벗 + reachOffset×robotThumbMaxReach
+
     void Start()
     {
         _rx = GetComponent<Dg5fReceiver>();
@@ -189,8 +204,124 @@ public class Dg5fThumbIK : MonoBehaviour
             prev = _thumb[i].transform.position;
         }
         _robotChainLen += (_thumbTip.position - prev).magnitude;
+
+        _virtualBaseL = _thumbBaseL
+            + (_exL * reachOffset.x + _eyL * reachOffset.y + _ezL * reachOffset.z) * robotThumbMaxReach;
+        BuildReachTable();
+    }
+
+    // ---- 방향별 최대도달 테이블 빌드: rest 포즈(관절각 0) 기하를 palm 로컬로 캐시한 뒤
+    // 관절 리밋 박스를 FK 스윕. 회전은 원위(1_4)→근위(1_1) 순으로 적용 — 근위가 아직
+    // 안 돌았으므로 각 단계에서 rest 프레임의 피벗·축을 그대로 쓸 수 있다(§18 CCD와 동일 원리).
+    void BuildReachTable()
+    {
+        var pivL = new Vector3[4];
+        var axL = new Vector3[4];
+        var lo = new float[4];
+        var hi = new float[4];
+        for (int i = 0; i < 4; i++)
+        {
+            pivL[i] = _palm.InverseTransformPoint(_thumb[i].transform.position);
+            axL[i] = _palm.InverseTransformDirection(
+                _thumb[i].transform.rotation * _thumb[i].anchorRotation * Vector3.right);
+            lo[i] = _thumb[i].xDrive.lowerLimit;
+            hi[i] = _thumb[i].xDrive.upperLimit;
+        }
+        Vector3 tipL = _palm.InverseTransformPoint(_thumbTip.position);
+
+        var rot = new Quaternion[4, FK_STEPS];
+        for (int i = 0; i < 4; i++)
+            for (int s = 0; s < FK_STEPS; s++)
+                rot[i, s] = Quaternion.AngleAxis(
+                    Mathf.Lerp(lo[i], hi[i], s / (float)(FK_STEPS - 1)), axL[i]);
+
+        _reachTable = new float[AZ_BINS, EL_BINS];
+        for (int s0 = 0; s0 < FK_STEPS; s0++)
+        {
+            for (int s1 = 0; s1 < FK_STEPS; s1++)
+            {
+                for (int s2 = 0; s2 < FK_STEPS; s2++)
+                {
+                    // 1_4(원위)→1_2까지는 조합 공통 접두라 바깥 루프에서 재사용 불가한
+                    // 구조 대신 단순 4중 루프 — 2.9만 회 AngleAxis 곱은 Start 1회 비용으로 무시 가능
+                    for (int s3 = 0; s3 < FK_STEPS; s3++)
+                    {
+                        Vector3 p = pivL[3] + rot[3, s3] * (tipL - pivL[3]);
+                        p = pivL[2] + rot[2, s2] * (p - pivL[2]);
+                        p = pivL[1] + rot[1, s1] * (p - pivL[1]);
+                        p = pivL[0] + rot[0, s0] * (p - pivL[0]);
+                        Vector3 rel = p - _virtualBaseL;
+                        float r = rel.magnitude;
+                        if (r < 1e-6f) continue;
+                        Vector3 d = rel / r;
+                        DirToBin(Vector3.Dot(d, _exL), Vector3.Dot(d, _eyL), Vector3.Dot(d, _ezL),
+                                 out int ia, out int ie);
+                        if (r > _reachTable[ia, ie]) _reachTable[ia, ie] = r;
+                    }
+                }
+            }
+        }
+
+        // 빈 bin 충전(이웃 max 확산): 로봇이 못 가리키는 방향도 노이즈로 조회될 수 있어
+        // 가장 가까운 도달값을 준다 — 0이면 목표가 앵커로 붕괴해 엄지가 오므라듦.
+        bool holes = true;
+        for (int pass = 0; holes && pass < AZ_BINS + EL_BINS; pass++)
+        {
+            holes = false;
+            var src = (float[,])_reachTable.Clone();
+            for (int a = 0; a < AZ_BINS; a++)
+            {
+                for (int e = 0; e < EL_BINS; e++)
+                {
+                    if (src[a, e] > 0f) continue;
+                    float best = 0f;
+                    for (int da = -1; da <= 1; da++)
+                    {
+                        for (int de = -1; de <= 1; de++)
+                        {
+                            int na = (a + da + AZ_BINS) % AZ_BINS;             // 방위각 랩
+                            int ne = Mathf.Clamp(e + de, 0, EL_BINS - 1);      // 고도각 클램프
+                            if (src[na, ne] > best) best = src[na, ne];
+                        }
+                    }
+                    if (best > 0f) _reachTable[a, e] = best;
+                    else holes = true;
+                }
+            }
+        }
+
+        float rMin = float.PositiveInfinity, rMax = 0f;
+        foreach (float v in _reachTable) { if (v < rMin) rMin = v; if (v > rMax) rMax = v; }
         Debug.Log($"[Dg5fThumbIK] 준비 완료 — 마디합 {_robotChainLen * 100:F1}cm, "
-                  + $"실효 최대 도달(robotThumbMaxReach) {robotThumbMaxReach * 100:F1}cm");
+                  + $"방향별 최대도달 테이블 {rMin * 100:F1}~{rMax * 100:F1}cm "
+                  + $"(FK {FK_STEPS}^4 스윕, 앵커=1_1+offset)");
+    }
+
+    static void DirToBin(float dx, float dy, float dz, out int ia, out int ie)
+    {
+        float az = Mathf.Atan2(dy, dz);                          // ey-ez 평면 방위각
+        float el = Mathf.Asin(Mathf.Clamp(dx, -1f, 1f));         // 손바닥 법선(ex) 고도각
+        ia = Mathf.Clamp((int)((az + Mathf.PI) / (2f * Mathf.PI) * AZ_BINS), 0, AZ_BINS - 1);
+        ie = Mathf.Clamp((int)((el + Mathf.PI * 0.5f) / Mathf.PI * EL_BINS), 0, EL_BINS - 1);
+    }
+
+    // 방향(해부학 축 성분, 단위벡터) → 최대 도달거리. bin 경계 계단을 없애려 방위×고도 쌍선형 보간.
+    float ReachIn(Vector3 dirAnat)
+    {
+        if (_reachTable == null) return robotThumbMaxReach;
+        float az = Mathf.Atan2(dirAnat.y, dirAnat.z);
+        float el = Mathf.Asin(Mathf.Clamp(dirAnat.x, -1f, 1f));
+        float fa = (az + Mathf.PI) / (2f * Mathf.PI) * AZ_BINS - 0.5f;
+        float fe = (el + Mathf.PI * 0.5f) / Mathf.PI * EL_BINS - 0.5f;
+        int a0 = Mathf.FloorToInt(fa), e0 = Mathf.FloorToInt(fe);
+        float ta = fa - a0, te = fe - e0;
+        int a1 = (a0 + 1 + AZ_BINS * 2) % AZ_BINS;
+        a0 = (a0 + AZ_BINS * 2) % AZ_BINS;
+        int e1 = Mathf.Clamp(e0 + 1, 0, EL_BINS - 1);
+        e0 = Mathf.Clamp(e0, 0, EL_BINS - 1);
+        float r0 = Mathf.Lerp(_reachTable[a0, e0], _reachTable[a1, e0], ta);
+        float r1 = Mathf.Lerp(_reachTable[a0, e1], _reachTable[a1, e1], ta);
+        return Mathf.Lerp(r0, r1, te);
     }
 
     void FixedUpdate()
@@ -201,19 +332,23 @@ public class Dg5fThumbIK : MonoBehaviour
         if (_rx.secondsSinceLastPacket > 1.0f) { SetDebugMarkersVisible(false); return; }
         Active = true;
 
-        // 리치 복원(2026-07-15 기준 길이 재정의): '펴짐 비율'(0~1) × 로봇 실효 최대 도달거리.
-        // Python이 송신 전 크기 1.0으로 클램프하지만, 구버전 송신기/오보정 패킷 대비
-        // 여기서도 같은 반경으로 구면 클램프 — 목표가 도달 상한을 절대 못 넘게.
+        // 리치 복원(§26): 가상 앵커 + 방향 × 펴짐비율 × 그 방향 로봇 최대도달(FK 테이블).
+        // Python이 크기 1.0으로 클램프하지만 구버전 송신기/오보정 패킷 대비 여기서도
+        // 비율을 1.0으로 재클램프 — 목표가 그 방향 작업공간 경계를 절대 못 넘게.
         Vector3 exW = _palm.TransformDirection(_exL);
         Vector3 eyW = _palm.TransformDirection(_eyL);
         Vector3 ezW = _palm.TransformDirection(_ezL);
-        Vector3 reach = (exW * tipN.x + eyW * tipN.y + ezW * tipN.z) * robotThumbMaxReach;
-        if (reach.sqrMagnitude > robotThumbMaxReach * robotThumbMaxReach)
-            reach *= robotThumbMaxReach / reach.magnitude;
         // 가상 앵커: 1_1 피벗 + reachOffset — 사람/로봇 엄지 작업공간 정합용 평행이동(1단계, §25)
-        Vector3 virtualBase = _palm.TransformPoint(_thumbBaseL)
-            + (exW * reachOffset.x + eyW * reachOffset.y + ezW * reachOffset.z) * robotThumbMaxReach;
-        Vector3 anatomical = virtualBase + reach;
+        Vector3 virtualBase = _palm.TransformPoint(_virtualBaseL);
+        Vector3 anatomical = virtualBase;
+        float ext = tipN.magnitude;                    // 사람 엄지 펴짐 비율(직진도)
+        if (ext > 1e-5f)
+        {
+            Vector3 dirA = tipN / ext;                 // 해부학 축 성분 단위 방향
+            if (ext > 1f) ext = 1f;
+            Vector3 dirW = exW * dirA.x + eyW * dirA.y + ezW * dirA.z;
+            anatomical = virtualBase + dirW * (ext * ReachIn(dirA));
+        }
         Vector3 raw = anatomical;
         _pinchW = 0f;
         float pinchD = float.NaN; // v2 폴백이면 NaN 유지 (CSV 기록용)
@@ -376,17 +511,18 @@ public class Dg5fThumbIK : MonoBehaviour
             Debug.Log("[Dg5fThumbIK] 디버그 CSV 기록 시작: " + path);
         }
         Vector3 grn = _thumbTip.position;
-        // ach도 '펴짐 비율' 단위(1.0=robotThumbMaxReach), 기준점 = 가상 앵커(1_1+reachOffset)
+        // ach도 '펴짐 비율' 단위(§26: 1.0 = 그 방향 최대도달), 기준점 = 가상 앵커(1_1+reachOffset)
         // — 패킷 n_*과 같은 원점·같은 스케일이라 축별 직접 비교(corr/bias) 유지
         Vector3 exW2 = _palm.TransformDirection(_exL);
         Vector3 eyW2 = _palm.TransformDirection(_eyL);
         Vector3 ezW2 = _palm.TransformDirection(_ezL);
-        Vector3 relW = grn - _palm.TransformPoint(_thumbBaseL)
-            - (exW2 * reachOffset.x + eyW2 * reachOffset.y + ezW2 * reachOffset.z) * robotThumbMaxReach;
-        Vector3 ach = new Vector3(
+        Vector3 relW = grn - _palm.TransformPoint(_virtualBaseL);
+        Vector3 relA = new Vector3(
             Vector3.Dot(relW, exW2),
             Vector3.Dot(relW, eyW2),
-            Vector3.Dot(relW, ezW2)) / robotThumbMaxReach;
+            Vector3.Dot(relW, ezW2));
+        float relR = relA.magnitude;
+        Vector3 ach = relR > 1e-6f ? relA / ReachIn(relA / relR) : Vector3.zero;
 
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         double t = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
