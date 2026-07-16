@@ -11,8 +11,16 @@ unity/*.sln
 
 # Python
 venv/
+.venv/
+vision/.vision/
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
+
+# 로컬 환경변수·비밀값 (공유 가능한 예제 파일만 허용)
+.env
+.env.*
+!.env.example
 
 # 런타임 로그·산출물 (스크립트가 실행마다 생성)
 vision/**/*.csv
@@ -24,6 +32,18 @@ vision/**/calib_log_*.csv
 training/results/
 training/builds/
 unity/Assets/MLAgents/Grasp/Models/*.onnx
+
+# 로컬 배포 압축본·편집기 백업
+/*.tar.gz
+/*.tgz
+/*.zip
+*.backup
+*.bak
+*~
+
+# 네이티브 crash dump
+core
+core.*
 
 # OS
 Thumbs.db
