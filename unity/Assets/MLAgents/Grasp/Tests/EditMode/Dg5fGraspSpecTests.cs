@@ -8,7 +8,7 @@ namespace KDT.GraspTraining.Tests
         [Test]
         public void V1KeepsTheForwardCompatiblePolicyShape()
         {
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.0.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
             Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
@@ -45,27 +45,32 @@ namespace KDT.GraspTraining.Tests
         }
 
         [Test]
-        public void V1SpawnIsAreaUniformAndCenteredOnTheInitialGraspDirection()
+        public void V1SpawnIsAreaUniformAcrossAllCardinalDirections()
         {
             const float ballRadius = 0.02f;
+            Assert.That(Dg5fGraspSpec.V1MinimumSpawnRadius, Is.EqualTo(0.35f));
+            Assert.That(Dg5fGraspSpec.V1MaximumSpawnRadius, Is.EqualTo(0.70f));
             Assert.That(Dg5fGraspSpec.AreaUniformRadius(0f),
                 Is.EqualTo(Dg5fGraspSpec.V1MinimumSpawnRadius).Within(1e-6f));
             Assert.That(Dg5fGraspSpec.AreaUniformRadius(1f),
                 Is.EqualTo(Dg5fGraspSpec.V1MaximumSpawnRadius).Within(1e-6f));
 
-            Vector3 left = Dg5fGraspSpec.SpawnBallLocalPosition(0f, 0f, ballRadius, 90f);
-            Vector3 center = Dg5fGraspSpec.SpawnBallLocalPosition(1f, 0.5f, ballRadius, 90f);
-            Vector3 right = Dg5fGraspSpec.SpawnBallLocalPosition(0f, 1f, ballRadius, 90f);
+            Vector3 east = Dg5fGraspSpec.SpawnBallLocalPosition(0f, 0f, ballRadius);
+            Vector3 north = Dg5fGraspSpec.SpawnBallLocalPosition(0.25f, 0.25f, ballRadius);
+            Vector3 west = Dg5fGraspSpec.SpawnBallLocalPosition(0.5f, 0.5f, ballRadius);
+            Vector3 south = Dg5fGraspSpec.SpawnBallLocalPosition(1f, 0.75f, ballRadius);
 
-            Assert.That(Azimuth(left), Is.EqualTo(75f).Within(1e-3f));
-            Assert.That(Azimuth(center), Is.EqualTo(90f).Within(1e-3f));
-            Assert.That(Azimuth(right), Is.EqualTo(105f).Within(1e-3f));
-            Assert.That(new Vector2(center.x, center.z).magnitude,
+            Assert.That(Azimuth(east), Is.EqualTo(0f).Within(1e-3f));
+            Assert.That(Azimuth(north), Is.EqualTo(90f).Within(1e-3f));
+            Assert.That(Mathf.Abs(Azimuth(west)), Is.EqualTo(180f).Within(1e-3f));
+            Assert.That(Azimuth(south), Is.EqualTo(-90f).Within(1e-3f));
+            Assert.That(new Vector2(south.x, south.z).magnitude,
                 Is.EqualTo(Dg5fGraspSpec.V1MaximumSpawnRadius).Within(1e-6f));
-            Assert.That(left.y, Is.EqualTo(Dg5fGraspSpec.SupportTopHeight + ballRadius));
-            Assert.That(Dg5fGraspSpec.IsValidSpawn(left, ballRadius), Is.True);
-            Assert.That(Dg5fGraspSpec.IsValidSpawn(center, ballRadius), Is.True);
-            Assert.That(Dg5fGraspSpec.IsValidSpawn(right, ballRadius), Is.True);
+            Assert.That(east.y, Is.EqualTo(Dg5fGraspSpec.SupportTopHeight + ballRadius));
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(east, ballRadius), Is.True);
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(north, ballRadius), Is.True);
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(west, ballRadius), Is.True);
+            Assert.That(Dg5fGraspSpec.IsValidSpawn(south, ballRadius), Is.True);
         }
 
         [Test]

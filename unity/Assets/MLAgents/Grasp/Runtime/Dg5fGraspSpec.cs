@@ -9,7 +9,7 @@ namespace KDT.GraspTraining
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "1.0.0";
+        public const string SpecVersion = "1.2.0";
         public const string BehaviorName = "DG5FGrasp";
         public const int ObservationSize = 57;
         public const int ActionSize = 7;
@@ -23,9 +23,8 @@ namespace KDT.GraspTraining
         public const float ApproachSuccessDistance = 0.05f;
         public const float ApproachSuccessReward = 1f;
 
-        public const float V1MinimumSpawnRadius = 0.25f;
-        public const float V1MaximumSpawnRadius = 0.35f;
-        public const float V1SpawnHalfAngleDegrees = 15f;
+        public const float V1MinimumSpawnRadius = 0.35f;
+        public const float V1MaximumSpawnRadius = 0.70f;
         public const float SupportTopHeight = 0f;
         public const float PanelWidth = 1.80f;
         public const float PanelDepth = 1.80f;
@@ -105,15 +104,10 @@ namespace KDT.GraspTraining
         public static Vector3 SpawnBallLocalPosition(
             float radiusUnitSample,
             float azimuthUnitSample,
-            float ballRadius,
-            float centerAzimuthDegrees)
+            float ballRadius)
         {
             float horizontalRadius = AreaUniformRadius(radiusUnitSample);
-            float offsetDegrees = Mathf.Lerp(
-                -V1SpawnHalfAngleDegrees,
-                V1SpawnHalfAngleDegrees,
-                Mathf.Clamp01(azimuthUnitSample));
-            float azimuth = (centerAzimuthDegrees + offsetDegrees) * Mathf.Deg2Rad;
+            float azimuth = Mathf.Clamp01(azimuthUnitSample) * 2f * Mathf.PI;
             return new Vector3(
                 Mathf.Cos(azimuth) * horizontalRadius,
                 SupportTopHeight + Mathf.Max(0f, ballRadius),

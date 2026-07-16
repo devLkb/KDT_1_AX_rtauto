@@ -217,13 +217,10 @@ namespace KDT.GraspTraining
             if (ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = ballCollider.bounds.extents.y;
-            Vector3 localGraspPoint = robotBase.InverseTransformPoint(graspPoint.position);
-            float centerAzimuthDegrees = Mathf.Atan2(localGraspPoint.z, localGraspPoint.x) * Mathf.Rad2Deg;
             Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
                 Next01(),
                 Next01(),
-                ballRadius,
-                centerAzimuthDegrees);
+                ballRadius);
             if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
                 throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
 

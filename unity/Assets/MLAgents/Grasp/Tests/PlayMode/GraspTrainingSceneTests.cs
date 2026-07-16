@@ -81,7 +81,7 @@ namespace KDT.GraspTraining.PlayModeTests
             Assert.That(ballColor.g, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(ballColor.b, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(agent.contactSensors, Has.Length.EqualTo(Dg5fGraspSpec.FingerCount));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.0.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(agent.MaxStep, Is.Zero, "v1 measures timeout in simulation time.");
 

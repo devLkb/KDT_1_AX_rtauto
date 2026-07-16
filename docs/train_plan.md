@@ -70,7 +70,7 @@ success_bonus = +1.0
 - 성공: 거리 `<= 0.05m`
 - 종료: 성공, 20초 timeout, 공 workspace 이탈, non-finite physics
 - timeout과 안전 종료에는 추가 shaped reward를 넣지 않는다.
-- 시작 공 위치: 초기 GraspPoint 방향 기준 `±15°`, 반경 `0.25..0.35m`
+- 시작 공 위치: robot-base 기준 전 방위 `0..360°`, 면적 균등 반경 `0.35..0.70m`
 
 ### v1 승급 기준
 
