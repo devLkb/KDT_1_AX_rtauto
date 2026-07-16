@@ -1,15 +1,28 @@
-// Dg5fThumbIK.cs
-// 엄지 손끝 위치 리타게팅: v2 패킷의 "사람 엄지끝 위치(손바닥 해부학 좌표, 정규화)"를
-// 로봇 치수로 복원해 엄지 4관절(1_1~1_4)을 순차 CCD로 그 위치에 보낸다.
+// Dg5fFingerIK.cs  (2026-07-16 Dg5fThumbIK에서 개명 — 파일+.meta 동시 rename으로 GUID 보존)
+// 손끝 위치 리타게팅: 패킷의 "사람 손끝 위치(손바닥 해부학 좌표, 정규화)"를 로봇 치수로
+// 복원해 그 손가락 4관절(f_1~f_4)을 순차 CCD로 그 위치에 보낸다.
 //
-// 왜: 채널별 선형 매핑은 엄지의 결합 운동(대향×굽힘×접기)을 재현 못함 —
+// **손가락 무관 단일 컴포넌트** — fingerIndex(1=엄지 … 5=새끼)만 다르게 해서 한 GameObject에
+// 여러 개 붙인다. 상속 계층을 두지 않는 근거(2026-07-16 URDF 실측):
+//   ① 다섯 손가락 전부 palm→f_1→f_2→f_3→f_4→f_tip 로 위상이 동일(revolute 4 + fixed 팁)
+//   ② 축·리밋은 손가락마다 다르지만 CCD가 anchorRotation에서 **런타임에 읽고**, 도달 테이블도
+//      xDrive 리밋을 Start에서 읽어 굽는다 → 하드코딩 없음
+//   ③ 새끼(5_1 손바닥접기·5_2 측면기울임)처럼 관절 의미가 특이해도 IK는 의미를 몰라도 됨 —
+//      각도 방식이 못 써서 게이트한 관절이 IK에선 그냥 여분 자유도가 된다
+//   ④ 손가락 전용 로직은 핀치 블렌딩(엄지 전용) 하나뿐 — 자식 클래스를 만들면 검지·중지·
+//      약지·새끼가 전부 빈 껍데기가 된다
+// 손가락별 차이는 전부 인스펙터 값: fingerIndex / reachOffset / priorWeights / enablePinchBlend.
+//
+// 왜 IK인가: 채널별 선형 매핑은 엄지의 결합 운동(대향×굽힘×접기)을 재현 못함 —
 //     OK 사인 끝 맞닿기, 손바닥 안으로 접기 같은 건 손끝 "위치"가 목표여야 한다.
 // 핀치: 사람 엄지-검지 끝거리비(v3)에 따라 해부학 목표↔로봇 검지 끝을 연속 블렌딩 —
 //     비율 차이와 무관하게 접촉을 보장하면서 임계 근처 목표 점프 없음. v2는 이진 스냅 폴백.
-// 자세 prior: 패킷의 엄지 관절각 4채널(IK 활성 시 유휴)을 2순위 목표로 —
+//     **엄지(fingerIndex=1) 전용** — 다른 손가락은 대상(_indexTip)을 안 잡아 자동 무효.
+// 자세 prior: 패킷의 그 손가락 관절각 4채널(IK 활성 시 유휴)을 2순위 목표로 —
 //     여유자유도(4DOF vs 위치 3D)가 사람과 다른 자세로 배회하는 것 방지.
 //
-// 해부학 좌표계(Python dg5f_angles.compute_thumb_tip과 계약, 2026-07-15 §26 방향별 도달 재정의):
+// 해부학 좌표계(Python dg5f_angles.compute_thumb_tip/compute_finger_tips와 계약,
+//              2026-07-15 §26 방향별 도달 재정의):
 //   축: ez=손목→중지MCP, ey=새끼MCP→검지MCP, ex=cross(ey,ez). 좌/우 모델 공통.
 //   값: 리치벡터 = 방향(단위벡터) × '펴짐 비율'(0~1). 펴짐 비율 = 사람 엄지 직진도
 //       (|끝−CMC| 직선 ÷ 같은 프레임 마디합, Python이 1.0 클램프) → 여기서
@@ -23,14 +36,19 @@
 //   로봇 쪽 대응점: 손목=palm 링크 원점, 중지MCP=3_2, 검지MCP=2_2, 새끼MCP=5_3.
 //
 // 순차 CCD는 ArmTargetIK(§18)와 동일 패턴: 관절마다 예상 손끝을 회전 갱신,
-// 스텝 제한(오차 비례 연속 감쇠) + 리밋 클램프. 활성 시 Dg5fHandDriver가 엄지 채널 주입을 건너뜀.
+// 스텝 제한(오차 비례 연속 감쇠) + 리밋 클램프. 활성 시 Dg5fHandDriver가 그 손가락 채널 주입을 건너뜀.
 
 using UnityEngine;
 
 [RequireComponent(typeof(Dg5fReceiver))]
-public class Dg5fThumbIK : MonoBehaviour
+public class Dg5fFingerIK : MonoBehaviour
 {
-    [Tooltip("끄면 엄지도 관절각 채널(레거시)로 구동")]
+    [Tooltip("어느 손가락인가 — 1=엄지 2=검지 3=중지 4=약지 5=새끼. 관절 탐색(_dg_<이 번호>_*)과 "
+             + "prior 채널 오프셋((n-1)*4)에만 쓰인다. 한 GameObject에 손가락별로 여러 개 붙일 것")]
+    [Range(1, 5)]
+    public int fingerIndex = 1;
+
+    [Tooltip("끄면 이 손가락도 관절각 채널(레거시)로 구동 — 각도 방식은 항상 패킷에 흐르므로 즉시 폴백된다")]
     public bool enableIK = true;
 
     [Tooltip("관절당 스텝 제한(도/FixedUpdate). §25-4 리플레이 A/B(2026-07-15): 1.5×2iter(150°/s)는 비전 노이즈를 ×21 증폭(추격·오버슈트) — 0.8×1iter(40°/s)로 떨림 1/10 + 오차 절반(1.50→0.70cm). 엄지가 굼뜨면 1.0~1.2로 (iterations는 1 유지)")]
@@ -38,6 +56,10 @@ public class Dg5fThumbIK : MonoBehaviour
 
     [Tooltip("CCD 반복 횟수/FixedUpdate — §25-4: 1 초과는 노이즈 증폭에 가담(실효 슬루가 배수로 늘어남)")]
     public int iterations = 1;
+
+    [Tooltip("엄지-검지 핀치 접촉 블렌딩 — **엄지(fingerIndex=1) 전용**. 다른 손가락은 이 값과 "
+             + "무관하게 대상(_indexTip)을 안 잡아 자동 무효(자기 자신을 목표로 삼는 사고 방지)")]
+    public bool enablePinchBlend = true;
 
     [Tooltip("핀치 스냅 시 검지 끝에서 이만큼 앞(접촉면)에 목표")]
     public float pinchOffset = 0.012f;
@@ -114,6 +136,9 @@ public class Dg5fThumbIK : MonoBehaviour
 
     public bool Active { get; private set; }
 
+    /// 이번 틱 CCD가 쫓는 목표(월드, 스무딩 후). 핀치 상대가 참조한다 — Active일 때만 유효.
+    public Vector3 CurrentTarget { get; private set; }
+
     Vector3 _smoothedTarget;
     bool _hasSmoothed;
     float _pinchW; // 이번 틱 핀치 블렌딩 가중(0~1) — prior 약화에 사용
@@ -136,6 +161,7 @@ public class Dg5fThumbIK : MonoBehaviour
     Vector3 _armedTarget;
 
     Dg5fReceiver _rx;
+    Dg5fFingerIK _indexIK;          // 엄지 전용: 검지가 IK 구동 중이면 그 '목표'를 핀치 기준점으로
     ArticulationBody[] _thumb;      // 1_1..1_4
     Transform _thumbTip, _indexTip, _palm;
     Vector3 _thumbBaseL, _exL, _eyL, _ezL; // palm 로컬: 엄지 베이스(1_1 피벗) + 해부학 축 (Start에서 캐시)
@@ -158,29 +184,37 @@ public class Dg5fThumbIK : MonoBehaviour
     {
         _rx = GetComponent<Dg5fReceiver>();
         _thumb = new ArticulationBody[4];
-        Transform midMcp = null, idxMcp = null, pinkyMcp = null;
+        fingerIndex = Mathf.Clamp(fingerIndex, 1, 5);
+        char fc = (char)('0' + fingerIndex);           // 이 손가락의 관절/링크 이름 문자
+        // 해부학 축(midMcp/idxMcp/pinkyMcp)은 **손 전체** 프레임이라 손가락 무관하게 전부 필요.
+        Transform midMcp = null, idxMcp = null, pinkyMcp = null, idxTipCand = null;
         foreach (var t in GetComponentsInChildren<Transform>())
         {
             string n = t.name;
             if (n.EndsWith("_dg_palm")) _palm = t;
-            else if (n.EndsWith("_dg_1_tip")) _thumbTip = t;
-            else if (n.EndsWith("_dg_2_tip")) _indexTip = t;
+            else if (n.EndsWith("_dg_" + fc + "_tip")) _thumbTip = t;
+            else if (n.EndsWith("_dg_2_tip")) idxTipCand = t;
             else if (n.EndsWith("_dg_3_2")) midMcp = t;
             else if (n.EndsWith("_dg_2_2")) idxMcp = t;
             else if (n.EndsWith("_dg_5_3")) pinkyMcp = t;
         }
+        // 핀치 대상은 엄지만 잡는다 — 검지 IK가 자기 끝을 목표로 삼는 사고 방지
+        _indexTip = (fingerIndex == 1 && enablePinchBlend) ? idxTipCand : null;
+        if (_indexTip != null)
+            foreach (var o in GetComponents<Dg5fFingerIK>())
+                if (o != this && o.fingerIndex == 2) { _indexIK = o; break; }
         foreach (var ab in GetComponentsInChildren<ArticulationBody>())
         {
             if (ab.jointType != ArticulationJointType.RevoluteJoint) continue;
             int k = ab.name.IndexOf("_dg_");
             if (k < 0) continue; // 결합 로봇의 팔 관절 제외
             string s = ab.name.Substring(k + 4);
-            if (s[0] == '1') _thumb[s[2] - '1'] = ab;
+            if (s[0] == fc) _thumb[s[2] - '1'] = ab;
         }
         if (_palm == null || midMcp == null || idxMcp == null || pinkyMcp == null || _thumbTip == null
             || _thumb[0] == null || _thumb[1] == null || _thumb[2] == null || _thumb[3] == null)
         {
-            Debug.LogError("[Dg5fThumbIK] 기준 링크를 못 찾음 — 비활성화");
+            Debug.LogError("[Dg5fFingerIK f" + fingerIndex + "] 기준 링크를 못 찾음 — 비활성화");
             enableIK = false;
             return;
         }
@@ -292,9 +326,9 @@ public class Dg5fThumbIK : MonoBehaviour
 
         float rMin = float.PositiveInfinity, rMax = 0f;
         foreach (float v in _reachTable) { if (v < rMin) rMin = v; if (v > rMax) rMax = v; }
-        Debug.Log($"[Dg5fThumbIK] 준비 완료 — 마디합 {_robotChainLen * 100:F1}cm, "
+        Debug.Log($"[Dg5fFingerIK f{fingerIndex}] 준비 완료 — 마디합 {_robotChainLen * 100:F1}cm, "
                   + $"방향별 최대도달 테이블 {rMin * 100:F1}~{rMax * 100:F1}cm "
-                  + $"(FK {FK_STEPS}^4 스윕, 앵커=1_1+offset)");
+                  + $"(FK {FK_STEPS}^4 스윕, 앵커={fingerIndex}_1+offset)");
     }
 
     static void DirToBin(float dx, float dy, float dz, out int ia, out int ie)
@@ -328,9 +362,12 @@ public class Dg5fThumbIK : MonoBehaviour
     {
         Active = false;
         if (!enableIK || _rx == null || _thumb[0] == null) { SetDebugMarkersVisible(false); return; }
-        if (!_rx.GetThumbTip(out Vector3 tipN, out bool pinch)) { SetDebugMarkersVisible(false); return; }
+        // 이 손가락 리치벡터 미수신(구 송신기 등) → Active=false로 두어 드라이버가 각도 방식으로 구동
+        if (!_rx.GetFingerTip(fingerIndex, out Vector3 tipN)) { SetDebugMarkersVisible(false); return; }
         if (_rx.secondsSinceLastPacket > 1.0f) { SetDebugMarkersVisible(false); return; }
         Active = true;
+        bool pinch = false;
+        if (_indexTip != null) _rx.GetThumbTip(out _, out pinch);   // v2 이진 핀치 폴백 플래그(엄지만)
 
         // 리치 복원(§26): 가상 앵커 + 방향 × 펴짐비율 × 그 방향 로봇 최대도달(FK 테이블).
         // Python이 크기 1.0으로 클램프하지만 구버전 송신기/오보정 패킷 대비 여기서도
@@ -356,8 +393,19 @@ public class Dg5fThumbIK : MonoBehaviour
         {
             // 스냅 목표(로봇 검지 끝 + 접촉 오프셋)와 해부학 목표를 끝거리비로 연속 블렌딩.
             // v3 미수신(구버전 vision_node)이면 기존 이진 핀치 플래그로 폴백 — 목표 점프 감수.
-            Vector3 snap = _indexTip.position
-                           + (_thumbTip.position - _indexTip.position).normalized * pinchOffset;
+            //
+            // 기준점: 검지가 **IK 구동 중이면 검지의 목표**, 각도 구동이면 현재 위치.
+            // 왜(2026-07-16 라이브 실측, 검지 IK 도입 후 "OK 사인에서 두 손끝이 서로 뚫고 들어감"):
+            //   검지 IK는 자기 해부학 목표로 계속 전진 중(핀치 구간 err 0.91cm)이라, 검지의
+            //   **현재 위치**에서 pinchOffset을 띄우면 검지가 그 간격을 먹으며 밀고 들어온다
+            //   — 실측 목표간 최소 0.27cm ≈ 1.20(offset) − 0.91(검지 잔여오차). 검지의 도착점을
+            //   기준으로 잡으면 표적이 고정돼 두 끝이 접촉 거리에서 만난다.
+            //   검지가 각도 구동이면 현재 위치가 곧 도착점이라 기존 동작 그대로(하위호환).
+            // ⚠️ 두 컴포넌트가 같은 FixedUpdate라 실행 순서에 따라 최대 1틱(20ms) 묵은 목표를
+            //    읽을 수 있다 — targetLerp=6으로 스무딩된 값이라 무해.
+            Vector3 idxRef = (_indexIK != null && _indexIK.Active)
+                             ? _indexIK.CurrentTarget : _indexTip.position;
+            Vector3 snap = idxRef + (_thumbTip.position - idxRef).normalized * pinchOffset;
             bool hasPinchD = _rx.GetPinchDistance(out pinchD);
             if (!hasPinchD) pinchD = float.NaN;
             _pinchW = hasPinchD
@@ -371,6 +419,7 @@ public class Dg5fThumbIK : MonoBehaviour
         float kT = 1f - Mathf.Exp(-targetLerp * Time.fixedDeltaTime);
         _smoothedTarget = Vector3.Lerp(_smoothedTarget, raw, kT);
         Vector3 target = _smoothedTarget;
+        CurrentTarget = target;   // 핀치 상대(엄지)가 이 값을 기준점으로 읽는다
 
         UpdateDebugMarkers(anatomical, target);
 
@@ -428,22 +477,24 @@ public class Dg5fThumbIK : MonoBehaviour
         bool hasAngles = _rx.GetAngles(_priorAngles);
 
         // prior 각도 스무딩 — 원시 채널 노이즈가 틱 단위로 관절을 흔들지 않게 (§25-4)
+        // 채널 오프셋: 패킷은 [0..3]엄지 [4..7]검지 [8..11]중지 [12..15]약지 [16..19]새끼
+        int ch0 = (fingerIndex - 1) * 4;
         if (hasAngles)
         {
             if (!_priorSmoothedInit)
             {
-                for (int i = 0; i < 4; i++) _priorSmoothed[i] = _priorAngles[i];
+                for (int i = 0; i < 4; i++) _priorSmoothed[i] = _priorAngles[ch0 + i];
                 _priorSmoothedInit = true;
             }
             else if (priorAngleLerp > 0f)
             {
                 float kA = 1f - Mathf.Exp(-priorAngleLerp * Time.fixedDeltaTime);
                 for (int i = 0; i < 4; i++)
-                    _priorSmoothed[i] = Mathf.Lerp(_priorSmoothed[i], _priorAngles[i], kA);
+                    _priorSmoothed[i] = Mathf.Lerp(_priorSmoothed[i], _priorAngles[ch0 + i], kA);
             }
             else
             {
-                for (int i = 0; i < 4; i++) _priorSmoothed[i] = _priorAngles[i];
+                for (int i = 0; i < 4; i++) _priorSmoothed[i] = _priorAngles[ch0 + i];
             }
         }
 
@@ -499,16 +550,19 @@ public class Dg5fThumbIK : MonoBehaviour
     {
         if (_logW == null)
         {
-            string dir = System.IO.Path.Combine(Application.dataPath, "../Logs");
-            System.IO.Directory.CreateDirectory(dir);
-            string path = System.IO.Path.Combine(dir,
-                "thumbik_" + System.DateTime.Now.ToString("yyyyMMdd_HHmm") + ".csv");
-            _logW = new System.IO.StreamWriter(path, false, System.Text.Encoding.UTF8);
+            // 엄지는 기존 이름 유지(analyze_thumbik.py·기존 로그와 호환), 나머지는 손가락 태그로 분리.
+            // 경로·중복 회피 규칙은 Dg5fLogFile이 소유 — 초 단위 + 접미사라 덮어쓰기 불가.
+            string tag = fingerIndex == 1 ? "thumbik" : ("fingerik_f" + fingerIndex);
+            _logW = Dg5fLogFile.Create(tag, out string path);
+            // 관절 컬럼명은 fingerIndex 기준 — 하드코딩하면 검지 CSV가 tgt_1_*로 찍혀 오독된다
+            // (엄지는 f=1이라 기존 헤더와 동일 → analyze_thumbik.py·기존 로그 호환 유지).
+            string jc = "";
+            for (int i = 1; i <= 4; i++) jc += ",tgt_" + fingerIndex + "_" + i;
+            for (int i = 1; i <= 4; i++) jc += ",act_" + fingerIndex + "_" + i;
             _logW.WriteLine("t_unix,n_x,n_y,n_z,pinch_d,pinch_w,"
                 + "yel_x,yel_y,yel_z,red_x,red_y,red_z,grn_x,grn_y,grn_z,"
-                + "ach_x,ach_y,ach_z,err_red,err_yel,stall_scale,step_cap,"
-                + "tgt_1_1,tgt_1_2,tgt_1_3,tgt_1_4,act_1_1,act_1_2,act_1_3,act_1_4");
-            Debug.Log("[Dg5fThumbIK] 디버그 CSV 기록 시작: " + path);
+                + "ach_x,ach_y,ach_z,err_red,err_yel,stall_scale,step_cap" + jc);
+            Debug.Log("[Dg5fFingerIK f" + fingerIndex + "] 디버그 CSV 기록 시작: " + path);
         }
         Vector3 grn = _thumbTip.position;
         // ach도 '펴짐 비율' 단위(§26: 1.0 = 그 방향 최대도달), 기준점 = 가상 앵커(1_1+reachOffset)
@@ -573,9 +627,10 @@ public class Dg5fThumbIK : MonoBehaviour
         if (!debugShowTip) { SetDebugMarkersVisible(false); return; }
         if (_dbgRaw == null)
         {
-            _dbgRaw = MakeMarker("DBG_ThumbTip_UDP (yellow)", Color.yellow, debugSphereSize);
-            _dbgTarget = MakeMarker("DBG_ThumbTip_CCDTarget (red)", Color.red, debugSphereSize);
-            _dbgTip = MakeMarker("DBG_ThumbTip_Robot (green)", Color.green, debugSphereSize * 0.8f);
+            string f = "f" + fingerIndex;
+            _dbgRaw = MakeMarker("DBG_" + f + "Tip_UDP (yellow)", Color.yellow, debugSphereSize);
+            _dbgTarget = MakeMarker("DBG_" + f + "Tip_CCDTarget (red)", Color.red, debugSphereSize);
+            _dbgTip = MakeMarker("DBG_" + f + "Tip_Robot (green)", Color.green, debugSphereSize * 0.8f);
         }
         SetDebugMarkersVisible(true);
         _dbgRaw.position = rawUdp;         // UDP 수신 복원 목표 (핀치 블렌딩 전)

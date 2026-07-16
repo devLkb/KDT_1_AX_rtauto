@@ -26,7 +26,10 @@ public class Dg5fHandDriver : MonoBehaviour
     public float staleTimeout = 1.0f;
 
     Dg5fReceiver _receiver;
-    Dg5fThumbIK _thumbIK;                // 있으면 활성 시 엄지 4채널은 IK가 담당
+    // 손가락별 IK — 활성인 손가락의 4채널은 그 IK가 담당하고 여기선 주입을 건너뛴다.
+    // (같은 GameObject에 fingerIndex만 다르게 여러 개 붙는다. 없거나 비활성이면 각도 방식.)
+    Dg5fFingerIK[] _fingerIKs;
+    readonly bool[] _ikOwned = new bool[5];   // [손가락-1] = 이번 틱에 IK가 구동 중인가
     ArticulationBody[] _joints;          // 패킷 인덱스 순서
     readonly float[] _angles = new float[Dg5fReceiver.ChannelCount];
     readonly float[] _smoothed = new float[Dg5fReceiver.ChannelCount];
@@ -35,7 +38,7 @@ public class Dg5fHandDriver : MonoBehaviour
     void Start()
     {
         _receiver = GetComponent<Dg5fReceiver>();
-        _thumbIK = GetComponent<Dg5fThumbIK>();
+        _fingerIKs = GetComponents<Dg5fFingerIK>();
         _joints = new ArticulationBody[Dg5fReceiver.ChannelCount];
 
         var bySuffix = new Dictionary<string, ArticulationBody>();
@@ -78,10 +81,16 @@ public class Dg5fHandDriver : MonoBehaviour
         }
 
         float k = 1f - Mathf.Exp(-lerpSpeed * Time.fixedDeltaTime);
-        bool thumbByIK = _thumbIK != null && _thumbIK.Active;
+        // IK가 맡은 손가락 갱신 — Active는 IK가 매 틱 스스로 판정(패킷에 그 손가락 리치벡터가
+        // 실제로 오는지까지 반영)하므로, 송신기가 구버전이면 자동으로 각도 방식이 살아난다.
+        for (int f = 0; f < _ikOwned.Length; f++) _ikOwned[f] = false;
+        if (_fingerIKs != null)
+            foreach (var ik in _fingerIKs)
+                if (ik != null && ik.Active && ik.fingerIndex >= 1 && ik.fingerIndex <= _ikOwned.Length)
+                    _ikOwned[ik.fingerIndex - 1] = true;
         for (int i = 0; i < _joints.Length; i++)
         {
-            if (thumbByIK && i < 4) continue; // 엄지 1_1~1_4는 Dg5fThumbIK가 구동
+            if (_ikOwned[i / 4]) continue; // 이 손가락 4채널은 Dg5fFingerIK가 구동
             var ab = _joints[i];
             if (ab == null) continue;
             var d = ab.xDrive;

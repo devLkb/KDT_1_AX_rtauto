@@ -634,6 +634,7 @@ GameObject:
   - component: {fileID: 8474401730388956802}
   - component: {fileID: 9182402095556078249}
   - component: {fileID: 2243244832484548650}
+  - component: {fileID: 3650474563495772501}
   m_Layer: 0
   m_Name: ur5e_dg5f_left
   m_TagString: robot
@@ -739,9 +740,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ec6df08c4003d429fa1705a3058e2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fThumbIK
+  fingerIndex: 1
   enableIK: 1
   maxStepDeg: 0.8
   iterations: 1
+  enablePinchBlend: 1
   pinchOffset: 0.012
   robotThumbMaxReach: 0.124
   reachOffset: {x: 0.174, y: -0.038, z: -0.092}
@@ -903,6 +906,47 @@ MonoBehaviour:
   reachMargin: 0.88
   stallFreezeSec: 1.5
   stallResumeMove: 0.03
+--- !u!114 &3650474563495772501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242101941935620750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9ec6df08c4003d429fa1705a3058e2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Dg5fFingerIK
+  fingerIndex: 2
+  enableIK: 1
+  maxStepDeg: 0.8
+  iterations: 1
+  enablePinchBlend: 0
+  pinchOffset: 0.012
+  robotThumbMaxReach: 0.124
+  reachOffset: {x: 0, y: 0, z: 0}
+  targetLerp: 6
+  softZone: 0.015
+  windupDeg: 15
+  priorGain: 3
+  priorWeights:
+  - 0
+  - 1
+  - 1
+  - 1
+  priorStepRatio: 0.3
+  priorAngleLerp: 4
+  cmcFeedforward: 0
+  feedforwardJoint: 1
+  pinchNear: 0.32
+  pinchFar: 0.55
+  debugShowTip: 1
+  debugSphereSize: 0.012
+  debugLogCsv: 1
+  debugLogFlushEvery: 100
+  stallTime: 0.6
+  rearmDist: 0.008
 --- !u!1 &300974883479049806
 GameObject:
   m_ObjectHideFlags: 0

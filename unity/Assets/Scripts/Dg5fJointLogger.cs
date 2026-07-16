@@ -38,10 +38,8 @@ public class Dg5fJointLogger : MonoBehaviour
             _joints[(f - 1) * 4 + (j - 1)] = ab;
         }
 
-        string dir = Path.Combine(Application.dataPath, "../Logs");
-        Directory.CreateDirectory(dir);
-        string path = Path.Combine(dir, "unity_dg5f_" + DateTime.Now.ToString("yyyyMMdd_HHmm") + ".csv");
-        _w = new StreamWriter(path, false, Encoding.UTF8);
+        // 경로·중복 회피 규칙은 Dg5fLogFile이 소유 — 초 단위 + 접미사라 덮어쓰기 불가(2026-07-16)
+        _w = Dg5fLogFile.Create("unity_dg5f", out string path);
         var sb = new StringBuilder("t_unix");
         for (int f = 1; f <= 5; f++)
             for (int j = 1; j <= 4; j++)
