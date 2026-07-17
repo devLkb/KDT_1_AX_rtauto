@@ -24,8 +24,9 @@ import numpy as np
 
 from one_euro_filter import OneEuroFilter
 from dg5f_angles import (compute_raw, map_to_dg5f, compute_thumb_tip,
-                         compute_finger_tips, CHANNEL_NAMES, PINCH_ON, PINCH_OFF,
-                         PACKET_FMT, TIP_FINGERS)
+                         compute_finger_tips, compute_wrist_tip_vectors,
+                         CHANNEL_NAMES, PINCH_ON, PINCH_OFF,
+                         PACKET_FMT, TIP_FINGERS, WRIST_TIP_FINGERS)
 from dg5f_paths import unique_log_path
 
 # ------------------------- 설정 -------------------------
@@ -78,6 +79,9 @@ def main():
     # 튜닝값(TIP_MIN_CUTOFF/TIP_BETA)을 그대로 쓴다. 각도 채널 필터와 섞지 말 것(단위 다름).
     finger_tip_filters = [OneEuroFilter(freq=FILTER_FREQ, min_cutoff=TIP_MIN_CUTOFF,
                                         beta=TIP_BETA) for _ in range(3 * len(TIP_FINGERS))]
+    # 손목→끝 벡터(v5 [37..51]) — 같은 정규화 위치 노이즈 성격이라 tip 튜닝값(§25-4) 재사용.
+    wrist_tip_filters = [OneEuroFilter(freq=FILTER_FREQ, min_cutoff=TIP_MIN_CUTOFF,
+                                       beta=TIP_BETA) for _ in range(3 * len(WRIST_TIP_FINGERS))]
     pinch_filter = OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
                                  beta=0.001)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -94,6 +98,8 @@ def main():
     tip_cols = [f"tip_{a}" for a in "xyz"] + ["pinch_on", "pinch_d"]
     for name, _ in TIP_FINGERS:
         tip_cols += [f"{name}_{a}" for a in "xyz"]
+    for name, _ in WRIST_TIP_FINGERS:                        # v5 손목→끝 벡터
+        tip_cols += [f"wt_{name}_{a}" for a in "xyz"]
     log_f.write(",".join(["t_unix", "detected"]
                          + [f"raw_{n}" for n in CHANNEL_NAMES]
                          + [f"filt_{n}" for n in CHANNEL_NAMES]
@@ -121,12 +127,14 @@ def main():
             else:
                 pinch_on = pinch_d < PINCH_ON
             ftips = compute_finger_tips(xyz)                 # v4: 손가락 리치벡터 4×3
+            wtips = compute_wrist_tip_vectors(xyz)           # v5: 손목→끝 벡터 5×3
             tip_f = [f(v) for f, v in zip(tip_filters, tip)]
             ftips_f = [f(v) for f, v in zip(finger_tip_filters, ftips)]
+            wtips_f = [f(v) for f, v in zip(wrist_tip_filters, wtips)]
             vals = ([filters[n](v) for n, v in zip(CHANNEL_NAMES, mapped)]
                     + tip_f + [1.0 if pinch_on else 0.0]
                     + [pinch_filter(pinch_d)]
-                    + ftips_f)
+                    + ftips_f + wtips_f)
             last_valid = vals
         elif last_valid is not None:
             vals = last_valid                                # occlusion hold

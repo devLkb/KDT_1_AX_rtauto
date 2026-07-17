@@ -540,6 +540,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4073788651573096819, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: ikMode
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7772299558725847277, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.target
       value: 0

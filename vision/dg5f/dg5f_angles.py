@@ -238,6 +238,9 @@ DEFAULT_FINGER_STRAIGHT = 0.98
 
 # 리치벡터를 싣는 손가락(패킷 [25..36] 순서 고정) — 엄지는 [20..22]에 따로 있어 제외.
 TIP_FINGERS = [("index", INDEX), ("middle", MIDDLE), ("ring", RING), ("pinky", PINKY)]
+# v5 새 방식(로봇 관점 IK)용: 손목→끝 벡터를 싣는 5손가락 (엄지 포함, 엄지부터).
+WRIST_TIP_FINGERS = [("thumb", THUMB), ("index", INDEX), ("middle", MIDDLE),
+                     ("ring", RING), ("pinky", PINKY)]
 
 # =========================================================================
 # 패킷 레이아웃 (Unity Dg5fReceiver와 계약 — 수신기는 **길이로** 버전 판별)
@@ -245,12 +248,13 @@ TIP_FINGERS = [("index", INDEX), ("middle", MIDDLE), ("ring", RING), ("pinky", P
 #   v2 <24f>: + [20..22] 엄지 리치벡터, [23] 핀치 플래그
 #   v3 <25f>: + [24] 엄지-검지 끝거리비
 #   v4 <37f>: + [25..36] 검지/중지/약지/새끼 리치벡터 (각 3, TIP_FINGERS 순서)
-# ⚠️ 수신기 판별이 `>=`라 v4를 v3까지만 아는 구 Unity에 쏴도 앞 25개만 읽고 뒤는 무시된다
-#    → Python만 먼저 v4로 올려도 엄지 동작 불변(하위호환). 역방향(신 Unity+구 Python)도
-#    손가락 리치벡터 미수신으로 판정돼 각도 방식 폴백.
+#   v5 <52f>: + [37..51] 손목→끝 벡터 5개 (엄지·검지·중지·약지·새끼, WRIST_TIP_FINGERS 순서,
+#             각 3 = 해부학 프레임 성분 ÷ 손길이) — 새 방식(로봇 관점 IK, ikMode=RobotRootTipVector)
+# ⚠️ 수신기 판별이 `>=`라 상위 버전을 하위 Unity에 쏴도 앞부분만 읽고 뒤는 무시된다(양방향 호환).
+#    v5를 v4까지 아는 Unity에 쏴도 손목→끝 필드만 무시, 나머지 동작 불변.
 # =========================================================================
-PACKET_FMT = "<37f"
-PACKET_LEN = 37
+PACKET_FMT = "<52f"
+PACKET_LEN = 52
 
 
 def _anat_frame(lm):
@@ -327,6 +331,30 @@ def compute_finger_tips(lm):
     out = []
     for _name, idx in TIP_FINGERS:
         out.extend(_reach_vector(lm, idx, DEFAULT_FINGER_STRAIGHT, ex, ey, ez))
+    return out
+
+
+def compute_wrist_tip_vectors(lm):
+    """landmark → 손목→각 손가락 끝 벡터 5개 = 15 float (패킷 [37..51], WRIST_TIP_FINGERS 순서).
+
+    새 방식(로봇 관점 IK)용. 각 벡터 = (손가락끝 − 손목)을 해부학 프레임 (ex,ey,ez)로 분해한 뒤
+    손길이(손목→중지MCP)로 나눈 것 — 카메라 거리·손 크기 무관(정규화)하고 좌/우·회전 불변.
+    Unity는 로봇 손목(palm)에서 이 벡터 × 로봇 손길이 방향으로 목표를 찍어 IK를 푼다.
+    리치벡터(§26)와 달리 '직진도 0~1'이 아니라 실제 손목→끝 변위라 크기가 1을 넘는다
+    (편 손가락은 대략 1.3~2.0). 로봇/사람 마디 비율 차이는 도달 불가 시 CCD가 최근접에서 멈춰 흡수.
+    """
+    lm = np.asarray(lm)
+    frame = _anat_frame(lm)
+    if frame is None:
+        return [0.0] * (3 * len(WRIST_TIP_FINGERS))
+    ex, ey, ez, hand_len = frame
+    wrist = lm[WRIST]
+    out = []
+    for _name, idx in WRIST_TIP_FINGERS:
+        v = lm[idx[3]] - wrist                       # idx[3] = 끝 landmark
+        out.extend([float(np.dot(v, ex)) / hand_len,
+                    float(np.dot(v, ey)) / hand_len,
+                    float(np.dot(v, ez)) / hand_len])
     return out
 
 

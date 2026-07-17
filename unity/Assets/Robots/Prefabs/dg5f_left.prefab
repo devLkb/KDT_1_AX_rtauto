@@ -1587,6 +1587,8 @@ GameObject:
   - component: {fileID: 2218185568726173025}
   - component: {fileID: 6933780834463825763}
   - component: {fileID: 7558565503540543590}
+  - component: {fileID: 6258837665781585994}
+  - component: {fileID: 4229631440415117705}
   m_Layer: 0
   m_Name: dg5f_left
   m_TagString: robot
@@ -1705,9 +1707,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ec6df08c4003d429fa1705a3058e2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fThumbIK
+  fingerIndex: 1
   enableIK: 1
-  maxStepDeg: 0.8
+  ikMode: 0
+  maxStepDeg: 1
   iterations: 1
+  enablePinchBlend: 1
   pinchOffset: 0.012
   robotThumbMaxReach: 0.124
   reachOffset: {x: 0.174, y: -0.038, z: -0.092}
@@ -1732,6 +1737,35 @@ MonoBehaviour:
   debugLogFlushEvery: 100
   stallTime: 0.6
   rearmDist: 0.008
+--- !u!114 &6258837665781585994
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1765088909691750685}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2fbf1c0ea0df44b4d96b335468bc27a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Dg5fFingerIKMode
+  ikMode: 0
+  applyToAll: 1
+--- !u!114 &4229631440415117705
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1765088909691750685}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5056d7a4a8005d047881e10f0d060082, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Dg5fRootMarker
+  show: 1
+  size: 0.016
+  color: {r: 0.2, g: 0.5, b: 1, a: 1}
 --- !u!1 &1794733189844180118
 GameObject:
   m_ObjectHideFlags: 0
