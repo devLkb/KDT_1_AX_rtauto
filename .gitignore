@@ -32,6 +32,7 @@ vision/**/calib_log_*.csv
 # ML-Agents training/build outputs
 training/results/
 training/builds/
+training/archives/*.tar.gz
 unity/Assets/MLAgents/Grasp/Models/*.onnx
 
 # 로컬 배포 압축본·편집기 백업

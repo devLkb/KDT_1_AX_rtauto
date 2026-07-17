@@ -1,4 +1,4 @@
-> **폐기된 v4 복합 보상 문서:** 현재 v1 접근 학습 계약은 [`../train_plan.md`](../train_plan.md)를 따른다.
+> **폐기된 v4 복합 보상 문서:** 현재 v2 파지 전이학습 계약은 [`train_plan.md`](train_plan.md)를 따른다.
 
 # DG5FGraspV4 Agent Spec v4.1.0
 

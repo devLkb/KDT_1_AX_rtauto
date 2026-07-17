@@ -6,15 +6,106 @@ namespace KDT.GraspTraining.Tests
     public sealed class Dg5fGraspSpecTests
     {
         [Test]
-        public void V1KeepsTheForwardCompatiblePolicyShape()
+        public void V2KeepsTheForwardCompatiblePolicyShape()
         {
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.0.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
             Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
             Assert.That(Dg5fGraspSpec.ArmJointCount, Is.EqualTo(6));
             Assert.That(Dg5fGraspSpec.HandJointCount, Is.EqualTo(20));
             Assert.That(Dg5fGraspSpec.FingerCount, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void V2RewardPotentialsReverseExactlyWhenStateRetreats()
+        {
+            float farApproach = Dg5fGraspSpec.ApproachPotential(0.60f)
+                * Dg5fGraspSpec.ApproachRewardScale;
+            float nearApproach = Dg5fGraspSpec.ApproachPotential(0.20f)
+                * Dg5fGraspSpec.ApproachRewardScale;
+            Assert.That(
+                Dg5fGraspSpec.PotentialDelta(farApproach, nearApproach),
+                Is.EqualTo(-Dg5fGraspSpec.PotentialDelta(nearApproach, farApproach))
+                    .Within(1e-6f));
+
+            float noContact = Dg5fGraspSpec.ContactPotential(false, false);
+            float thumbOnly = Dg5fGraspSpec.ContactPotential(true, false);
+            float dualContact = Dg5fGraspSpec.ContactPotential(true, true);
+            Assert.That(thumbOnly, Is.EqualTo(0.25f));
+            Assert.That(dualContact, Is.EqualTo(0.5f));
+            Assert.That(
+                Dg5fGraspSpec.PotentialDelta(noContact, dualContact),
+                Is.EqualTo(-Dg5fGraspSpec.PotentialDelta(dualContact, noContact)));
+
+            float noHold = Dg5fGraspSpec.ContactHoldPotential(0f);
+            float fullHold = Dg5fGraspSpec.ContactHoldPotential(0.5f);
+            Assert.That(fullHold, Is.EqualTo(0.5f));
+            Assert.That(
+                Dg5fGraspSpec.PotentialDelta(noHold, fullHold),
+                Is.EqualTo(-Dg5fGraspSpec.PotentialDelta(fullHold, noHold)));
+        }
+
+        [Test]
+        public void ThumbAndOpposingContactsUseTheFixedFingerIndices()
+        {
+            Assert.That(Dg5fGraspSpec.ThumbFingerIndex, Is.Zero);
+            Assert.That(Dg5fGraspSpec.FirstOpposingFingerIndex, Is.EqualTo(1));
+            Assert.That(Dg5fGraspSpec.HasDualContact(
+                new[] { true, false, false, false, false }), Is.False);
+            Assert.That(Dg5fGraspSpec.HasDualContact(
+                new[] { false, true, true, true, true }), Is.False);
+
+            for (int opposing = 1; opposing < Dg5fGraspSpec.FingerCount; opposing++)
+            {
+                var contacts = new bool[Dg5fGraspSpec.FingerCount];
+                contacts[0] = true;
+                contacts[opposing] = true;
+                Assert.That(Dg5fGraspSpec.HasThumbContact(contacts), Is.True);
+                Assert.That(Dg5fGraspSpec.HasOpposingContact(contacts), Is.True);
+                Assert.That(Dg5fGraspSpec.HasDualContact(contacts), Is.True);
+            }
+        }
+
+        [Test]
+        public void DualContactHoldUsesExactHalfSecondBoundaryAndResetsImmediately()
+        {
+            float hold = 0f;
+            for (int step = 0; step < 24; step++)
+                hold = Dg5fGraspSpec.NextContactHoldSeconds(hold, true, 0.02f);
+            Assert.That(hold, Is.EqualTo(0.48f).Within(1e-5f));
+            Assert.That(Dg5fGraspSpec.HasHeldDualContact(hold), Is.False);
+
+            hold = Dg5fGraspSpec.NextContactHoldSeconds(hold, true, 0.02f);
+            Assert.That(hold, Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(Dg5fGraspSpec.HasHeldDualContact(hold), Is.True);
+
+            hold = Dg5fGraspSpec.NextContactHoldSeconds(hold, false, 0.02f);
+            Assert.That(hold, Is.Zero);
+            Assert.That(Dg5fGraspSpec.HasHeldDualContact(hold), Is.False);
+            Assert.That(Dg5fGraspSpec.ContactHoldPotential(hold), Is.Zero);
+        }
+
+        [Test]
+        public void EvaluationDistributesTwoHundredUniqueEpisodesAcrossTwentyAreas()
+        {
+            var episodeIds = new System.Collections.Generic.HashSet<int>();
+            for (int area = 0; area < Dg5fEvaluationSession.AreaCount; area++)
+            {
+                Assert.That(
+                    Dg5fEvaluationSession.EpisodesForArea(
+                        200,
+                        area,
+                        Dg5fEvaluationSession.AreaCount),
+                    Is.EqualTo(10));
+                for (int localEpisode = 0; localEpisode < 10; localEpisode++)
+                    Assert.That(episodeIds.Add(Dg5fEvaluationSession.EpisodeIdForArea(
+                        area,
+                        localEpisode,
+                        Dg5fEvaluationSession.AreaCount)), Is.True);
+            }
+            Assert.That(episodeIds.Count, Is.EqualTo(200));
+            Assert.That(episodeIds, Is.EquivalentTo(System.Linq.Enumerable.Range(0, 200)));
         }
 
         [Test]

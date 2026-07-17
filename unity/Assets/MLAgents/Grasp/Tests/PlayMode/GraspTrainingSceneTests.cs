@@ -37,8 +37,12 @@ namespace KDT.GraspTraining.PlayModeTests
                 Assert.That(agent.pedestal.IsChildOf(area), Is.True);
                 Assert.That(agent.GetComponent<BehaviorParameters>().BehaviorName,
                     Is.EqualTo(Dg5fGraspSpec.BehaviorName));
-                foreach (var sensor in agent.contactSensors)
+                for (int sensorIndex = 0; sensorIndex < agent.contactSensors.Length; sensorIndex++)
+                {
+                    var sensor = agent.contactSensors[sensorIndex];
                     Assert.That(sensor.targetBall, Is.SameAs(agent.ball));
+                    Assert.That(sensor.fingerIndex, Is.EqualTo(sensorIndex));
+                }
             }
 
             Assert.That(areaPositions.Select(position => position.x).Distinct().OrderBy(value => value),
@@ -54,7 +58,7 @@ namespace KDT.GraspTraining.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator TrainingSceneLoadsWithV1ContractAndSingleDriveOwner()
+        public IEnumerator TrainingSceneLoadsWithV2ContractAndSingleDriveOwner()
         {
             SceneManager.LoadScene("DG5F_GraspTraining");
             yield return null;
@@ -81,9 +85,9 @@ namespace KDT.GraspTraining.PlayModeTests
             Assert.That(ballColor.g, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(ballColor.b, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(agent.contactSensors, Has.Length.EqualTo(Dg5fGraspSpec.FingerCount));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.0.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
-            Assert.That(agent.MaxStep, Is.Zero, "v1 measures timeout in simulation time.");
+            Assert.That(agent.MaxStep, Is.Zero, "v2 measures timeout in simulation time.");
 
             var behavior = agent.GetComponent<BehaviorParameters>();
             Assert.That(behavior.BehaviorName, Is.EqualTo(Dg5fGraspSpec.BehaviorName));
@@ -101,6 +105,8 @@ namespace KDT.GraspTraining.PlayModeTests
             yield return null;
             Assert.That(agent.GetObservations(), Has.Count.EqualTo(Dg5fGraspSpec.ObservationSize));
             Assert.That(agent.GetObservations(), Is.All.Matches<float>(Dg5fGraspSpec.IsFinite));
+            Assert.That(agent.GetObservations().Skip(49).Take(4),
+                Is.EqualTo(new[] { 0f, 1f, 0f, 0f }));
 
             string[] competingDrivers =
             {
@@ -113,6 +119,33 @@ namespace KDT.GraspTraining.PlayModeTests
                     if (behaviour != null && behaviour.GetType().Name == typeName)
                         Assert.That(behaviour.enabled, Is.False, $"{typeName} must be disabled in training.");
             }
+        }
+
+        [UnityTest]
+        public IEnumerator FiveCentimeterReachIsAMilestoneAndDoesNotEndV2Episode()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            var agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            Assert.That(agent, Is.Not.Null);
+            agent.ball.isKinematic = true;
+            agent.ball.useGravity = false;
+            agent.ball.position = agent.graspPoint.position;
+            agent.ball.linearVelocity = Vector3.zero;
+            agent.ball.angularVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+
+            yield return new WaitForFixedUpdate();
+
+            Assert.That(agent.ReachSucceeded, Is.True);
+            Assert.That(agent.FirstReachSeconds, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(agent.IsEpisodeActive, Is.True,
+                "V2 must continue after the inherited 5 cm reach milestone.");
+            Assert.That(agent.CurrentEpisodeSeconds,
+                Is.LessThan(Dg5fGraspSpec.EpisodeTimeoutSeconds));
         }
 
         [UnityTest]

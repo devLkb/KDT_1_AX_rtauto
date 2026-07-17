@@ -4,12 +4,12 @@ using UnityEngine;
 namespace KDT.GraspTraining
 {
     /// <summary>
-    /// Forward-compatible policy shape and v1 reach-task contract.
-    /// Observation and action shapes stay fixed while later stages add rewards.
+    /// Forward-compatible policy shape and v2 grasp-task contract.
+    /// Observation and action shapes stay fixed across staged transfer learning.
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "1.2.0";
+        public const string SpecVersion = "2.0.0";
         public const string BehaviorName = "DG5FGrasp";
         public const int ObservationSize = 57;
         public const int ActionSize = 7;
@@ -20,8 +20,15 @@ namespace KDT.GraspTraining
         public const float EpisodeTimeoutSeconds = 20f;
         public const float DecisionTimePenalty = -0.001f;
         public const float ApproachPotentialMaximum = 1f;
+        public const float ApproachRewardScale = 0.25f;
         public const float ApproachSuccessDistance = 0.05f;
-        public const float ApproachSuccessReward = 1f;
+        public const int ThumbFingerIndex = 0;
+        public const int FirstOpposingFingerIndex = 1;
+        public const float ThumbContactPotential = 0.25f;
+        public const float OpposingContactPotential = 0.25f;
+        public const float ContactHoldPotentialMaximum = 0.5f;
+        public const float RequiredContactHoldSeconds = 0.5f;
+        public const float GraspSuccessReward = 2f;
 
         public const float V1MinimumSpawnRadius = 0.35f;
         public const float V1MaximumSpawnRadius = 0.70f;
@@ -83,6 +90,56 @@ namespace KDT.GraspTraining
         {
             if (!IsFinite(previousPotential) || !IsFinite(currentPotential)) return 0f;
             return currentPotential - previousPotential;
+        }
+
+        public static bool HasThumbContact(bool[] fingerContacts)
+        {
+            return fingerContacts != null
+                && fingerContacts.Length == FingerCount
+                && fingerContacts[ThumbFingerIndex];
+        }
+
+        public static bool HasOpposingContact(bool[] fingerContacts)
+        {
+            if (fingerContacts == null || fingerContacts.Length != FingerCount) return false;
+            for (int index = FirstOpposingFingerIndex; index < FingerCount; index++)
+                if (fingerContacts[index]) return true;
+            return false;
+        }
+
+        public static bool HasDualContact(bool[] fingerContacts)
+        {
+            return HasThumbContact(fingerContacts) && HasOpposingContact(fingerContacts);
+        }
+
+        public static float ContactPotential(bool thumbContact, bool opposingContact)
+        {
+            return (thumbContact ? ThumbContactPotential : 0f)
+                + (opposingContact ? OpposingContactPotential : 0f);
+        }
+
+        public static float ContactHoldPotential(float contactHoldSeconds)
+        {
+            if (!IsFinite(contactHoldSeconds)) return 0f;
+            return ContactHoldPotentialMaximum
+                * Mathf.Clamp01(Mathf.Max(0f, contactHoldSeconds) / RequiredContactHoldSeconds);
+        }
+
+        public static float NextContactHoldSeconds(
+            float previousContactHoldSeconds,
+            bool hasDualContact,
+            float deltaSeconds)
+        {
+            if (!hasDualContact) return 0f;
+            if (!IsFinite(previousContactHoldSeconds) || !IsFinite(deltaSeconds)) return 0f;
+            return Mathf.Max(0f, previousContactHoldSeconds)
+                + Mathf.Max(0f, deltaSeconds);
+        }
+
+        public static bool HasHeldDualContact(float contactHoldSeconds)
+        {
+            return IsFinite(contactHoldSeconds)
+                && contactHoldSeconds >= RequiredContactHoldSeconds - 1e-6f;
         }
 
         public static bool HasReachedApproachTarget(float graspDistance)

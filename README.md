@@ -29,7 +29,8 @@
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
 - ML-Agents 학습 씬: `Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`.
-  현재 단계별 v1→v4 학습 계획과 checkpoint 전이 규칙은 [`train_plan.md`](train_plan.md)를 따른다.
+  현재 구현은 v2 파지 단계이며 v1→v4 학습 계획과 checkpoint 전이 규칙은
+  [`docs/train_plan.md`](docs/train_plan.md)를 따른다.
   Unity·강화학습을 처음 접하면 `docs/ML_AGENTS_LEARNING_FLOW.md`부터 읽는다.
   정확한 Agent 계약은 `docs/AGENT_SPEC.md`, 설계 근거는 `docs/ML_AGENTS_DESIGN.md`,
   빌드·smoke·본학습 실행법은 `docs/ML_AGENTS_TRAINING_GUIDE.md` 참고.

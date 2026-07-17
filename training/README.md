@@ -3,7 +3,8 @@
 Current staged training plan: [`train_plan.md`](../train_plan.md).
 The older documents under `docs/ML_AGENTS_*` describe the retired combined v4 reward.
 
-- PPO config: `config/dg5f_grasp.yaml`
+- v1 PPO config: `config/dg5f_grasp.yaml`
+- v2 transfer config: `config/dg5f_grasp_v2.yaml`
 - launcher: `scripts/train_dg5f_grasp.sh`
 - generated builds/results are ignored by Git
 - each Unity environment contains 20 independent training-area prefab instances
@@ -26,16 +27,23 @@ The startup line must show `[GPU] ... device=...`. In another terminal, `nvidia-
 should show the trainer Python process after PPO updates begin. The Unity simulator itself
 runs through Xvfb; `--torch-device cuda` applies to the PPO neural network.
 
-Shared-VDI convenience command (installed as `dg5f`):
+Shared-VDI convenience command (installed as `dg5f`) uses a stage-first CLI:
 
 ```bash
-dg5f status   # one-shot process/GPU/metric summary
-dg5f watch    # continuously refresh the summary
-dg5f logs     # follow logs
-dg5f resume   # resume inside a shared tmux session
-dg5f view     # attach to tmux read-only
-dg5f stop     # trainer만 SIGINT → checkpoint 저장 → Unity까지 종료 확인
+dg5f v2 status  # one-shot process/GPU/metric summary
+dg5f v2 watch   # continuously refresh the summary
+dg5f v2 logs    # follow logs
+dg5f v2 resume  # resume the standard v2 run
+dg5f v3 init    # initialize v3 from the standard v2 run
+dg5f v4 stop    # trainer SIGINT, checkpoint, and verified shutdown
 ```
+
+Each stage selects its standard run ID, config, player, and tmux session. `init`
+automatically selects the previous stage (`v2 <- v1`, `v3 <- v2`, `v4 <- v3`).
+An explicit source remains possible, for example `dg5f v3 init custom_v2_run`.
+Stage-prefixed commands deliberately ignore stale exported stage variables. Custom
+experiments use the legacy no-stage form with `DG5F_RUN_ID`, `DG5F_CONFIG`,
+`DG5F_PLAYER`, and `DG5F_SESSION`.
 Unity physics and environment stepping remain CPU workloads. With the default
 `buffer_size: 10240`, CUDA utilization is bursty because PPO updates begin only after
 enough trajectories have been collected; allocated CUDA memory already confirms that
@@ -48,4 +56,31 @@ launcher also initializes the selected device inside new Python threads, protect
 smoke configs that still contain `threaded: true`. It selects PyTorch's legacy ONNX
 exporter because ML-Agents pins ONNX 1.15.
 
-Current code is v1 reach-only training. Run a 50k-step smoke test by copying the config and changing `max_steps`. Promote to v2 only after at least 200 unseen-seed evaluation episodes reach 80% success, then start the new run with `--initialize-from dg5f_v1`.
+Current code implements v2: thumb contact (finger index 0) and any opposing
+finger (indices 1..4) must remain simultaneous for 0.5 simulation seconds. The
+57-observation, 7-action, `DG5FGrasp` policy shape is unchanged from v1.
+
+Start v2 from the frozen 526647-step v1 checkpoint:
+
+```bash
+dg5f v2 init
+```
+
+Resume only the v2 run:
+
+```bash
+dg5f v2 resume
+```
+
+After rebuilding the Linux player, evaluate one deterministic environment at real-time
+scale. The Unity arguments allocate episode IDs and unique seeds across all 20 areas;
+the validator rejects row/seed duplication, success holds below 0.5 seconds, non-finite
+physics, or grasp/reach success rates below 80%.
+
+```bash
+DG5F_RUN_ID=dg5f_v2_gpu_fixed \
+training/scripts/run_dg5f_v2_evaluation.sh
+```
+
+The frozen v1 hashes and local full-run archive are documented in
+[`archives/V1_BASELINE.md`](archives/V1_BASELINE.md).
