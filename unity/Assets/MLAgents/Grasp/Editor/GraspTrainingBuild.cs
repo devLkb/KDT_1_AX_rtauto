@@ -17,7 +17,11 @@ namespace KDT.GraspTraining.Editor
                 ?? throw new InvalidOperationException("Cannot resolve Unity project root.");
             string repositoryRoot = Directory.GetParent(projectRoot)?.FullName
                 ?? throw new InvalidOperationException("Cannot resolve repository root.");
-            string outputDirectory = Path.Combine(repositoryRoot, "training", "builds", "DG5FGrasp");
+            string outputDirectory = Path.Combine(
+                repositoryRoot,
+                "training",
+                "builds",
+                "DG5FGraspJoint26");
             Directory.CreateDirectory(outputDirectory);
 
             var options = new BuildPlayerOptions

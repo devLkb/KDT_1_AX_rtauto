@@ -1,6 +1,6 @@
 # DG5F grasp training
 
-Current staged training plan: [`train_plan.md`](../train_plan.md).
+Current staged training plan: [`train_plan.md`](../docs/train_plan.md).
 The older documents under `docs/ML_AGENTS_*` describe the retired combined v4 reward.
 
 - v1 PPO config: `config/dg5f_grasp.yaml`
@@ -56,15 +56,23 @@ launcher also initializes the selected device inside new Python threads, protect
 smoke configs that still contain `threaded: true`. It selects PyTorch's legacy ONNX
 exporter because ML-Agents pins ONNX 1.15.
 
-Current code implements v2: thumb contact (finger index 0) and any opposing
-finger (indices 1..4) must remain simultaneous for 0.5 simulation seconds. The
-57-observation, 7-action, `DG5FGrasp` policy shape is unchanged from v1.
+Current code implements joint26 v2: thumb contact (finger index 0) and any
+opposing finger (indices 1..4) must remain simultaneous for 0.5 simulation
+seconds. `DG5FGraspJoint` has 116 observations and 26 continuous actions (arm 6
++ hand 20); this contract remains fixed for v3 and v4.
 
 Start v2 from the frozen 526647-step v1 checkpoint:
 
 ```bash
 dg5f v2 init
 ```
+
+`init` first creates and verifies the read-only
+`dg5f_v1_joint26_bootstrap`. It copies the V1 arm/task encoder columns, critic,
+and six arm-action outputs, initializes the new hand inputs/outputs, drops
+optimizer moments, and starts the new V2 global step at zero. The retired
+closure run is preserved as `dg5f_v2_closure_failed_343k` and is rejected by
+`resume`.
 
 Resume only the v2 run:
 
@@ -78,7 +86,7 @@ the validator rejects row/seed duplication, success holds below 0.5 seconds, non
 physics, or grasp/reach success rates below 80%.
 
 ```bash
-DG5F_RUN_ID=dg5f_v2_gpu_fixed \
+DG5F_RUN_ID=dg5f_v2_joint26_gpu_fixed \
 training/scripts/run_dg5f_v2_evaluation.sh
 ```
 

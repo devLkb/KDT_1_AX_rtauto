@@ -8,7 +8,8 @@ using UnityEngine;
 namespace KDT.GraspTraining
 {
     /// <summary>
-    /// PPO Agent for v2 dual-contact grasp training with UR5e + DG5F.
+    /// PPO Agent for v2 dual-contact grasp training with independently controlled
+    /// UR5e 6-axis arm and DG5F 20-joint hand.
     /// This component is the sole xDrive writer in the training scene.
     /// </summary>
     public sealed class Dg5fGraspAgent : Agent
@@ -29,7 +30,12 @@ namespace KDT.GraspTraining
 
         [Header("Control")]
         public float armDeltaDegPerDecision = 2f;
-        public float gripDeltaPerDecision = 0.04f;
+        [Range(0f, Dg5fGraspSpec.MaximumHandDeltaDegPerDecision)]
+        public float handDeltaDegPerDecision = Dg5fGraspSpec.MaximumHandDeltaDegPerDecision;
+        public float stageOneArmDeltaScale = 0.35f;
+        public float stageOneHandDeltaDegPerDecision = 1f;
+        public float stageOneArmRangeDeg = 25f;
+        public float stageOneSpawnRadius = 0.04f;
 
         readonly Dictionary<ArticulationBody, float> _initialTargetDeg =
             new Dictionary<ArticulationBody, float>();
@@ -38,7 +44,8 @@ namespace KDT.GraspTraining
         ArticulationBody[] _armJoints;
         ArticulationBody[] _handJoints;
         float[] _armTargetDeg;
-        float _closure;
+        float[] _handTargetDeg;
+        int _curriculumStage;
         float _initialBallHeight;
         float _supportTopHeight;
         float _previousApproachPotential;
@@ -60,7 +67,7 @@ namespace KDT.GraspTraining
         System.Random _random;
         StatsRecorder _stats;
 
-        public float CurrentClosure => _closure;
+        public int CurrentCurriculumStage => _curriculumStage;
         public float CurrentSupportTopHeight => _supportTopHeight;
         public Vector3 CurrentBallLocalPosition => robotBase.InverseTransformPoint(ball.position);
         public float CurrentEpisodeSeconds => _episodeSeconds;
@@ -81,6 +88,30 @@ namespace KDT.GraspTraining
             return _armTargetDeg[index];
         }
 
+        public float CurrentHandTargetDeg(int index)
+        {
+            if (_handTargetDeg == null) throw new InvalidOperationException("Agent has not initialized.");
+            return _handTargetDeg[index];
+        }
+
+        public float CurrentHandDriveTargetDeg(int index)
+        {
+            if (_handJoints == null) throw new InvalidOperationException("Agent has not initialized.");
+            return _handJoints[index].xDrive.target;
+        }
+
+        public float CurrentHandPositionDeg(int index)
+        {
+            if (_handJoints == null) throw new InvalidOperationException("Agent has not initialized.");
+            return FirstOrZero(_handJoints[index].jointPosition) * Mathf.Rad2Deg;
+        }
+
+        public float CurrentHandVelocityRadPerSecond(int index)
+        {
+            if (_handJoints == null) throw new InvalidOperationException("Agent has not initialized.");
+            return FirstOrZero(_handJoints[index].jointVelocity);
+        }
+
         public override void Initialize()
         {
             ResolveReferences();
@@ -88,12 +119,16 @@ namespace KDT.GraspTraining
             ValidateConfiguration();
 
             _armTargetDeg = new float[Dg5fGraspSpec.ArmJointCount];
+            _handTargetDeg = new float[Dg5fGraspSpec.HandJointCount];
             foreach (var body in _allJoints)
                 _initialTargetDeg[body] = body.xDrive.target;
 
             // The exact 20-second limit is measured in simulation time.
             MaxStep = 0;
-            _random = new System.Random(spawnSeed);
+            int randomSeed = useDeterministicSpawns
+                ? spawnSeed
+                : unchecked(spawnSeed * 397 ^ UnityEngine.Random.Range(0, int.MaxValue));
+            _random = new System.Random(randomSeed);
             _stats = Academy.Instance.StatsRecorder;
             Dg5fEvaluationSession.Register(this);
         }
@@ -215,7 +250,7 @@ namespace KDT.GraspTraining
                 _evaluationEpisodeId = -1;
             }
 
-            _closure = 0f;
+            _curriculumStage = ResolveCurriculumStage();
             ResetRobot();
             ResetBall();
             foreach (var sensor in contactSensors) sensor.ResetContacts();
@@ -236,6 +271,20 @@ namespace KDT.GraspTraining
             _episodeActive = true;
         }
 
+        int ResolveCurriculumStage()
+        {
+            if (Dg5fEvaluationSession.IsEnabled) return Dg5fGraspSpec.FinalCurriculumStage;
+            float configured = Academy.Instance.EnvironmentParameters.GetWithDefault(
+                Dg5fGraspSpec.CurriculumParameterName,
+                Dg5fGraspSpec.FinalCurriculumStage);
+            if (!Dg5fGraspSpec.IsFinite(configured))
+                return Dg5fGraspSpec.FinalCurriculumStage;
+            return Mathf.Clamp(
+                Mathf.RoundToInt(configured),
+                Dg5fGraspSpec.FirstCurriculumStage,
+                Dg5fGraspSpec.FinalCurriculumStage);
+        }
+
         void DisableAfterEvaluationQuota()
         {
             _episodeActive = false;
@@ -248,24 +297,44 @@ namespace KDT.GraspTraining
         {
             foreach (var body in _allJoints)
             {
-                float targetDeg = _initialTargetDeg[body];
-                var drive = body.xDrive;
-                drive.target = targetDeg;
-                body.xDrive = drive;
-                body.jointPosition = new ArticulationReducedSpace(targetDeg * Mathf.Deg2Rad);
-                body.jointVelocity = new ArticulationReducedSpace(0f);
+                SynchronizeJointState(body, _initialTargetDeg[body]);
             }
 
             for (int i = 0; i < _armJoints.Length; i++)
             {
                 float initial = _initialTargetDeg[_armJoints[i]];
-                _armTargetDeg[i] = Mathf.Clamp(
+                _armTargetDeg[i] = Dg5fGraspSpec.ClampJointTarget(
                     initial,
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]);
+                SynchronizeJointState(_armJoints[i], _armTargetDeg[i]);
+                _armTargetDeg[i] = _armJoints[i].xDrive.target;
             }
-            ApplyArmTargets();
-            ApplyGripTargets();
+            for (int i = 0; i < _handJoints.Length; i++)
+            {
+                var drive = _handJoints[i].xDrive;
+                float resetTarget = _curriculumStage < Dg5fGraspSpec.FinalCurriculumStage
+                    ? Dg5fGraspSpec.PreGrasp35Deg[i]
+                    : 0f;
+                _handTargetDeg[i] = Dg5fGraspSpec.ClampJointTarget(
+                    resetTarget,
+                    drive.lowerLimit,
+                    drive.upperLimit);
+                SynchronizeJointState(_handJoints[i], _handTargetDeg[i]);
+            }
+        }
+
+        static void SynchronizeJointState(ArticulationBody body, float targetDeg)
+        {
+            var drive = body.xDrive;
+            float synchronizedTarget = Dg5fGraspSpec.ClampJointTarget(
+                targetDeg,
+                drive.lowerLimit,
+                drive.upperLimit);
+            drive.target = synchronizedTarget;
+            body.xDrive = drive;
+            body.jointPosition = new ArticulationReducedSpace(synchronizedTarget * Mathf.Deg2Rad);
+            body.jointVelocity = new ArticulationReducedSpace(0f);
         }
 
         void ResetBall()
@@ -274,12 +343,28 @@ namespace KDT.GraspTraining
             if (ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = ballCollider.bounds.extents.y;
-            Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
-                Next01(),
-                Next01(),
-                ballRadius);
-            if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
-                throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
+            Vector3 ballLocalPosition;
+            if (_curriculumStage == Dg5fGraspSpec.FirstCurriculumStage)
+            {
+                Vector3 graspLocal = robotBase.InverseTransformPoint(graspPoint.position);
+                float radius = Mathf.Max(0f, stageOneSpawnRadius) * Mathf.Pow(Next01(), 1f / 3f);
+                float azimuth = Next01() * 2f * Mathf.PI;
+                float cosine = Next01() * 2f - 1f;
+                float sine = Mathf.Sqrt(Mathf.Max(0f, 1f - cosine * cosine));
+                ballLocalPosition = graspLocal + radius * new Vector3(
+                    sine * Mathf.Cos(azimuth),
+                    cosine,
+                    sine * Mathf.Sin(azimuth));
+            }
+            else
+            {
+                ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
+                    Next01(),
+                    Next01(),
+                    ballRadius);
+                if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
+                    throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
+            }
 
             _supportTopHeight = Dg5fGraspSpec.SupportTopHeight;
 
@@ -302,7 +387,6 @@ namespace KDT.GraspTraining
 
         float Next01()
         {
-            if (!useDeterministicSpawns) return UnityEngine.Random.value;
             return (float)_random.NextDouble();
         }
 
@@ -322,7 +406,7 @@ namespace KDT.GraspTraining
                 return;
             }
 
-            // 0..11: normalized arm position and velocity.
+            // 0..5: normalized arm position.
             for (int i = 0; i < _armJoints.Length; i++)
             {
                 float positionDeg = FirstOrZero(_armJoints[i].jointPosition) * Mathf.Rad2Deg;
@@ -331,42 +415,68 @@ namespace KDT.GraspTraining
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]));
             }
+            // 6..11: arm velocity.
             for (int i = 0; i < _armJoints.Length; i++)
                 sensor.AddObservation(Mathf.Clamp(FirstOrZero(_armJoints[i].jointVelocity) / Mathf.PI, -1f, 1f));
 
-            // 12: normalized grip closure.
-            sensor.AddObservation(_closure * 2f - 1f);
+            // 12..31: normalized hand position in thumb-to-pinky, joint 1..4 order.
+            for (int i = 0; i < _handJoints.Length; i++)
+            {
+                var drive = _handJoints[i].xDrive;
+                float positionDeg = FirstOrZero(_handJoints[i].jointPosition) * Mathf.Rad2Deg;
+                sensor.AddObservation(Dg5fGraspSpec.NormalizeJoint(
+                    positionDeg,
+                    drive.lowerLimit,
+                    drive.upperLimit));
+            }
 
-            // 13..21: ball state in robot-base coordinates.
+            // 32..51: hand velocity.
+            for (int i = 0; i < _handJoints.Length; i++)
+                sensor.AddObservation(Mathf.Clamp(
+                    FirstOrZero(_handJoints[i].jointVelocity) / Mathf.PI,
+                    -1f,
+                    1f));
+
+            // 52..71: normalized commanded hand xDrive targets.
+            for (int i = 0; i < _handJoints.Length; i++)
+            {
+                var drive = _handJoints[i].xDrive;
+                sensor.AddObservation(Dg5fGraspSpec.NormalizeJoint(
+                    _handTargetDeg[i],
+                    drive.lowerLimit,
+                    drive.upperLimit));
+            }
+
+            // 72..80: ball state in robot-base coordinates.
             AddClampedVector(sensor, robotBase.InverseTransformDirection(ball.position - graspPoint.position), 1f);
             AddClampedVector(sensor, robotBase.InverseTransformDirection(ball.linearVelocity), 2f);
             AddClampedVector(sensor, robotBase.InverseTransformDirection(ball.angularVelocity), 10f);
 
-            // 22: vertical displacement from the episode spawn pose.
+            // 81: vertical displacement from the episode spawn pose.
             sensor.AddObservation(Mathf.Clamp((ball.position.y - _initialBallHeight) / 0.2f, -1f, 1f));
 
-            // 23..37: each fingertip relative to the ball in palm coordinates.
+            // 82..96: each fingertip relative to the ball in palm coordinates.
             for (int i = 0; i < fingerTips.Length; i++)
                 AddClampedVector(sensor, palm.InverseTransformDirection(fingerTips[i].position - ball.position), 0.2f);
 
-            // 38..42: thumb/index/middle/ring/pinky contacts.
+            // 97..101: thumb/index/middle/ring/pinky contacts.
             for (int i = 0; i < contactSensors.Length; i++)
                 sensor.AddObservation(contactSensors[i].IsTouching ? 1f : 0f);
 
-            // 43..48: normalized commanded arm xDrive targets.
+            // 102..107: normalized commanded arm xDrive targets.
             for (int i = 0; i < _armTargetDeg.Length; i++)
                 sensor.AddObservation(Dg5fGraspSpec.NormalizeJoint(
                     _armTargetDeg[i],
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]));
 
-            // 49..52: v1/v2/v3/v4 objective one-hot. v2 is Grasp.
+            // 108..111: v1/v2/v3/v4 objective one-hot. v2 is Grasp.
             sensor.AddObservation(0f);
             sensor.AddObservation(1f);
             sensor.AddObservation(0f);
             sensor.AddObservation(0f);
 
-            // 53..56: forward-compatible task progress slots.
+            // 112..115: forward-compatible task progress slots.
             sensor.AddObservation(Dg5fGraspSpec.ApproachPotential(GraspDistance()));
             sensor.AddObservation(Dg5fGraspSpec.ApproachPotential(_bestGraspDistance));
             sensor.AddObservation(Dg5fGraspSpec.ApproachSuccessDistance / Dg5fGraspSpec.MaximumBallDistance);
@@ -405,17 +515,44 @@ namespace KDT.GraspTraining
 
             for (int i = 0; i < _armTargetDeg.Length; i++)
             {
-                float delta = Mathf.Clamp(continuous[i], -1f, 1f) * armDeltaDegPerDecision;
-                _armTargetDeg[i] = Mathf.Clamp(
-                    _armTargetDeg[i] + delta,
-                    Dg5fGraspSpec.ArmSafeMinDeg[i],
-                    Dg5fGraspSpec.ArmSafeMaxDeg[i]);
+                float maximumDelta = armDeltaDegPerDecision;
+                float lower = Dg5fGraspSpec.ArmSafeMinDeg[i];
+                float upper = Dg5fGraspSpec.ArmSafeMaxDeg[i];
+                if (_curriculumStage == Dg5fGraspSpec.FirstCurriculumStage)
+                {
+                    maximumDelta *= Mathf.Clamp01(stageOneArmDeltaScale);
+                    float initial = _initialTargetDeg[_armJoints[i]];
+                    lower = Mathf.Max(lower, initial - Mathf.Max(0f, stageOneArmRangeDeg));
+                    upper = Mathf.Min(upper, initial + Mathf.Max(0f, stageOneArmRangeDeg));
+                }
+                _armTargetDeg[i] = Dg5fGraspSpec.AccumulateJointTarget(
+                    _armTargetDeg[i],
+                    continuous[i],
+                    maximumDelta,
+                    lower,
+                    upper);
             }
-            _closure = Mathf.Clamp01(
-                _closure + Mathf.Clamp(continuous[6], -1f, 1f) * gripDeltaPerDecision);
+
+            float maximumHandDelta = Mathf.Min(
+                Mathf.Max(0f, handDeltaDegPerDecision),
+                Dg5fGraspSpec.MaximumHandDeltaDegPerDecision);
+            if (_curriculumStage == Dg5fGraspSpec.FirstCurriculumStage)
+                maximumHandDelta = Mathf.Min(
+                    maximumHandDelta,
+                    Mathf.Max(0f, stageOneHandDeltaDegPerDecision));
+            for (int i = 0; i < _handTargetDeg.Length; i++)
+            {
+                var drive = _handJoints[i].xDrive;
+                _handTargetDeg[i] = Dg5fGraspSpec.AccumulateJointTarget(
+                    _handTargetDeg[i],
+                    continuous[Dg5fGraspSpec.HandActionIndex(i)],
+                    maximumHandDelta,
+                    drive.lowerLimit,
+                    drive.upperLimit);
+            }
 
             ApplyArmTargets();
-            ApplyGripTargets();
+            ApplyHandTargets();
         }
 
         void ApplyArmTargets()
@@ -423,18 +560,25 @@ namespace KDT.GraspTraining
             for (int i = 0; i < _armJoints.Length; i++)
             {
                 var drive = _armJoints[i].xDrive;
-                drive.target = Mathf.Clamp(_armTargetDeg[i], drive.lowerLimit, drive.upperLimit);
+                drive.target = Dg5fGraspSpec.ClampJointTarget(
+                    _armTargetDeg[i],
+                    drive.lowerLimit,
+                    drive.upperLimit);
+                _armTargetDeg[i] = drive.target;
                 _armJoints[i].xDrive = drive;
             }
         }
 
-        void ApplyGripTargets()
+        void ApplyHandTargets()
         {
             for (int i = 0; i < _handJoints.Length; i++)
             {
                 var drive = _handJoints[i].xDrive;
-                float target = Dg5fGraspSpec.GripTargetDeg(i, _closure);
-                drive.target = Mathf.Clamp(target, drive.lowerLimit, drive.upperLimit);
+                drive.target = Dg5fGraspSpec.ClampJointTarget(
+                    _handTargetDeg[i],
+                    drive.lowerLimit,
+                    drive.upperLimit);
+                _handTargetDeg[i] = drive.target;
                 _handJoints[i].xDrive = drive;
             }
         }
@@ -574,7 +718,15 @@ namespace KDT.GraspTraining
             if (!_episodeActive) return;
             _episodeActive = false;
             ScoreRewardPotentials();
-            if (success) AddReward(Dg5fGraspSpec.GraspSuccessReward);
+            if (success)
+            {
+                AddReward(Dg5fGraspSpec.GraspSuccessReward);
+            }
+            else
+            {
+                SettleFailurePotentials();
+                AddReward(Dg5fGraspSpec.FailurePenalty(failureReason));
+            }
 
             float finalDistance = GraspDistance();
             if (!Dg5fGraspSpec.IsFinite(finalDistance))
@@ -611,6 +763,17 @@ namespace KDT.GraspTraining
             EndEpisode();
         }
 
+        void SettleFailurePotentials()
+        {
+            AddReward(Dg5fGraspSpec.FailurePotentialSettlement(
+                _previousApproachPotential,
+                _previousContactPotential,
+                _previousContactHoldPotential));
+            _previousApproachPotential = 0f;
+            _previousContactPotential = 0f;
+            _previousContactHoldPotential = 0f;
+        }
+
         void RecordFailureStatistics(string failureReason)
         {
             string[] reasons = { "Timeout", "BallOutOfBounds", "NonFinitePhysics" };
@@ -638,7 +801,6 @@ namespace KDT.GraspTraining
             actions[3] = Axis(KeyCode.R, KeyCode.F);
             actions[4] = Axis(KeyCode.T, KeyCode.G);
             actions[5] = Axis(KeyCode.Y, KeyCode.H);
-            actions[6] = Axis(KeyCode.Space, KeyCode.LeftShift);
 #endif
         }
 

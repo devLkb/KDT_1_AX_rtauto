@@ -93,11 +93,7 @@ namespace KDT.GraspTraining.Editor
             behavior.BrainParameters.VectorObservationSize = Dg5fGraspSpec.ObservationSize;
             behavior.BrainParameters.NumStackedVectorObservations = 1;
             behavior.BrainParameters.ActionSpec = ActionSpec.MakeContinuous(Dg5fGraspSpec.ActionSize);
-            behavior.BrainParameters.VectorActionDescriptions = new[]
-            {
-                "shoulder_pan_delta", "shoulder_lift_delta", "elbow_delta",
-                "wrist_1_delta", "wrist_2_delta", "wrist_3_delta", "grip_delta"
-            };
+            behavior.BrainParameters.VectorActionDescriptions = ActionDescriptions();
 
             var requester = robot.GetComponent<DecisionRequester>();
             if (requester == null) requester = robot.AddComponent<DecisionRequester>();
@@ -144,6 +140,25 @@ namespace KDT.GraspTraining.Editor
             if (agent == null)
                 throw new InvalidOperationException($"Training area {index} has no {nameof(Dg5fGraspAgent)}.");
             agent.spawnSeed = 12345 + index;
+        }
+
+        static string[] ActionDescriptions()
+        {
+            var descriptions = new string[Dg5fGraspSpec.ActionSize];
+            descriptions[0] = "shoulder_pan_delta";
+            descriptions[1] = "shoulder_lift_delta";
+            descriptions[2] = "elbow_delta";
+            descriptions[3] = "wrist_1_delta";
+            descriptions[4] = "wrist_2_delta";
+            descriptions[5] = "wrist_3_delta";
+            for (int finger = 0; finger < Dg5fGraspSpec.FingerCount; finger++)
+                for (int joint = 0; joint < 4; joint++)
+                {
+                    int channel = finger * 4 + joint;
+                    descriptions[Dg5fGraspSpec.HandActionIndex(channel)] =
+                        $"finger_{finger + 1}_joint_{joint + 1}_delta";
+                }
+            return descriptions;
         }
 
         static Vector3 LayoutCenter()

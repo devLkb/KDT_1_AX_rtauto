@@ -1,4 +1,5 @@
-> **폐기된 v4 복합 보상 문서:** 현재 단계별 전이학습 설계는 [`../train_plan.md`](../train_plan.md)를 따른다.
+> **폐기된 closure/v4 복합 보상 문서:** 현재 joint26 단계별 전이학습
+> 설계는 [`train_plan.md`](train_plan.md)를 따른다.
 
 # DG5F 단계형 공 파지·상승·유지 강화학습 설계
 

@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT="${DG5F_ROOT:-/workspace/KDT_1_AX_rtauto}"
 VENV="${DG5F_VENV:-/root/venvs/ax310}"
 FROZEN_V1_RUN_ID="dg5f_v1_gpu_fixed"
+FAILED_CLOSURE_V2_RUN_ID="dg5f_v2_closure_failed_343k"
+FAILED_CLOSURE_V2_ORIGINAL_RUN_ID="dg5f_v2_gpu_fixed"
+V1_JOINT26_BOOTSTRAP_RUN_ID="dg5f_v1_joint26_bootstrap"
+JOINT26_BEHAVIOR="DG5FGraspJoint"
 
 # Preferred CLI: dg5f v2 status / dg5f v2 resume / dg5f v3 init.
 # Keep the old environment-variable-only form compatible for existing jobs.
@@ -22,18 +26,18 @@ case "$STAGE" in
     PREVIOUS_RUN_ID=""
     ;;
   v2)
-    STAGE_RUN_ID="dg5f_v2_gpu_fixed"
+    STAGE_RUN_ID="dg5f_v2_joint26_gpu_fixed"
     STAGE_CONFIG="$ROOT/training/config/dg5f_grasp_v2.yaml"
-    STAGE_PLAYER="$ROOT/training/builds/DG5FGraspV2/DG5FGrasp.x86_64"
-    STAGE_SESSION="dg5f_v2"
-    PREVIOUS_RUN_ID="dg5f_v1_gpu_fixed"
+    STAGE_PLAYER="$ROOT/training/builds/DG5FGraspJoint26/DG5FGrasp.x86_64"
+    STAGE_SESSION="dg5f_v2_joint26"
+    PREVIOUS_RUN_ID="$V1_JOINT26_BOOTSTRAP_RUN_ID"
     ;;
   v3)
     STAGE_RUN_ID="dg5f_v3_gpu_fixed"
     STAGE_CONFIG="$ROOT/training/config/dg5f_grasp_v3.yaml"
     STAGE_PLAYER="$ROOT/training/builds/DG5FGraspV3/DG5FGrasp.x86_64"
     STAGE_SESSION="dg5f_v3"
-    PREVIOUS_RUN_ID="dg5f_v2_gpu_fixed"
+    PREVIOUS_RUN_ID="dg5f_v2_joint26_gpu_fixed"
     ;;
   v4)
     STAGE_RUN_ID="dg5f_v4_gpu_fixed"
@@ -71,7 +75,7 @@ DEFAULT_PLAYER="$ROOT/training/builds/DG5FGrasp/DG5FGrasp.x86_64"
 if [[ -n "$STAGE_PLAYER" ]]; then
   DEFAULT_PLAYER="$STAGE_PLAYER"
 elif [[ "$CONFIG" == *"/dg5f_grasp_v2.yaml" ]]; then
-  DEFAULT_PLAYER="$ROOT/training/builds/DG5FGraspV2/DG5FGrasp.x86_64"
+  DEFAULT_PLAYER="$ROOT/training/builds/DG5FGraspJoint26/DG5FGrasp.x86_64"
 fi
 if [[ -n "$STAGE" ]]; then
   PLAYER="$DEFAULT_PLAYER"
@@ -111,7 +115,7 @@ usage() {
   dg5f v2 status
   dg5f v2 watch
   dg5f v2 resume
-  dg5f v3 init       # dg5f_v2_gpu_fixed에서 자동 전이
+  dg5f v3 init       # dg5f_v2_joint26_gpu_fixed에서 자동 전이
   dg5f v4 stop
 
 커스텀 실험은 단계 접두사 없이 DG5F_RUN_ID, DG5F_CONFIG, DG5F_PLAYER,
@@ -124,6 +128,24 @@ require_files() {
   [[ -x "$PLAYER" ]] || { echo "[ERROR] Unity player 없음: $PLAYER" >&2; exit 2; }
   [[ -x "$TRAINER" ]] || { echo "[ERROR] launcher 없음: $TRAINER" >&2; exit 2; }
   [[ -f "$CONFIG" ]] || { echo "[ERROR] config 없음: $CONFIG" >&2; exit 2; }
+}
+
+prepare_v2_bootstrap() {
+  local source_checkpoint="$RESULTS_DIR/$FROZEN_V1_RUN_ID/DG5FGrasp/checkpoint.pt"
+  local output_run="$RESULTS_DIR/$V1_JOINT26_BOOTSTRAP_RUN_ID"
+  local converter="$ROOT/training/scripts/bootstrap_v1_to_joint26.py"
+  [[ -f "$source_checkpoint" ]] || {
+    echo "[ERROR] 동결 V1 checkpoint가 없습니다: $source_checkpoint" >&2
+    exit 2
+  }
+  [[ -f "$converter" ]] || {
+    echo "[ERROR] joint26 변환기가 없습니다: $converter" >&2
+    exit 2
+  }
+  echo "[Bootstrap] 동결 V1을 116관측/26행동 checkpoint로 생성·검증합니다."
+  "$VENV/bin/python" "$converter" \
+    --source "$source_checkpoint" \
+    --output-run "$output_run"
 }
 
 # Read process arguments from /proc instead of matching a pgrep regular
@@ -328,12 +350,27 @@ launch() {
     echo "[ERROR] 사용법: dg5f init <source_run_id>" >&2
     exit 2
   fi
-  if [[ "$mode" == resume && "$RUN_ID" == "$FROZEN_V1_RUN_ID" ]]; then
-    echo "[ERROR] $FROZEN_V1_RUN_ID 은 526647-step 전이 원본으로 동결되어 resume할 수 없습니다." >&2
-    echo "        DG5F_RUN_ID를 v2 run으로 지정하세요." >&2
+  if [[ "$mode" == resume
+        && ( "$RUN_ID" == "$FROZEN_V1_RUN_ID"
+          || "$RUN_ID" == "$FAILED_CLOSURE_V2_RUN_ID"
+          || "$RUN_ID" == "$FAILED_CLOSURE_V2_ORIGINAL_RUN_ID"
+          || "$RUN_ID" == "$V1_JOINT26_BOOTSTRAP_RUN_ID" ) ]]; then
+    echo "[ERROR] 보호된 원본/실패/bootstrap run은 resume할 수 없습니다: $RUN_ID" >&2
+    echo "        joint26 V2 표준 run은 dg5f v2 resume으로만 재개하세요." >&2
+    exit 2
+  fi
+  if [[ "$mode" == start && "$STAGE" == v2 ]]; then
+    echo "[ERROR] 표준 joint26 V2는 무작위 start를 금지합니다. dg5f v2 init을 사용하세요." >&2
     exit 2
   fi
   require_files
+  if [[ "$mode" == init && "$STAGE" == v2 ]]; then
+    if [[ "$source_run_id" != "$V1_JOINT26_BOOTSTRAP_RUN_ID" ]]; then
+      echo "[ERROR] V2 init 원본은 검증된 bootstrap이어야 합니다: $V1_JOINT26_BOOTSTRAP_RUN_ID" >&2
+      exit 2
+    fi
+    prepare_v2_bootstrap
+  fi
   command -v tmux >/dev/null 2>&1 || {
     echo "[ERROR] tmux가 없습니다: apt-get install -y tmux" >&2
     exit 2
@@ -356,7 +393,7 @@ launch() {
       echo "[ERROR] 전이 원본과 새 RUN_ID가 같을 수 없습니다: $RUN_ID" >&2
       exit 2
     }
-    local source_checkpoint="$RESULTS_DIR/$source_run_id/DG5FGrasp/checkpoint.pt"
+    local source_checkpoint="$RESULTS_DIR/$source_run_id/$JOINT26_BEHAVIOR/checkpoint.pt"
     [[ -f "$source_checkpoint" ]] || {
       echo "[ERROR] 전이 원본 checkpoint가 없습니다: $source_checkpoint" >&2
       exit 2

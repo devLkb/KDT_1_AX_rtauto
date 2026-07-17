@@ -2,18 +2,18 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-RUN_ID="${DG5F_RUN_ID:-dg5f_v2_gpu_fixed}"
+RUN_ID="${DG5F_RUN_ID:-dg5f_v2_joint26_gpu_fixed}"
 CONFIG="${DG5F_CONFIG:-$ROOT/training/config/dg5f_grasp_v2.yaml}"
 RESULTS_DIR="${RESULTS_DIR:-$ROOT/training/results}"
 EPISODES="${DG5F_EVAL_EPISODES:-200}"
 BASE_SEED="${DG5F_EVAL_BASE_SEED:-200000}"
 CSV_PATH="${DG5F_EVAL_CSV:-$RESULTS_DIR/$RUN_ID/evaluation_v2.csv}"
-PLAYER="${ENV_PATH:-$ROOT/training/builds/DG5FGraspV2/DG5FGrasp.x86_64}"
+PLAYER="${ENV_PATH:-$ROOT/training/builds/DG5FGraspJoint26/DG5FGrasp.x86_64}"
 TIMEOUT_SECONDS="${DG5F_EVAL_TIMEOUT_SECONDS:-600}"
 TRAINER_PID_FILE="$RESULTS_DIR/$RUN_ID/run_logs/evaluation.trainer.pid"
 
-[[ -f "$RESULTS_DIR/$RUN_ID/DG5FGrasp/checkpoint.pt" ]] || {
-  echo "[ERROR] checkpoint가 없습니다: $RESULTS_DIR/$RUN_ID/DG5FGrasp/checkpoint.pt" >&2
+[[ -f "$RESULTS_DIR/$RUN_ID/DG5FGraspJoint/checkpoint.pt" ]] || {
+  echo "[ERROR] checkpoint가 없습니다: $RESULTS_DIR/$RUN_ID/DG5FGraspJoint/checkpoint.pt" >&2
   exit 2
 }
 [[ -x "$PLAYER" ]] || {

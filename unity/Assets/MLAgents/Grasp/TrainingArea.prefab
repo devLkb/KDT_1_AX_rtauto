@@ -721,12 +721,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
   m_BrainParameters:
-    VectorObservationSize: 57
+    VectorObservationSize: 116
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 7
+      m_NumContinuousActions: 26
       BranchSizes: 
-    VectorActionSize: 07000000
+    VectorActionSize: 1a000000
     VectorActionDescriptions:
     - shoulder_pan_delta
     - shoulder_lift_delta
@@ -734,13 +734,32 @@ MonoBehaviour:
     - wrist_1_delta
     - wrist_2_delta
     - wrist_3_delta
-    - grip_delta
+    - finger_1_joint_1_delta
+    - finger_1_joint_2_delta
+    - finger_1_joint_3_delta
+    - finger_1_joint_4_delta
+    - finger_2_joint_1_delta
+    - finger_2_joint_2_delta
+    - finger_2_joint_3_delta
+    - finger_2_joint_4_delta
+    - finger_3_joint_1_delta
+    - finger_3_joint_2_delta
+    - finger_3_joint_3_delta
+    - finger_3_joint_4_delta
+    - finger_4_joint_1_delta
+    - finger_4_joint_2_delta
+    - finger_4_joint_3_delta
+    - finger_4_joint_4_delta
+    - finger_5_joint_1_delta
+    - finger_5_joint_2_delta
+    - finger_5_joint_3_delta
+    - finger_5_joint_4_delta
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 0
-  m_BehaviorName: DG5FGrasp
+  m_BehaviorName: DG5FGraspJoint
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
@@ -783,7 +802,11 @@ MonoBehaviour:
   useDeterministicSpawns: 0
   spawnSeed: 12345
   armDeltaDegPerDecision: 2
-  gripDeltaPerDecision: 0.04
+  handDeltaDegPerDecision: 4
+  stageOneArmDeltaScale: 0.35
+  stageOneHandDeltaDegPerDecision: 1
+  stageOneArmRangeDeg: 25
+  stageOneSpawnRadius: 0.04
 --- !u!114 &8574306879298936672
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -4,18 +4,24 @@ using UnityEngine;
 namespace KDT.GraspTraining
 {
     /// <summary>
-    /// Forward-compatible policy shape and v2 grasp-task contract.
-    /// Observation and action shapes stay fixed across staged transfer learning.
+    /// Forward-compatible joint-policy shape and v2 grasp-task contract.
+    /// Observation and action shapes stay fixed for v2, v3, and v4.
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "2.0.0";
-        public const string BehaviorName = "DG5FGrasp";
-        public const int ObservationSize = 57;
-        public const int ActionSize = 7;
+        public const string SpecVersion = "2.1.0";
+        public const string BehaviorName = "DG5FGraspJoint";
+        public const int ObservationSize = 116;
+        public const int ActionSize = 26;
         public const int ArmJointCount = 6;
         public const int HandJointCount = 20;
         public const int FingerCount = 5;
+        public const int HandActionOffset = ArmJointCount;
+        public const float MaximumHandDeltaDegPerDecision = 4f;
+        public const string CurriculumParameterName = "joint26_stage";
+        public const int FirstCurriculumStage = 1;
+        public const int FinalCurriculumStage = 3;
+        public const float PreGraspFraction = 0.35f;
 
         public const float EpisodeTimeoutSeconds = 20f;
         public const float DecisionTimePenalty = -0.001f;
@@ -25,7 +31,7 @@ namespace KDT.GraspTraining
         public const int ThumbFingerIndex = 0;
         public const int FirstOpposingFingerIndex = 1;
         public const float ThumbContactPotential = 0.25f;
-        public const float OpposingContactPotential = 0.25f;
+        public const float DualContactPotential = 0.5f;
         public const float ContactHoldPotentialMaximum = 0.5f;
         public const float RequiredContactHoldSeconds = 0.5f;
         public const float GraspSuccessReward = 2f;
@@ -55,22 +61,48 @@ namespace KDT.GraspTraining
             180f, -20f, 140f, 0f, -30f, 180f
         };
 
-        // Validated DG5F probe pose, mirrored for the left-hand URDF.
-        // Channel order: finger 1..5, joint 1..4.
-        public static readonly float[] LeftFistDeg =
+        // Fixed 35% pre-grasp pose. It is only a curriculum reset pose, not an
+        // action-space interpolation target. Channel order: finger 1..5, joint 1..4.
+        public static readonly float[] PreGrasp35Deg =
         {
-            -40f, 80f, -60f, -60f,
-              0f, 100f, 80f, 70f,
-              0f, 100f, 80f, 70f,
-              0f, 95f, 80f, 70f,
-              0f, 0f, 80f, 70f
+            -14f, 28f, -21f, -21f,
+              0f, 35f, 28f, 24.5f,
+              0f, 35f, 28f, 24.5f,
+              0f, 33.25f, 28f, 24.5f,
+              0f, 0f, 28f, 24.5f
         };
 
-        public static float GripTargetDeg(int channel, float closure)
+        public static int HandActionIndex(int handJointIndex)
         {
-            if (channel < 0 || channel >= HandJointCount)
-                throw new ArgumentOutOfRangeException(nameof(channel));
-            return Mathf.Lerp(0f, LeftFistDeg[channel], Mathf.Clamp01(closure));
+            if (handJointIndex < 0 || handJointIndex >= HandJointCount)
+                throw new ArgumentOutOfRangeException(nameof(handJointIndex));
+            return HandActionOffset + handJointIndex;
+        }
+
+        public static float AccumulateJointTarget(
+            float currentTargetDeg,
+            float normalizedAction,
+            float maximumDeltaDeg,
+            float lowerLimitDeg,
+            float upperLimitDeg)
+        {
+            if (!IsFinite(currentTargetDeg) || !IsFinite(normalizedAction)
+                || !IsFinite(maximumDeltaDeg))
+            {
+                return ClampJointTarget(0f, lowerLimitDeg, upperLimitDeg);
+            }
+            float delta = Mathf.Clamp(normalizedAction, -1f, 1f)
+                * Mathf.Max(0f, maximumDeltaDeg);
+            return ClampJointTarget(currentTargetDeg + delta, lowerLimitDeg, upperLimitDeg);
+        }
+
+        public static float ClampJointTarget(float valueDeg, float lowerLimitDeg, float upperLimitDeg)
+        {
+            if (!IsFinite(valueDeg) || !IsFinite(lowerLimitDeg) || !IsFinite(upperLimitDeg))
+                return 0f;
+            float minimum = Mathf.Min(lowerLimitDeg, upperLimitDeg);
+            float maximum = Mathf.Max(lowerLimitDeg, upperLimitDeg);
+            return Mathf.Clamp(valueDeg, minimum, maximum);
         }
 
         public static float NormalizeJoint(float valueDeg, float lowerDeg, float upperDeg)
@@ -90,6 +122,23 @@ namespace KDT.GraspTraining
         {
             if (!IsFinite(previousPotential) || !IsFinite(currentPotential)) return 0f;
             return currentPotential - previousPotential;
+        }
+
+        public static float FailurePotentialSettlement(
+            float approachPotential,
+            float contactPotential,
+            float holdPotential)
+        {
+            return ApproachRewardScale * PotentialDelta(approachPotential, 0f)
+                + PotentialDelta(contactPotential, 0f)
+                + PotentialDelta(holdPotential, 0f);
+        }
+
+        public static float FailurePenalty(string failureReason)
+        {
+            return failureReason == "BallOutOfBounds" || failureReason == "NonFinitePhysics"
+                ? -1f
+                : 0f;
         }
 
         public static bool HasThumbContact(bool[] fingerContacts)
@@ -114,8 +163,8 @@ namespace KDT.GraspTraining
 
         public static float ContactPotential(bool thumbContact, bool opposingContact)
         {
-            return (thumbContact ? ThumbContactPotential : 0f)
-                + (opposingContact ? OpposingContactPotential : 0f);
+            if (!thumbContact) return 0f;
+            return opposingContact ? DualContactPotential : ThumbContactPotential;
         }
 
         public static float ContactHoldPotential(float contactHoldSeconds)

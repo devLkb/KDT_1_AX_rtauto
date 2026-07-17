@@ -20,7 +20,7 @@ namespace KDT.GraspTraining.PlayModeTests
             yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
 
-            var agents = Object.FindObjectsByType<Dg5fGraspAgent>(FindObjectsSortMode.None);
+            var agents = Object.FindObjectsByType<Dg5fGraspAgent>();
             Assert.That(agents, Has.Length.EqualTo(20));
             Assert.That(agents.Select(agent => agent.transform.root).Distinct().Count(), Is.EqualTo(20));
             Assert.That(agents.Select(agent => agent.ball).Distinct().Count(), Is.EqualTo(20));
@@ -85,8 +85,8 @@ namespace KDT.GraspTraining.PlayModeTests
             Assert.That(ballColor.g, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(ballColor.b, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(agent.contactSensors, Has.Length.EqualTo(Dg5fGraspSpec.FingerCount));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.0.0"));
-            Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.1.0"));
+            Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGraspJoint"));
             Assert.That(agent.MaxStep, Is.Zero, "v2 measures timeout in simulation time.");
 
             var behavior = agent.GetComponent<BehaviorParameters>();
@@ -105,7 +105,7 @@ namespace KDT.GraspTraining.PlayModeTests
             yield return null;
             Assert.That(agent.GetObservations(), Has.Count.EqualTo(Dg5fGraspSpec.ObservationSize));
             Assert.That(agent.GetObservations(), Is.All.Matches<float>(Dg5fGraspSpec.IsFinite));
-            Assert.That(agent.GetObservations().Skip(49).Take(4),
+            Assert.That(agent.GetObservations().Skip(108).Take(4),
                 Is.EqualTo(new[] { 0f, 1f, 0f, 0f }));
 
             string[] competingDrivers =
@@ -169,14 +169,22 @@ namespace KDT.GraspTraining.PlayModeTests
             {
                 var action = new float[Dg5fGraspSpec.ActionSize];
                 action[0] = reset % 2 == 0 ? 1f : -1f;
-                action[6] = 1f;
+                action[Dg5fGraspSpec.HandActionIndex(0)] = 1f;
                 agent.OnActionReceived(new ActionBuffers(action, new int[0]));
                 yield return new WaitForFixedUpdate();
 
                 Assert.DoesNotThrow(agent.OnEpisodeBegin,
                     $"Reset {reset}: spawn must not depend on stale articulation colliders.");
-                Assert.That(agent.CurrentClosure, Is.Zero);
                 Assert.That(agent.CurrentEpisodeSeconds, Is.Zero);
+                for (int joint = 0; joint < Dg5fGraspSpec.HandJointCount; joint++)
+                {
+                    Assert.That(agent.CurrentHandTargetDeg(joint),
+                        Is.EqualTo(agent.CurrentHandDriveTargetDeg(joint)).Within(1e-5f));
+                    Assert.That(agent.CurrentHandPositionDeg(joint),
+                        Is.EqualTo(agent.CurrentHandTargetDeg(joint)).Within(1e-3f));
+                    Assert.That(agent.CurrentHandVelocityRadPerSecond(joint),
+                        Is.EqualTo(0f).Within(1e-6f));
+                }
                 Assert.That(agent.ball.isKinematic, Is.True,
                     $"Reset {reset}: ball stays kinematic until reset pose reaches physics.");
                 Assert.That(agent.ball.useGravity, Is.False);
@@ -239,6 +247,8 @@ namespace KDT.GraspTraining.PlayModeTests
         {
             SceneManager.LoadScene("DG5F_GraspTraining");
             yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
 
             var agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
             var action = new float[Dg5fGraspSpec.ActionSize];
@@ -251,6 +261,43 @@ namespace KDT.GraspTraining.PlayModeTests
             for (int i = 0; i < 200; i++)
                 agent.OnActionReceived(new ActionBuffers(action, new int[0]));
             Assert.That(agent.CurrentArmTargetDeg(0), Is.EqualTo(-180f));
+        }
+
+        [UnityTest]
+        public IEnumerator EveryHandActionChangesOnlyItsMappedJointTarget()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            var agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            Assert.That(agent, Is.Not.Null);
+            for (int selected = 0; selected < Dg5fGraspSpec.HandJointCount; selected++)
+            {
+                float[] before = Enumerable.Range(0, Dg5fGraspSpec.HandJointCount)
+                    .Select(agent.CurrentHandTargetDeg)
+                    .ToArray();
+                var action = new float[Dg5fGraspSpec.ActionSize];
+                action[Dg5fGraspSpec.HandActionIndex(selected)] = 1f;
+                agent.OnActionReceived(new ActionBuffers(action, new int[0]));
+                if (Mathf.Approximately(before[selected], agent.CurrentHandTargetDeg(selected)))
+                {
+                    action[Dg5fGraspSpec.HandActionIndex(selected)] = -1f;
+                    agent.OnActionReceived(new ActionBuffers(action, new int[0]));
+                }
+
+                Assert.That(agent.CurrentHandTargetDeg(selected),
+                    Is.Not.EqualTo(before[selected]).Within(1e-6f),
+                    $"hand action {Dg5fGraspSpec.HandActionIndex(selected)} did not move joint {selected}");
+                for (int other = 0; other < Dg5fGraspSpec.HandJointCount; other++)
+                {
+                    if (other == selected) continue;
+                    Assert.That(agent.CurrentHandTargetDeg(other),
+                        Is.EqualTo(before[other]).Within(1e-6f),
+                        $"hand action for {selected} changed joint {other}");
+                }
+            }
         }
     }
 }

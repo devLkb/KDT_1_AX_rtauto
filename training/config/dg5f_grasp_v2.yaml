@@ -1,5 +1,5 @@
 behaviors:
-  DG5FGrasp:
+  DG5FGraspJoint:
     trainer_type: ppo
     hyperparameters:
       batch_size: 1024
@@ -29,3 +29,34 @@ behaviors:
 
 torch_settings:
   device: cuda
+
+environment_parameters:
+  joint26_stage:
+    curriculum:
+      - name: near_ball_pregrasp
+        completion_criteria:
+          measure: progress
+          behavior: DG5FGraspJoint
+          threshold: 0.15
+          min_lesson_length: 100
+          require_reset: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 1.0
+      - name: v1_spawn_pregrasp
+        completion_criteria:
+          measure: progress
+          behavior: DG5FGraspJoint
+          threshold: 0.45
+          min_lesson_length: 100
+          require_reset: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 2.0
+      - name: full_open_independent_joints
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 3.0

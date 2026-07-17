@@ -1,4 +1,5 @@
-> **폐기된 v4 복합 보상 문서:** 현재 v1→v4 흐름은 [`../train_plan.md`](../train_plan.md)를 따른다.
+> **폐기된 closure/v4 복합 보상 문서:** 현재 joint26 v1→v4 흐름은
+> [`train_plan.md`](train_plan.md)를 따른다.
 
 # DG5FGraspV4 강화학습 입문과 전체 흐름
 

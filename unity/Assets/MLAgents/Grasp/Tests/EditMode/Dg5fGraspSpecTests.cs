@@ -8,10 +8,10 @@ namespace KDT.GraspTraining.Tests
         [Test]
         public void V2KeepsTheForwardCompatiblePolicyShape()
         {
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.0.0"));
-            Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
-            Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
-            Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.1.0"));
+            Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGraspJoint"));
+            Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(116));
+            Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(26));
             Assert.That(Dg5fGraspSpec.ArmJointCount, Is.EqualTo(6));
             Assert.That(Dg5fGraspSpec.HandJointCount, Is.EqualTo(20));
             Assert.That(Dg5fGraspSpec.FingerCount, Is.EqualTo(5));
@@ -30,8 +30,10 @@ namespace KDT.GraspTraining.Tests
                     .Within(1e-6f));
 
             float noContact = Dg5fGraspSpec.ContactPotential(false, false);
+            float opposingOnly = Dg5fGraspSpec.ContactPotential(false, true);
             float thumbOnly = Dg5fGraspSpec.ContactPotential(true, false);
             float dualContact = Dg5fGraspSpec.ContactPotential(true, true);
+            Assert.That(opposingOnly, Is.Zero);
             Assert.That(thumbOnly, Is.EqualTo(0.25f));
             Assert.That(dualContact, Is.EqualTo(0.5f));
             Assert.That(
@@ -44,6 +46,15 @@ namespace KDT.GraspTraining.Tests
             Assert.That(
                 Dg5fGraspSpec.PotentialDelta(noHold, fullHold),
                 Is.EqualTo(-Dg5fGraspSpec.PotentialDelta(fullHold, noHold)));
+
+            float remaining = Dg5fGraspSpec.FailurePotentialSettlement(
+                Dg5fGraspSpec.ApproachPotential(0.2f),
+                dualContact,
+                fullHold);
+            Assert.That(remaining, Is.LessThan(0f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("BallOutOfBounds"), Is.EqualTo(-1f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("NonFinitePhysics"), Is.EqualTo(-1f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("Timeout"), Is.Zero);
         }
 
         [Test]
@@ -165,14 +176,25 @@ namespace KDT.GraspTraining.Tests
         }
 
         [Test]
-        public void GripProfileInterpolatesAndClampsClosure()
+        public void TwentyHandActionsMapOneToOneAndClampToJointLimits()
         {
-            Assert.That(Dg5fGraspSpec.GripTargetDeg(0, 0f), Is.Zero);
-            Assert.That(Dg5fGraspSpec.GripTargetDeg(0, 0.5f), Is.EqualTo(-20f));
-            Assert.That(Dg5fGraspSpec.GripTargetDeg(0, 2f), Is.EqualTo(-40f));
-            Assert.That(() => Dg5fGraspSpec.GripTargetDeg(-1, 0f),
+            var actionIndices = new System.Collections.Generic.HashSet<int>();
+            for (int joint = 0; joint < Dg5fGraspSpec.HandJointCount; joint++)
+                Assert.That(actionIndices.Add(Dg5fGraspSpec.HandActionIndex(joint)), Is.True);
+            Assert.That(actionIndices,
+                Is.EquivalentTo(System.Linq.Enumerable.Range(6, 20)));
+            Assert.That(Dg5fGraspSpec.PreGrasp35Deg, Has.Length.EqualTo(20));
+            Assert.That(Dg5fGraspSpec.AccumulateJointTarget(0f, 1f, 4f, -10f, 3f),
+                Is.EqualTo(3f));
+            Assert.That(Dg5fGraspSpec.AccumulateJointTarget(0f, -1f, 4f, -3f, 10f),
+                Is.EqualTo(-3f));
+            Assert.That(Dg5fGraspSpec.AccumulateJointTarget(0f, 0.5f, 4f, -10f, 10f),
+                Is.EqualTo(2f));
+            Assert.That(Dg5fGraspSpec.NormalizeJoint(-10f, -10f, 10f), Is.EqualTo(-1f));
+            Assert.That(Dg5fGraspSpec.NormalizeJoint(10f, -10f, 10f), Is.EqualTo(1f));
+            Assert.That(() => Dg5fGraspSpec.HandActionIndex(-1),
                 Throws.TypeOf<System.ArgumentOutOfRangeException>());
-            Assert.That(() => Dg5fGraspSpec.GripTargetDeg(20, 0f),
+            Assert.That(() => Dg5fGraspSpec.HandActionIndex(20),
                 Throws.TypeOf<System.ArgumentOutOfRangeException>());
         }
 

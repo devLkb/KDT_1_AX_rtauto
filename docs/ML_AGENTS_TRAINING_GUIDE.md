@@ -1,4 +1,6 @@
-> **폐기된 v4 실행 문서:** 현재 단계별 실행 규칙은 [`../train_plan.md`](../train_plan.md)를 따른다.
+> **폐기된 closure/v4 실행 문서:** 현재 joint26 단계별 실행 규칙은
+> [`train_plan.md`](train_plan.md)와
+> [`../training/README.md`](../training/README.md)를 따른다.
 
 # DG5F 단계형 공 파지·상승·유지 학습 실행 가이드
 
