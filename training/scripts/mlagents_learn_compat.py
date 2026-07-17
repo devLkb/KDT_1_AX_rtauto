@@ -10,7 +10,9 @@ and protobuf dependency set.
 
 from __future__ import annotations
 
+import atexit
 from functools import wraps
+import os
 import threading
 
 from mlagents.torch_utils import default_device, torch
@@ -47,5 +49,32 @@ threading.Thread.run = _run_with_torch_device
 from mlagents.trainers.learn import main  # noqa: E402
 
 
+def _install_pid_file() -> None:
+    """Publish the trainer PID so dg5f stop never signals forked env workers."""
+    pid_file = os.environ.get("DG5F_TRAINER_PID_FILE")
+    if not pid_file:
+        return
+
+    pid_directory = os.path.dirname(pid_file)
+    if pid_directory:
+        os.makedirs(pid_directory, exist_ok=True)
+    temporary = f"{pid_file}.{os.getpid()}.tmp"
+    with open(temporary, "w", encoding="ascii") as file:
+        file.write(f"{os.getpid()}\n")
+    os.replace(temporary, pid_file)
+
+    def remove_own_pid_file() -> None:
+        try:
+            with open(pid_file, encoding="ascii") as file:
+                owner = file.read().strip()
+            if owner == str(os.getpid()):
+                os.unlink(pid_file)
+        except FileNotFoundError:
+            pass
+
+    atexit.register(remove_own_pid_file)
+
+
 if __name__ == "__main__":
+    _install_pid_file()
     main()

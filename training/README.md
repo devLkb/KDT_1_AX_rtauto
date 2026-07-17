@@ -34,7 +34,7 @@ dg5f watch    # continuously refresh the summary
 dg5f logs     # follow logs
 dg5f resume   # resume inside a shared tmux session
 dg5f view     # attach to tmux read-only
-dg5f stop     # graceful Ctrl+C/checkpoint
+dg5f stop     # trainer만 SIGINT → checkpoint 저장 → Unity까지 종료 확인
 ```
 Unity physics and environment stepping remain CPU workloads. With the default
 `buffer_size: 10240`, CUDA utilization is bursty because PPO updates begin only after
