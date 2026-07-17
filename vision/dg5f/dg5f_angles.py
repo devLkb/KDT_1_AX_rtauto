@@ -10,8 +10,9 @@ DG5F 구조 (dg5f_right.urdf 실측, 2026-07-13 팁 좌표로 손가락 확정):
 패킷 순서(고정, Unity Dg5fHandDriver와 계약):
   [0..3] 엄지 1_1,1_2,1_3,1_4 / [4..7] 검지 2_1..2_4 / [8..11] 중지 / [12..15] 약지 / [16..19] 새끼
 
-⚠️ 벌림(n_1)·새끼접기(5_1)는 GATED=True 동안 중립 0° 고정 (SVH spread 과민 전례).
-   굽힘 채널 라이브 검증 후 단계적으로 해제.
+⚠️ GATED=True 채널은 중립 0° 고정 (SVH spread 과민 전례). 2026-07-17 검지~약지 벌림
+   (index/middle/ring_abd) 해제 — Unity가 n_1을 이 채널 직결(ff)로 구동하는 신정책용.
+   새끼 채널(pinky_cmc/lat)만 게이트 유지. 벌림이 과민하면 h_min/max(±0.30rad)를 넓힐 것.
 ⚠️ 방향(부호) 미확정 채널: 엄지 대향(1_2)·CMC(1_1) — 라이브 검증에서 반대면
    해당 채널 (dg_min, dg_max)를 스왑 (SVH thumb_opposition 전례와 동일한 해법).
 """
@@ -155,15 +156,15 @@ DG5F_CHANNELS = [
     ("thumb_opp",   0.15,  0.85,  -15.0, -120.0,  False),
     ("thumb_mcp",   0.05,  0.90,    0.0,   80.0,  False),
     ("thumb_ip",    0.05,  1.20,    0.0,   80.0,  False),
-    ("index_abd",  -0.30,  0.30,  -25.0,   20.0,  True),
+    ("index_abd",  -0.30,  0.30,  -25.0,   20.0,  False),
     ("index_mcp",   0.05,  1.20,    0.0,  110.0,  False),
     ("index_pip",   0.10,  1.80,    0.0,   85.0,  False),
     ("index_dip",   0.05,  1.20,    0.0,   80.0,  False),
-    ("middle_abd", -0.30,  0.30,  -20.0,   20.0,  True),
+    ("middle_abd", -0.30,  0.30,  -20.0,   20.0,  False),
     ("middle_mcp",  0.05,  1.20,    0.0,  110.0,  False),
     ("middle_pip",  0.10,  1.80,    0.0,   85.0,  False),
     ("middle_dip",  0.05,  1.20,    0.0,   80.0,  False),
-    ("ring_abd",   -0.30,  0.30,  -12.0,   28.0,  True),
+    ("ring_abd",   -0.30,  0.30,  -12.0,   28.0,  False),
     ("ring_mcp",    0.05,  1.20,    0.0,  105.0,  False),
     ("ring_pip",    0.10,  1.80,    0.0,   85.0,  False),
     ("ring_dip",    0.05,  1.20,    0.0,   80.0,  False),

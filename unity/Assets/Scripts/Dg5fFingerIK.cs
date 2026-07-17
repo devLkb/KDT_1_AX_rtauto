@@ -114,15 +114,17 @@ public class Dg5fFingerIK : MonoBehaviour
     bool _priorSmoothedInit;
 
     // ---- 앞뒤(깊이) 피드포워드 (2단계에서 비활성, §25 2026-07-15) ----
-    // 구정책(§20-5/20-7): 1_2를 elevation ff 전담, CCD 제외(권한=_pinchW). 당시 근거였던
-    // "위치만으로 깊이 재현 불가"는 가상 앵커 정합(reachOffset)으로 소멸 — 오히려 ff 전담이
-    // 작업공간을 x≥0.24로 묶어 명령 82%가 도달 불가(잔차 1.4~2.5cm+정지 떨림 연료)였음.
-    // 2단계 = cmcFeedforward 0(CCD가 1_2 포함 4관절 전담) + elevation은 priorWeights[1]로만.
-    // ⚠️원복 = cmcFeedforward 8 + priorWeights[1] 0 (이중 제어 금지 규칙 §20-4).
-    [Tooltip("피드포워드 수렴 속도(/s). 0=비활성(2단계 기본): CCD가 1_2 포함 전담, elevation은 prior로만. >0=구정책(1_2를 ff 전담, CCD 제외 — 반드시 priorWeights[1]=0과 함께)")]
+    // 이력: §20-5/20-7은 1_2를 elevation ff 전담(구정책, 도달 82% 불가로 폐기 — 상세는 git 이력).
+    // 2026-07-17 신정책(엄지만, 프리팹 f1: ff=8/joint=0/priorWeights[0]=0): **1_1을 사람 스윕
+    // 채널(패킷 [0]) 직결 전담, CCD 제외** — URDF 실측 근거: 1_1 축=손바닥 법선(스윕 관절),
+    // 1_2 피벗이 1_1 축 위라 1_1 회전에도 앵커 불변, 남은 1_2(롤)+1_3+1_4(굽힘)가 비평면
+    // 3관절 = 3DOF 목표와 여유자유도 0 → CCD가 비해부학 자세(벌림 휘두름)를 고를 여지 소멸.
+    // 핀치 시엔 CCD로 권한 이양(ang×_pinchW — 접촉 정밀이 자세 충실보다 우선).
+    // ⚠️이중 제어 금지(§20-4): ff 전담 관절은 반드시 priorWeights[그 관절]=0.
+    [Tooltip("피드포워드 수렴 속도(/s). 0=비활성: CCD가 4관절 전담. >0=feedforwardJoint를 사람 각도 채널 직결 전담(CCD 제외, 핀치 시 CCD로 이양). 2026-07-17 엄지 1_1 스윕 직결에 사용(f1: 8) — 반드시 priorWeights[해당 관절]=0과 함께")]
     public float cmcFeedforward = 0f;
 
-    [Tooltip("(구정책용) 피드포워드가 전담할 엄지 관절 인덱스(0=1_1 .. 3=1_4). cmcFeedforward=0이면 미사용")]
+    [Tooltip("피드포워드가 전담할 관절 인덱스(0=n_1 .. 3=n_4). 엄지 신정책(2026-07-17)=0(1_1 스윕). cmcFeedforward=0이면 미사용")]
     public int feedforwardJoint = 1;
 
     // ---- 핀치 연속 블렌딩: v3 끝거리비로 해부학 목표↔검지끝 스냅을 연속 전환 ----
@@ -188,9 +190,11 @@ public class Dg5fFingerIK : MonoBehaviour
     Transform _thumbTip, _indexTip, _palm;
     Vector3 _thumbBaseL, _exL, _eyL, _ezL; // palm 로컬: 엄지 베이스(1_1 피벗) + 해부학 축 (Start에서 캐시)
     float _robotChainLen;                   // 로봇 엄지 체인 길이 |1_1→1_2→1_3→1_4→tip| (강체 마디합 — 포즈 불변)
-    Vector3 _chainBaseL;   // palm 로컬 n_2 피벗 — ChainRatioReach 앵커. 사람 앵커(MCP/엄지 CMC)와 마디수 3:3 대응(2026-07-17)
     float _chainLen3;      // 로봇 3마디 합 |n_2→n_3→n_4→tip| — n_1→n_2(너클 오프셋/메타카팔/측면 오프셋)는 제외.
-                           // URDF상 rest에서 세 마디가 일직선이라 ext=1 목표가 정확히 도달 가능(체인합 과대 문제 해소)
+                           // URDF상 rest에서 세 마디가 일직선이라 ext=1 목표가 정확히 도달 가능(체인합 과대 문제 해소).
+                           // 앵커는 캐시하지 않고 매 틱 라이브 n_2 피벗 사용 — 검지~약지는 n_2 피벗이 n_1 축에서
+                           // 2.65cm 떨어져 있어 벌림 풀레인지에 최대 2.3cm 흔들린다(rest 캐시는 그만큼 목표 오차).
+                           // n_1이 사람 각도 직결(ff)이라 라이브 피벗을 읽어도 IK 피드백 루프가 안 생긴다.
     float _robotHandLen;                    // 로봇 손길이 |손목(palm)→중지MCP(3_2)| — 새 방식(v5) 손목→끝 벡터 스케일
 
     // ---- 방향별 최대도달 테이블 (§26, 2026-07-15) ----
@@ -265,10 +269,9 @@ public class Dg5fFingerIK : MonoBehaviour
             prev = _thumb[i].transform.position;
         }
         _robotChainLen += (_thumbTip.position - prev).magnitude;
-        // ChainRatioReach용 3마디 앵커·스케일 — 사람 마디(1~2·2~3·3~4 landmark)와 3:3 대응(2026-07-17).
+        // ChainRatioReach용 3마디 스케일 — 사람 마디(1~2·2~3·3~4 landmark)와 3:3 대응(2026-07-17).
         // n_1→n_2 구간(검지~약지 너클 오프셋 3.2cm / 새끼 메타카팔 4.7cm / 엄지 측면 4.2cm)은 사람 쪽
-        // 분모(3마디 합)에 없는 길이라 스케일에서 제외하고 앵커 위치(n_2 피벗)로 흡수한다.
-        _chainBaseL = _palm.InverseTransformPoint(_thumb[1].transform.position);
+        // 분모(3마디 합)에 없는 길이라 스케일에서 제외하고 앵커 위치(라이브 n_2 피벗)로 흡수한다.
         _chainLen3 = (_thumb[2].transform.position - _thumb[1].transform.position).magnitude
                    + (_thumb[3].transform.position - _thumb[2].transform.position).magnitude
                    + (_thumbTip.position - _thumb[3].transform.position).magnitude;
@@ -459,7 +462,9 @@ public class Dg5fFingerIK : MonoBehaviour
     ///   ② 앵커: reachOffset 평행이동 없는 실제 n_2 피벗(사람 앵커가 실제 MCP/CMC인 것과 대응)
     Vector3 ComputeTargetChainRatio(Vector3 tipN)
     {
-        Vector3 basePos = _palm.TransformPoint(_chainBaseL);
+        // 라이브 n_2 피벗 — rest 캐시 금지: 검지~약지는 n_1 벌림에 피벗이 최대 2.3cm 흔들린다(2026-07-17).
+        // n_1은 사람 각도 직결(ff)이라 IK 출력이 앵커로 되먹임되지 않음. 엄지는 1_2가 1_1 축 위라 어차피 불변.
+        Vector3 basePos = _thumb[1].transform.position;
         DebugAnchor = basePos;   // 사람 앵커(MCP/CMC = landmark 1·5·9·13·17)의 로봇 대응점
         float ext = tipN.magnitude;                    // 사람 펴짐 비율(직진도)
         if (ext <= 1e-5f) return basePos;

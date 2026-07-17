@@ -1721,14 +1721,14 @@ MonoBehaviour:
   windupDeg: 15
   priorGain: 3
   priorWeights:
-  - 1
+  - 0
   - 1
   - 1
   - 1
   priorStepRatio: 0.3
   priorAngleLerp: 4
-  cmcFeedforward: 0
-  feedforwardJoint: 1
+  cmcFeedforward: 8
+  feedforwardJoint: 0
   pinchNear: 0.32
   pinchFar: 0.55
   debugShowTip: 1
