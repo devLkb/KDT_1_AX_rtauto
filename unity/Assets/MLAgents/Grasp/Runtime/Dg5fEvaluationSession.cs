@@ -21,7 +21,10 @@ namespace KDT.GraspTraining
         const string CsvHeader =
             "episode_id,seed,area,success,failure_reason,completion_seconds,"
             + "reach_success,first_reach_seconds,final_distance_meters,"
-            + "best_distance_meters,max_contact_hold_seconds";
+            + "best_distance_meters,max_contact_hold_seconds,max_contact_finger_count,"
+            + "max_non_thumb_contact_count,stable_grasp_acquired,max_lift_height_meters,"
+            + "max_valid_hold_seconds,grip_lost_cause,thumb_maintained_after_stable,"
+            + "minimum_non_thumb_contacts_after_stable";
 
         static readonly object Gate = new object();
         static readonly Dictionary<Dg5fGraspAgent, int> AreaByAgent =
@@ -98,7 +101,15 @@ namespace KDT.GraspTraining
             float firstReachSeconds,
             float finalDistanceMeters,
             float bestDistanceMeters,
-            float maxContactHoldSeconds)
+            float maxContactHoldSeconds,
+            int maxContactFingerCount,
+            int maxNonThumbContactCount,
+            bool stableGraspAcquired,
+            float maxLiftHeightMeters,
+            float maxValidHoldSeconds,
+            string gripLostCause,
+            bool thumbMaintainedAfterStable,
+            int minimumNonThumbContactsAfterStable)
         {
             EnsureConfigured();
             if (!_enabled) return;
@@ -129,7 +140,15 @@ namespace KDT.GraspTraining
                     FormatFloat(firstReachSeconds),
                     FormatFloat(finalDistanceMeters),
                     FormatFloat(bestDistanceMeters),
-                    FormatFloat(maxContactHoldSeconds));
+                    FormatFloat(maxContactHoldSeconds),
+                    maxContactFingerCount.ToString(CultureInfo.InvariantCulture),
+                    maxNonThumbContactCount.ToString(CultureInfo.InvariantCulture),
+                    stableGraspAcquired ? "1" : "0",
+                    FormatFloat(maxLiftHeightMeters),
+                    FormatFloat(maxValidHoldSeconds),
+                    EscapeCsv(gripLostCause),
+                    thumbMaintainedAfterStable ? "1" : "0",
+                    minimumNonThumbContactsAfterStable.ToString(CultureInfo.InvariantCulture));
                 File.AppendAllText(_csvPath, row + Environment.NewLine, new UTF8Encoding(false));
 
                 if (RecordedEpisodeIds.Count == _episodeCount)

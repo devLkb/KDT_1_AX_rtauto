@@ -21,7 +21,7 @@ namespace KDT.GraspTraining.Editor
                 repositoryRoot,
                 "training",
                 "builds",
-                "DG5FGraspJoint26");
+                "DG5FStableGrasp");
             Directory.CreateDirectory(outputDirectory);
 
             var options = new BuildPlayerOptions
@@ -39,8 +39,40 @@ namespace KDT.GraspTraining.Editor
             if (report.summary.result != BuildResult.Succeeded)
                 throw new InvalidOperationException(
                     $"Headless build failed: {report.summary.result}, errors={report.summary.totalErrors}");
+            RemoveUnusedRuntimeAssimp(outputDirectory);
+            InstallLinuxLibDlProbeShim(outputDirectory);
 
             Debug.Log($"[GraspTrainingBuild] Built {options.locationPathName}");
+        }
+
+        static void RemoveUnusedRuntimeAssimp(string outputDirectory)
+        {
+            // The scene uses already-imported meshes. The URDF importer's Linux
+            // Assimp binary depends on legacy libminizip.so.1, which Ubuntu 24.04
+            // does not ship; leaving the unused binary in the player produces a
+            // startup error before ML-Agents connects.
+            string plugin = Path.Combine(
+                outputDirectory,
+                "DG5FGrasp_Data",
+                "Plugins",
+                "libassimp.so");
+            if (File.Exists(plugin)) File.Delete(plugin);
+        }
+
+        static void InstallLinuxLibDlProbeShim(string outputDirectory)
+        {
+            string[] candidates =
+            {
+                "/lib/x86_64-linux-gnu/libdl.so.2",
+                "/usr/lib/x86_64-linux-gnu/libdl.so.2"
+            };
+            string source = Array.Find(candidates, File.Exists);
+            if (source == null)
+                throw new InvalidOperationException(
+                    "Linux libdl.so.2 is required for the URDF importer's disabled-runtime probe.");
+            string plugins = Path.Combine(outputDirectory, "DG5FGrasp_Data", "Plugins");
+            Directory.CreateDirectory(plugins);
+            File.Copy(source, Path.Combine(plugins, "libdl.so"), true);
         }
     }
 }

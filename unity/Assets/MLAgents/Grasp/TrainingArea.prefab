@@ -24,9 +24,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1781382163880266631}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.057550494, y: 0.10008936, z: 0.018118693}
-  m_LocalScale: {x: 1.0000005, y: 0.9999996, z: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.017020322, y: 0.15246215, z: 0.013539946}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6737138100890561261}
@@ -425,6 +425,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3650474563495772501, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3837151620525538945, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.damping
       value: 100
@@ -484,6 +488,10 @@ PrefabInstance:
     - target: {fileID: 4630947862775914348, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.forceLimit
       value: 28
+      objectReference: {fileID: 0}
+    - target: {fileID: 4630947862775914348, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.x
+      value: 0.000000014901168
       objectReference: {fileID: 0}
     - target: {fileID: 4690675079454138659, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.damping
@@ -568,6 +576,10 @@ PrefabInstance:
     - target: {fileID: 7500637150231856370, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.forceLimit
       value: 28
+      objectReference: {fileID: 0}
+    - target: {fileID: 7500637150231856370, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.x
+      value: 0.099700086
       objectReference: {fileID: 0}
     - target: {fileID: 7607438824666650721, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.damping
@@ -756,10 +768,10 @@ MonoBehaviour:
     - finger_5_joint_4_delta
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: 5f43e3127b59145a08e87ed7d9f4ef45, type: 3}
   m_InferenceDevice: 0
   m_BehaviorType: 0
-  m_BehaviorName: DG5FGraspJoint
+  m_BehaviorName: DG5FStableGrasp
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1

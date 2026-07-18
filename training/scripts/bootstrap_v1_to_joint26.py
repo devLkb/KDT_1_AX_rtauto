@@ -299,8 +299,10 @@ def create_bootstrap_run(
     seed: int = DEFAULT_SEED,
     force: bool = False,
     expected_source_sha256: str | None = None,
+    target_behavior: str = TARGET_BEHAVIOR,
+    spec_version: str = "2.1.0",
 ) -> Path:
-    checkpoint_path = output_run / TARGET_BEHAVIOR / "checkpoint.pt"
+    checkpoint_path = output_run / target_behavior / "checkpoint.pt"
     manifest_path = output_run / "bootstrap_manifest.json"
     source_hash = _sha256(source_checkpoint)
     if expected_source_sha256 is not None and source_hash != expected_source_sha256:
@@ -316,6 +318,10 @@ def create_bootstrap_run(
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest.get("source_sha256") != source_hash:
             raise ConversionError("existing bootstrap was built from a different source")
+        if manifest.get("target_behavior") != target_behavior:
+            raise ConversionError("existing bootstrap targets a different behavior")
+        if manifest.get("spec_version") != spec_version:
+            raise ConversionError("existing bootstrap targets a different spec version")
         return checkpoint_path
 
     source = torch.load(source_checkpoint, map_location="cpu", weights_only=False)
@@ -328,9 +334,9 @@ def create_bootstrap_run(
     )
     manifest = {
         "format": "dg5f-v1-to-joint26-bootstrap",
-        "spec_version": "2.1.0",
+        "spec_version": spec_version,
         "source_behavior": SOURCE_BEHAVIOR,
-        "target_behavior": TARGET_BEHAVIOR,
+        "target_behavior": target_behavior,
         "source_checkpoint": str(source_checkpoint.resolve()),
         "source_sha256": source_hash,
         "source_observations": SOURCE_OBSERVATIONS,
@@ -360,6 +366,8 @@ def main() -> int:
         default=EXPECTED_SOURCE_SHA256,
     )
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--target-behavior", default=TARGET_BEHAVIOR)
+    parser.add_argument("--spec-version", default="2.1.0")
     args = parser.parse_args()
     output = create_bootstrap_run(
         args.source,
@@ -367,6 +375,8 @@ def main() -> int:
         seed=args.seed,
         force=args.force,
         expected_source_sha256=args.expected_source_sha256,
+        target_behavior=args.target_behavior,
+        spec_version=args.spec_version,
     )
     print(f"[OK] verified joint26 bootstrap: {output}")
     return 0

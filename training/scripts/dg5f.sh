@@ -7,12 +7,14 @@ FROZEN_V1_RUN_ID="dg5f_v1_gpu_fixed"
 FAILED_CLOSURE_V2_RUN_ID="dg5f_v2_closure_failed_343k"
 FAILED_CLOSURE_V2_ORIGINAL_RUN_ID="dg5f_v2_gpu_fixed"
 V1_JOINT26_BOOTSTRAP_RUN_ID="dg5f_v1_joint26_bootstrap"
+V1_STABLE_BOOTSTRAP_RUN_ID="dg5f_v1_stable_grasp_bootstrap"
 JOINT26_BEHAVIOR="DG5FGraspJoint"
+STABLE_BEHAVIOR="DG5FStableGrasp"
 
 # Preferred CLI: dg5f v2 status / dg5f v2 resume / dg5f v3 init.
 # Keep the old environment-variable-only form compatible for existing jobs.
 STAGE=""
-if [[ "${1:-}" =~ ^v[1-4]$ ]]; then
+if [[ "${1:-}" =~ ^(v[1-4]|stable)$ ]]; then
   STAGE="$1"
   shift
 fi
@@ -46,6 +48,13 @@ case "$STAGE" in
     STAGE_SESSION="dg5f_v4"
     PREVIOUS_RUN_ID="dg5f_v3_gpu_fixed"
     ;;
+  stable)
+    STAGE_RUN_ID="dg5f_stable_grasp_gpu"
+    STAGE_CONFIG="$ROOT/training/config/dg5f_stable_grasp.yaml"
+    STAGE_PLAYER="$ROOT/training/builds/DG5FStableGrasp/DG5FGrasp.x86_64"
+    STAGE_SESSION="dg5f_stable_grasp"
+    PREVIOUS_RUN_ID="$V1_STABLE_BOOTSTRAP_RUN_ID"
+    ;;
   "")
     STAGE_RUN_ID="dg5f_v1_gpu_fixed"
     STAGE_CONFIG="$ROOT/training/config/dg5f_grasp.yaml"
@@ -54,6 +63,8 @@ case "$STAGE" in
     PREVIOUS_RUN_ID=""
     ;;
 esac
+TARGET_BEHAVIOR="$JOINT26_BEHAVIOR"
+[[ "$STAGE" == stable ]] && TARGET_BEHAVIOR="$STABLE_BEHAVIOR"
 
 NUM_ENVS="${DG5F_NUM_ENVS:-4}"
 TIME_SCALE="${DG5F_TIME_SCALE:-20}"
@@ -93,7 +104,7 @@ usage() {
   cat <<EOF
 사용법: dg5f <단계> <명령>
 
-  단계     v1 | v2 | v3 | v4
+  단계     v1 | v2 | v3 | v4 | stable
   status   프로세스, GPU, 최신 학습 지표 한 번 확인
   watch    status를 2초마다 갱신 (종료: Ctrl+C, 학습은 계속됨)
   logs     현재 run의 콘솔/Unity 로그 추적
@@ -117,6 +128,7 @@ usage() {
   dg5f v2 resume
   dg5f v3 init       # dg5f_v2_joint26_gpu_fixed에서 자동 전이
   dg5f v4 stop
+  dg5f stable init  # 동결 V1에서 새 3.0 stable-grasp run 시작
 
 커스텀 실험은 단계 접두사 없이 DG5F_RUN_ID, DG5F_CONFIG, DG5F_PLAYER,
 DG5F_SESSION을 지정하는 기존 형식을 사용합니다.
@@ -146,6 +158,22 @@ prepare_v2_bootstrap() {
   "$VENV/bin/python" "$converter" \
     --source "$source_checkpoint" \
     --output-run "$output_run"
+}
+
+prepare_stable_bootstrap() {
+  local source_checkpoint="$RESULTS_DIR/$FROZEN_V1_RUN_ID/DG5FGrasp/checkpoint.pt"
+  local output_run="$RESULTS_DIR/$V1_STABLE_BOOTSTRAP_RUN_ID"
+  local converter="$ROOT/training/scripts/bootstrap_v1_to_joint26.py"
+  [[ -f "$source_checkpoint" ]] || {
+    echo "[ERROR] 동결 V1 checkpoint가 없습니다: $source_checkpoint" >&2
+    echo "        training/archives/V1_BASELINE.md의 SHA-256 archive를 먼저 복원하세요." >&2
+    exit 2
+  }
+  "$VENV/bin/python" "$converter" \
+    --source "$source_checkpoint" \
+    --output-run "$output_run" \
+    --target-behavior "$STABLE_BEHAVIOR" \
+    --spec-version 3.0.0
 }
 
 # Read process arguments from /proc instead of matching a pgrep regular
@@ -354,13 +382,18 @@ launch() {
         && ( "$RUN_ID" == "$FROZEN_V1_RUN_ID"
           || "$RUN_ID" == "$FAILED_CLOSURE_V2_RUN_ID"
           || "$RUN_ID" == "$FAILED_CLOSURE_V2_ORIGINAL_RUN_ID"
-          || "$RUN_ID" == "$V1_JOINT26_BOOTSTRAP_RUN_ID" ) ]]; then
+          || "$RUN_ID" == "$V1_JOINT26_BOOTSTRAP_RUN_ID"
+          || "$RUN_ID" == "$V1_STABLE_BOOTSTRAP_RUN_ID" ) ]]; then
     echo "[ERROR] 보호된 원본/실패/bootstrap run은 resume할 수 없습니다: $RUN_ID" >&2
     echo "        joint26 V2 표준 run은 dg5f v2 resume으로만 재개하세요." >&2
     exit 2
   fi
   if [[ "$mode" == start && "$STAGE" == v2 ]]; then
     echo "[ERROR] 표준 joint26 V2는 무작위 start를 금지합니다. dg5f v2 init을 사용하세요." >&2
+    exit 2
+  fi
+  if [[ "$mode" == start && "$STAGE" == stable ]]; then
+    echo "[ERROR] stable-grasp 표준 run은 무작위 start를 금지합니다. dg5f stable init을 사용하세요." >&2
     exit 2
   fi
   require_files
@@ -370,6 +403,13 @@ launch() {
       exit 2
     fi
     prepare_v2_bootstrap
+  fi
+  if [[ "$mode" == init && "$STAGE" == stable ]]; then
+    if [[ "$source_run_id" != "$V1_STABLE_BOOTSTRAP_RUN_ID" ]]; then
+      echo "[ERROR] stable init 원본은 검증된 bootstrap이어야 합니다: $V1_STABLE_BOOTSTRAP_RUN_ID" >&2
+      exit 2
+    fi
+    prepare_stable_bootstrap
   fi
   command -v tmux >/dev/null 2>&1 || {
     echo "[ERROR] tmux가 없습니다: apt-get install -y tmux" >&2
@@ -393,7 +433,7 @@ launch() {
       echo "[ERROR] 전이 원본과 새 RUN_ID가 같을 수 없습니다: $RUN_ID" >&2
       exit 2
     }
-    local source_checkpoint="$RESULTS_DIR/$source_run_id/$JOINT26_BEHAVIOR/checkpoint.pt"
+    local source_checkpoint="$RESULTS_DIR/$source_run_id/$TARGET_BEHAVIOR/checkpoint.pt"
     [[ -f "$source_checkpoint" ]] || {
       echo "[ERROR] 전이 원본 checkpoint가 없습니다: $source_checkpoint" >&2
       exit 2

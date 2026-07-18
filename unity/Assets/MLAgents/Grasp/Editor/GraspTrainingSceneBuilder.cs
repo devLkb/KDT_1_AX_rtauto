@@ -28,6 +28,7 @@ namespace KDT.GraspTraining.Editor
         {
             "Dg5fReceiver",
             "Dg5fHandDriver",
+            "Dg5fFingerIK",
             "Dg5fThumbIK",
             "Dg5fJointLogger",
             "HandSliderUI",
@@ -101,6 +102,7 @@ namespace KDT.GraspTraining.Editor
             requester.TakeActionsBetweenDecisions = false;
 
             PrefabUtility.SaveAsPrefabAssetAndConnect(area, TrainingPrefabPath, InteractionMode.AutomatedAction);
+            GraspPointCalibrator.CalibrateTrainingPrefab();
             PopulateTrainingAreas(area);
             ConfigureCamera(LayoutCenter());
             Selection.activeGameObject = area;
@@ -172,7 +174,7 @@ namespace KDT.GraspTraining.Editor
 
         static void DisableCompetingDrivers(GameObject robot)
         {
-            foreach (var behaviour in robot.GetComponents<MonoBehaviour>())
+            foreach (var behaviour in robot.GetComponentsInChildren<MonoBehaviour>(true))
                 if (behaviour != null && CompetingDriverTypes.Contains(behaviour.GetType().Name))
                     behaviour.enabled = false;
         }
@@ -243,10 +245,8 @@ namespace KDT.GraspTraining.Editor
             Transform existing = palm.Find("GraspPoint");
             if (existing != null) UnityEngine.Object.DestroyImmediate(existing.gameObject);
 
-            Vector3 opposingCenter = Vector3.zero;
-            for (int i = 1; i < tips.Length; i++) opposingCenter += tips[i].position;
-            opposingCenter /= tips.Length - 1;
-            Vector3 worldCenter = Vector3.Lerp(tips[0].position, opposingCenter, 0.5f);
+            var positions = tips.Select(tip => tip.position).ToArray();
+            Vector3 worldCenter = Dg5fGraspSpec.EqualWeightedCenter(positions);
 
             var grasp = new GameObject("GraspPoint").transform;
             grasp.SetParent(palm, true);

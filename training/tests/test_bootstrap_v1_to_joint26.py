@@ -149,6 +149,32 @@ class BootstrapV1ToJoint26Tests(unittest.TestCase):
                 checkpoint_path,
             )
 
+    def test_writes_separate_stable_grasp_behavior_and_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "source.pt"
+            output_run = root / "stable-bootstrap"
+            torch.save(source_checkpoint(), source_path)
+
+            checkpoint_path = BOOTSTRAP.create_bootstrap_run(
+                source_path,
+                output_run,
+                seed=790,
+                target_behavior="DG5FStableGrasp",
+                spec_version="3.0.0",
+            )
+            self.assertEqual(
+                checkpoint_path,
+                output_run / "DG5FStableGrasp" / "checkpoint.pt",
+            )
+            import json
+
+            manifest = json.loads(
+                (output_run / "bootstrap_manifest.json").read_text()
+            )
+            self.assertEqual(manifest["target_behavior"], "DG5FStableGrasp")
+            self.assertEqual(manifest["spec_version"], "3.0.0")
+
     def test_loads_all_joint26_mlagents_modules_without_missing_keys(self):
         from mlagents.torch_utils import set_torch_config
         from mlagents.trainers.learn import parse_command_line

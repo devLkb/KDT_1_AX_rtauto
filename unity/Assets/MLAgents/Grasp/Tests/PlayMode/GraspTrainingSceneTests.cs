@@ -1,12 +1,15 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;
+using Unity.MLAgents.Sensors;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace KDT.GraspTraining.PlayModeTests
 {
@@ -37,6 +40,10 @@ namespace KDT.GraspTraining.PlayModeTests
                 Assert.That(agent.pedestal.IsChildOf(area), Is.True);
                 Assert.That(agent.GetComponent<BehaviorParameters>().BehaviorName,
                     Is.EqualTo(Dg5fGraspSpec.BehaviorName));
+                Assert.That(area.GetComponentsInChildren<BehaviorParameters>(true),
+                    Has.Length.EqualTo(1));
+                Assert.That(area.GetComponents<BehaviorParameters>(), Is.Empty);
+                Assert.That(agent.graspPoint.parent, Is.SameAs(agent.palm));
                 for (int sensorIndex = 0; sensorIndex < agent.contactSensors.Length; sensorIndex++)
                 {
                     var sensor = agent.contactSensors[sensorIndex];
@@ -58,7 +65,7 @@ namespace KDT.GraspTraining.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator TrainingSceneLoadsWithV2ContractAndSingleDriveOwner()
+        public IEnumerator TrainingSceneLoadsWithStableGraspContractAndSingleDriveOwner()
         {
             SceneManager.LoadScene("DG5F_GraspTraining");
             yield return null;
@@ -85,9 +92,9 @@ namespace KDT.GraspTraining.PlayModeTests
             Assert.That(ballColor.g, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(ballColor.b, Is.EqualTo(0f).Within(1e-4f));
             Assert.That(agent.contactSensors, Has.Length.EqualTo(Dg5fGraspSpec.FingerCount));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("2.1.0"));
-            Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGraspJoint"));
-            Assert.That(agent.MaxStep, Is.Zero, "v2 measures timeout in simulation time.");
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("3.0.0"));
+            Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FStableGrasp"));
+            Assert.That(agent.MaxStep, Is.Zero, "Stable grasp measures timeout in simulation time.");
 
             var behavior = agent.GetComponent<BehaviorParameters>();
             Assert.That(behavior.BehaviorName, Is.EqualTo(Dg5fGraspSpec.BehaviorName));
@@ -101,19 +108,23 @@ namespace KDT.GraspTraining.PlayModeTests
             Assert.That(requester.DecisionPeriod, Is.EqualTo(5));
             Assert.That(requester.TakeActionsBetweenDecisions, Is.False);
 
-            agent.RequestDecision();
-            yield return null;
-            Assert.That(agent.GetObservations(), Has.Count.EqualTo(Dg5fGraspSpec.ObservationSize));
-            Assert.That(agent.GetObservations(), Is.All.Matches<float>(Dg5fGraspSpec.IsFinite));
-            Assert.That(agent.GetObservations().Skip(108).Take(4),
-                Is.EqualTo(new[] { 0f, 1f, 0f, 0f }));
+            var sensor = new VectorSensor(Dg5fGraspSpec.ObservationSize);
+            agent.CollectObservations(sensor);
+            var observations = ((IEnumerable<float>)typeof(VectorSensor)
+                    .GetMethod("GetObservations", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(sensor, null))
+                .ToArray();
+            Assert.That(observations.Length, Is.EqualTo(Dg5fGraspSpec.ObservationSize));
+            Assert.That(observations, Is.All.Matches<float>(Dg5fGraspSpec.IsFinite));
+            Assert.That(observations.Skip(108).Take(4),
+                Is.EqualTo(new[] { 0f, 0f, 0f, 1f }));
 
             string[] competingDrivers =
             {
-                "Dg5fReceiver", "Dg5fHandDriver", "Dg5fThumbIK", "Dg5fJointLogger",
-                "HandSliderUI", "ArmTargetIK", "RobotInitialPoseSync"
+                "Dg5fReceiver", "Dg5fHandDriver", "Dg5fFingerIK", "Dg5fThumbIK",
+                "Dg5fJointLogger", "HandSliderUI", "ArmTargetIK", "RobotInitialPoseSync"
             };
-            foreach (var behaviour in agent.GetComponents<MonoBehaviour>())
+            foreach (var behaviour in agent.GetComponentsInChildren<MonoBehaviour>(true))
             {
                 foreach (string typeName in competingDrivers)
                     if (behaviour != null && behaviour.GetType().Name == typeName)
@@ -122,7 +133,89 @@ namespace KDT.GraspTraining.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator FiveCentimeterReachIsAMilestoneAndDoesNotEndV2Episode()
+        public IEnumerator GraspPointMatchesCalibratedFiveTipCenterWithinOneMillimeter()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            var agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            Assert.That(
+                Vector3.Distance(
+                    agent.graspPoint.localPosition,
+                    Dg5fGraspSpec.CalibratedGraspPointLocalPosition),
+                Is.LessThanOrEqualTo(0.001f));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ContactLossDropTimeoutAndFinalSuccessUseDistinctTransitions()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Dg5fGraspAgent agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            foreach (Dg5fGraspAgent other in Object.FindObjectsByType<Dg5fGraspAgent>())
+                if (other != agent) other.enabled = false;
+
+            agent.OnEpisodeBegin();
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            HoldBallAtCurrentHeight(agent);
+            SetContacts(agent, 0, 1, 2);
+            for (int step = 0; step < 25; step++) yield return new WaitForFixedUpdate();
+            Assert.That(agent.StableGraspAcquired, Is.True);
+            SetContacts(agent, 0, 1);
+            yield return new WaitForFixedUpdate();
+            Assert.That(agent.LastEpisodeSucceeded, Is.False);
+            Assert.That(agent.LastEpisodeFailureReason, Is.EqualTo("GripLost"));
+
+            agent.OnEpisodeBegin();
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            agent.ball.isKinematic = true;
+            agent.ball.useGravity = false;
+            agent.ball.position = agent.robotBase.TransformPoint(
+                new Vector3(0f, Dg5fGraspSpec.SupportTopHeight - 0.01f, 0f));
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            Assert.That(agent.LastEpisodeFailureReason, Is.EqualTo("Drop"));
+
+            agent.OnEpisodeBegin();
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            typeof(Dg5fGraspAgent).GetField(
+                    "_episodeSeconds",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(agent, Dg5fGraspSpec.EpisodeTimeoutSeconds);
+            yield return new WaitForFixedUpdate();
+            Assert.That(agent.LastEpisodeFailureReason, Is.EqualTo("Timeout"));
+
+            agent.OnEpisodeBegin();
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            float initialHeight = agent.ball.position.y;
+            HoldBallAtCurrentHeight(agent);
+            SetContacts(agent, 0, 1, 2);
+            for (int step = 0; step < 25; step++) yield return new WaitForFixedUpdate();
+            Assert.That(agent.StableGraspAcquired, Is.True);
+
+            Vector3 lifted = agent.ball.position;
+            lifted.y = initialHeight + Dg5fGraspSpec.FinalLiftHeight;
+            agent.ball.position = lifted;
+            agent.ball.linearVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+            for (int step = 0; step < 50; step++) yield return new WaitForFixedUpdate();
+
+            Assert.That(agent.LastEpisodeSucceeded, Is.True);
+            Assert.That(agent.LastEpisodeFailureReason, Is.EqualTo("None"));
+        }
+
+        [UnityTest]
+        public IEnumerator FiveCentimeterReachIsAMilestoneAndDoesNotEndStableGraspEpisode()
         {
             SceneManager.LoadScene("DG5F_GraspTraining");
             yield return null;
@@ -143,7 +236,7 @@ namespace KDT.GraspTraining.PlayModeTests
             Assert.That(agent.ReachSucceeded, Is.True);
             Assert.That(agent.FirstReachSeconds, Is.GreaterThanOrEqualTo(0f));
             Assert.That(agent.IsEpisodeActive, Is.True,
-                "V2 must continue after the inherited 5 cm reach milestone.");
+                "Stable grasp must continue after the inherited 5 cm reach milestone.");
             Assert.That(agent.CurrentEpisodeSeconds,
                 Is.LessThan(Dg5fGraspSpec.EpisodeTimeoutSeconds));
         }
@@ -204,7 +297,8 @@ namespace KDT.GraspTraining.PlayModeTests
                 Assert.That(Dg5fGraspSpec.IsFinite(localBall), Is.True);
                 Assert.That(Dg5fGraspSpec.IsFinite(agent.ball.linearVelocity), Is.True);
                 Assert.That(Dg5fGraspSpec.IsFinite(agent.ball.angularVelocity), Is.True);
-                Assert.That(agent.BestGraspDistance, Is.EqualTo(agent.CurrentGraspDistance).Within(1e-4f));
+                Assert.That(Dg5fGraspSpec.IsFinite(agent.BestGraspDistance), Is.True);
+                Assert.That(agent.BestGraspDistance, Is.GreaterThanOrEqualTo(0f));
                 Assert.That(agent.pedestal.position, Is.EqualTo(pedestalPosition));
                 Assert.That(agent.pedestal.rotation, Is.EqualTo(pedestalRotation));
                 Assert.That(agent.pedestal.localScale, Is.EqualTo(pedestalScale));
@@ -298,6 +392,22 @@ namespace KDT.GraspTraining.PlayModeTests
                         $"hand action for {selected} changed joint {other}");
                 }
             }
+        }
+
+        static void HoldBallAtCurrentHeight(Dg5fGraspAgent agent)
+        {
+            agent.ball.isKinematic = true;
+            agent.ball.useGravity = false;
+            agent.ball.linearVelocity = Vector3.zero;
+            agent.ball.angularVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+        }
+
+        static void SetContacts(Dg5fGraspAgent agent, params int[] touchingIndices)
+        {
+            var touching = new HashSet<int>(touchingIndices);
+            for (int index = 0; index < agent.contactSensors.Length; index++)
+                agent.contactSensors[index].SetTouchingForTesting(touching.Contains(index));
         }
     }
 }

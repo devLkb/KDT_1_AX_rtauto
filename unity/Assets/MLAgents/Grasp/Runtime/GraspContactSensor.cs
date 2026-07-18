@@ -19,6 +19,16 @@ namespace KDT.GraspTraining
             _contacts.Clear();
         }
 
+#if UNITY_INCLUDE_TESTS
+        public void SetTouchingForTesting(bool touching)
+        {
+            _contacts.Clear();
+            if (!touching || targetBall == null) return;
+            Collider collider = targetBall.GetComponent<Collider>();
+            if (collider != null) _contacts.Add(collider);
+        }
+#endif
+
         bool IsTarget(Collider other)
         {
             if (targetBall == null || other == null) return false;

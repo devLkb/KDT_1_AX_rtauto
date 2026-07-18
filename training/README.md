@@ -5,6 +5,7 @@ The older documents under `docs/ML_AGENTS_*` describe the retired combined v4 re
 
 - v1 PPO config: `config/dg5f_grasp.yaml`
 - v2 transfer config: `config/dg5f_grasp_v2.yaml`
+- stable whole-hand transfer config: `config/dg5f_stable_grasp.yaml`
 - launcher: `scripts/train_dg5f_grasp.sh`
 - generated builds/results are ignored by Git
 - each Unity environment contains 20 independent training-area prefab instances
@@ -56,10 +57,24 @@ launcher also initializes the selected device inside new Python threads, protect
 smoke configs that still contain `threaded: true`. It selects PyTorch's legacy ONNX
 exporter because ML-Agents pins ONNX 1.15.
 
-Current code implements joint26 v2: thumb contact (finger index 0) and any
-opposing finger (indices 1..4) must remain simultaneous for 0.5 simulation
-seconds. `DG5FGraspJoint` has 116 observations and 26 continuous actions (arm 6
-+ hand 20); this contract remains fixed for v3 and v4.
+Current code implements spec 3.0 stable whole-hand grasp. Thumb contact (finger
+index 0) plus at least two distinct non-thumb fingertips must remain simultaneous
+for 0.5 simulation seconds before the ball is lifted 5 cm and held at or above
+4 cm with linear speed at most 0.05 m/s for one second. `DG5FStableGrasp` keeps
+the 116 observations and 26 continuous actions (arm 6 + hand 20) used by the
+joint26 transfer policy.
+
+Start a fresh stable-grasp run from the frozen 526647-step V1 checkpoint:
+
+```bash
+dg5f stable init
+```
+
+This command verifies the documented V1 SHA-256, creates a separate read-only
+`dg5f_v1_stable_grasp_bootstrap`, and initializes the new
+`dg5f_stable_grasp_gpu` run. It never resumes the V2 run. The source checkpoint
+must first be restored at
+`training/results/dg5f_v1_gpu_fixed/DG5FGrasp/checkpoint.pt`.
 
 Start v2 from the frozen 526647-step v1 checkpoint:
 
@@ -92,3 +107,27 @@ training/scripts/run_dg5f_v2_evaluation.sh
 
 The frozen v1 hashes and local full-run archive are documented in
 [`archives/V1_BASELINE.md`](archives/V1_BASELINE.md).
+
+After training, rebuild `training/builds/DG5FStableGrasp`, run the deterministic
+approval evaluation, and validate all 200 unseen seeds:
+
+```bash
+DG5F_RUN_ID=dg5f_stable_grasp_gpu \
+training/scripts/run_dg5f_stable_evaluation.sh
+```
+
+The validator rejects any success without thumb + two non-thumb contacts
+maintained after acquisition, a 5 cm lift, a one-second valid low-speed hold, or
+the 80% stable-grasp and reach success rates. It also writes a model-bound
+approval whose hashes tie the accepted ledger to that run's canonical ONNX.
+Only then stage and assign the model:
+
+```bash
+vision/.vision/bin/python training/scripts/promote_dg5f_stable_model.py \
+  training/results/dg5f_stable_grasp_gpu/DG5FStableGrasp.onnx \
+  training/results/dg5f_stable_grasp_gpu/evaluation_stable.csv
+```
+
+In Unity, run `Tools/ML-Agents/Assign Approved DG5F Stable Model`. Both gates
+update only `TrainingArea.prefab`; the current scene and existing model stay
+untouched until the 200-episode approval is present.
