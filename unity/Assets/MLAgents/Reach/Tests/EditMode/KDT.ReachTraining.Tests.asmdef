@@ -1,0 +1,14 @@
+{
+  "name": "KDT.ReachTraining.Tests",
+  "rootNamespace": "KDT.ReachTraining.Tests",
+  "references": [
+    "KDT.ReachTraining"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false
+}

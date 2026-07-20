@@ -1,8 +1,17 @@
-# KDT_1_AX_rtauto — UR5e + Tesollo DG5F 디지털 트윈 / 웹캠 텔레옵
+# KDT_1_AX_rtauto — UR5e GraspPoint 강화학습 + DG5F 텔레옵
 
-웹캠 MediaPipe 핸드트래킹으로 Unity 안의 Tesollo DG5F 로봇핸드(+UR5e 팔)를 실시간 조작하는
-디지털 트윈 프로젝트. 이 리포만 클론하면 새 PC에서 동일하게 이어서 작업할 수 있도록
-필요한 것만 담았다 (개발 이력·의사결정은 `docs/WORKLOG.md`).
+3D 목표 좌표를 바탕으로 UR5e 팔의 `GraspPoint`를 빠르고 정확하게 이동시키고, 도달 후
+Tesollo DG5F 손은 MediaPipe 텔레옵으로 조작하는 디지털 트윈 프로젝트다.
+
+```text
+3D 카메라 목표 좌표(후속 입력 경계)
+  -> DG5FGraspPointReach 강화학습으로 팔 이동
+  -> vision/dg5f 원격조작으로 손 조작
+```
+
+현재 강화학습 범위는 가운데 팔 이동 단계다. 학습 환경에서는 랜덤 목표가 카메라 입력을
+대신하며, 카메라 수신 코드는 아직 포함하지 않는다. 개발 이력과 의사결정은
+`docs/WORKLOG.md`에 보존한다.
 
 ## 리포 구조
 
@@ -13,8 +22,8 @@
 | `tools/urdf_hand_import/` | URDF→Unity 임포트/물리검증/구동준비/프로브 범용 스크립트 |
 | `urdf/dg5f/` | Tesollo DG5F URDF+메시 원본 4변형 (검증 스크립트의 대조 기준) |
 | `urdf/ur5e_svh_build/` | UR5e xacro 변환 + 핸드 결합 스크립트 (SVH용, DG5F 결합 시 개조) |
-| `docs/` | WORKLOG(작업 이력 전체), ML-Agents 로드맵, 진동 디버깅 기록 |
-| `training/` | DG5FGrasp PPO 설정, headless 학습 실행 스크립트 |
+| `docs/` | Agent 계약, ML-Agents 설계·학습 가이드, 전체 작업 이력 |
+| `training/` | DG5FGraspPointReach PPO 설정, 학습·평가 도구 |
 
 ## 새 환경 셋업
 
@@ -28,9 +37,8 @@
   (팔 IK, WORKLOG §15·§18)를 재사용해 새로 구성.
 - 프리팹: `Assets/Robots/Prefabs/dg5f_*.prefab` 4변형 — 구동 준비(게인/중력off/자기충돌무시/
   수신기/IK/로거) 완료 상태. 씬에 끌어놓으면 됨. 변형 교체는 메뉴 **Tools/DG5F**.
-- ML-Agents 학습 씬: `Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`.
-  현재 구현은 v2 파지 단계이며 v1→v4 학습 계획과 checkpoint 전이 규칙은
-  [`docs/train_plan.md`](docs/train_plan.md)를 따른다.
+- ML-Agents 학습 환경: `Assets/MLAgents/Reach/`.
+  현재 구현은 단일 `DG5FGraspPointReach` 정책이며 checkpoint 전이 없이 처음부터 학습한다.
   Unity·강화학습을 처음 접하면 `docs/ML_AGENTS_LEARNING_FLOW.md`부터 읽는다.
   정확한 Agent 계약은 `docs/AGENT_SPEC.md`, 설계 근거는 `docs/ML_AGENTS_DESIGN.md`,
   빌드·smoke·본학습 실행법은 `docs/ML_AGENTS_TRAINING_GUIDE.md` 참고.
@@ -94,12 +102,25 @@ python probe_test.py <이름> --urdf <hand.urdf>         # 전 관절 사각파 
 ```
 자세한 절차·함정 목록은 `tools/urdf_hand_import/README.md`.
 
-## 현재 상태 / 알려진 이슈 (2026-07-14)
+## 강화학습 계약
+
+- Behavior: `DG5FGraspPointReach`
+- observation 26개, UR5e continuous action 6개
+- 손가락 20관절은 정책에서 제외하고 별도 텔레옵으로 제어
+- 빨간 목표: 패널 기준 반경 0.20~0.85 m와 전 방향 360°를 각각 균등 생성
+- 성공: GraspPoint 거리 1 cm 이내와 속도 0.05 m/s 이하를 0.25초 유지
+- episode 제한: 20 simulation seconds
+
+이전 move→grasp→lift 단계형 정책과 손 20관절 checkpoint 전이는 폐기됐다.
+학습·평가 명령은 [`training/README.md`](training/README.md)를 따른다.
+
+## 현재 상태 / 알려진 이슈 (2026-07-20)
 
 - ✅ DG5F 4변형 임포트·물리검증·구동검증 완료, 굽힘 텔레옵 전 채널 PASS(상관 1.00)
 - ✅ 엄지 손끝 위치 리타게팅 v2 + 핀치 스냅 (OK 사인 접촉 프로브 검증 완료)
 - ⚠️ **엄지 라이브 움직임이 부드럽지 않음** — 진행 중. 후보: 데드밴드 동결/재가동 경계,
   CCD 스텝 제한, 비전 깊이 노이즈. `docs/WORKLOG.md` §20-3 미해결 항목 참고.
-- ✅ UR5e+DG5F 결합 및 빨간 공 파지 ML-Agents 학습환경 구현
-- ⏳ ML-Agents 50k smoke 학습, 5M 본학습, 미학습 고정 시드 500회 평가 남음
+- ✅ UR5e+DG5F 결합 및 GraspPoint 기준점 검증
+- ✅ 단일 GraspPoint 팔 도달 환경 전환 및 512 max-step 통신 smoke
+- ⏳ 5M 본학습과 미학습 고정 seed 500회 승인 평가
 - ⬜ 벌림(n_1)·새끼접기(5_1) 채널 게이트 해제

@@ -1,243 +1,143 @@
-> **폐기된 closure/v4 실행 문서:** 현재 joint26 단계별 실행 규칙은
-> [`train_plan.md`](train_plan.md)와
-> [`../training/README.md`](../training/README.md)를 따른다.
+# DG5FGraspPointReach 학습 실행 가이드
 
-# DG5F 단계형 공 파지·상승·유지 학습 실행 가이드
-
-이 문서는 `DG5FGraspV4` v4.0 환경을 빌드하고 통신 smoke와 본학습을 실행하는 절차를 설명한다.
-환경과 PPO가 동작하는 전체 과정은 [`ML_AGENTS_LEARNING_FLOW.md`](ML_AGENTS_LEARNING_FLOW.md)를 참고한다.
-모든 명령은 저장소 루트에서 실행한다. GPU 학습 서버에서는 `vision` 명령으로 활성화되는
-`ax310` 가상환경을 사용한다. launcher는 활성화된 `VIRTUAL_ENV`를 우선 사용한다.
+이 가이드는 단일 `DG5FGraspPointReach` 정책을 checkpoint 없이 학습하고 500개 seed로
+승인 평가하는 절차다. 정확한 정책 상수는 [`AGENT_SPEC.md`](AGENT_SPEC.md)를 우선한다.
 
 ## 1. 사전 확인
 
-- Unity: `6000.4.0f1`
-- Unity package: `com.unity.ml-agents` 4.0.0
-- Python: 3.10.x, `/root/venvs/ax310` (`vision` 명령으로 활성화)
-- contract: [`AGENT_SPEC.md`](AGENT_SPEC.md) v4.1.0
-
 ```bash
-vision
-python -m pip check
-mlagents-learn --help
-python -c 'import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))'
+cd /home/lkb/workspace/KDT_1_AX_rtauto
+source vision/.vision/bin/activate
+python --version
+pip check
+mlagents-learn --help >/dev/null
 ```
 
-## 2. 씬과 prefab 재생성
-
-Agent reference나 workspace 설정을 바꾼 경우 생성기를 먼저 실행한다.
-
-```bash
-UNITY_EDITOR=/home/lkb/Unity/Hub/Editor/6000.4.0f1/Editor/Unity
-
-"$UNITY_EDITOR" \
-  -batchmode -nographics -quit \
-  -projectPath "$PWD/unity" \
-  -executeMethod KDT.GraspTraining.Editor.GraspTrainingSceneBuilder.Build
-```
-
-생성 결과:
-
-- `unity/Assets/MLAgents/Grasp/TrainingArea.prefab`
-- `unity/Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`
-
-`TrainingArea.prefab`은 공·받침대·UR5e/DG5F Agent를 하나로 묶은 재사용 단위다.
-씬에는 이 prefab을 X축 4열 x Y축 5행으로 20개 배치한다. 모든 Agent는 같은 `DG5FGraspV4`
-policy를 공유하지만 공, 받침대, 접촉 센서, episode 상태는 서로 독립이다.
-
-생성된 Agent는 57 observations, 7 continuous actions, 10Hz decision, `MaxStep=0`을 사용한다.
-
-## 3. Linux 학습 환경 빌드
-
-Unity Editor가 같은 프로젝트를 열고 있으면 종료한 뒤 실행한다.
+기준 환경은 Python 3.10.12, Unity 6000.4.0f1,
+`mlagents/mlagents_envs==1.2.0.dev0`이다. CUDA 학습이면 다음도 확인한다.
 
 ```bash
-"$UNITY_EDITOR" \
-  -batchmode -nographics -quit \
-  -projectPath "$PWD/unity" \
-  -executeMethod KDT.GraspTraining.Editor.GraspTrainingBuild.BuildLinuxHeadless
+python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))'
 ```
+
+## 2. 씬과 Linux player 생성
+
+Unity에서 `unity/`를 연 뒤 다음 메뉴를 실행한다.
+
+1. **Tools > ML-Agents > Build DG5F GraspPoint Reach Scene**
+2. **Tools > ML-Agents > Build DG5F GraspPoint Reach Linux Player**
+
+생성 기준:
+
+- Scene: `Assets/MLAgents/Reach/DG5F_GraspPointReachTraining.unity`
+- Prefab: `Assets/MLAgents/Reach/TrainingArea.prefab`
+- Player: `training/builds/DG5FGraspPointReach/DG5FGraspPointReach.x86_64`
+- 20개 독립 영역, Behavior `DG5FGraspPointReach`, observation/action `26/6`
+
+CI나 CLI에서는 Unity의
+`KDT.ReachTraining.Editor.ArmReachTrainingBuild.BuildLinux` 메서드를 실행해 같은
+산출물을 만든다. 빌드 전에 Unity Test Runner의 Reach EditMode/PlayMode 테스트를 통과시킨다.
+
+## 3. 512-step communicator smoke
+
+smoke는 별도 run ID와 결과 폴더를 사용하고 trainer의 `max_steps`를 정확히 512로
+설정한다. 한 player 안의 20개 Agent가 묶음으로 step을 전달하므로 마지막 checkpoint
+파일명은 512보다 큰 집계 step을 표시할 수 있다.
 
 ```bash
-test -x training/builds/DG5FGrasp/DG5FGrasp.x86_64 && echo "build ready"
+ENV_PATH="$PWD/training/builds/DG5FGraspPointReach/DG5FGraspPointReach.x86_64" \
+training/scripts/smoke_dg5f_grasp_point_reach.sh
 ```
 
-## 4. 512-step communicator smoke
+확인 사항:
 
-본학습 전에 built player가 Python trainer와 512 step을 정상 교환하는지 확인한다.
-기본 YAML을 임시 복사해 기존 결과와 설정을 변경하지 않는다.
+- Unity와 trainer가 `DG5FGraspPointReach`로 연결됨
+- observation 26 / continuous action 6 shape 오류 없음
+- 로그에 `max_steps: 512`가 출력되고 checkpoint/ONNX export 후 정상 종료
+- NaN/Infinity, workspace 실패, 중복 환경 seed 없음
+
+smoke 결과의 reward나 성공률은 수렴 근거가 아니다.
+
+## 4. 5M fresh PPO 학습
+
+활성 config는 `training/config/dg5f_grasp_point_reach.yaml` 하나다.
 
 ```bash
-cp training/config/dg5f_grasp.yaml /tmp/dg5f_grasp_512.yaml
-sed -i 's/max_steps: 5000000/max_steps: 512/' /tmp/dg5f_grasp_512.yaml
-
-CONFIG=/tmp/dg5f_grasp_512.yaml \
-ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RESULTS_DIR=/tmp/dg5f_grasp_results \
-RUN_ID=dg5f_grasp_v4_comm_512 \
-NUM_ENVS=1 TIME_SCALE=10 \
-training/scripts/train_dg5f_grasp.sh --force
+RUN_ID=dg5f-grasp-point-reach-5m \
+ENV_PATH="$PWD/training/builds/DG5FGraspPointReach/DG5FGraspPointReach.x86_64" \
+TORCH_DEVICE=cuda \
+TIME_SCALE=10 \
+training/scripts/train_dg5f_grasp_point_reach.sh
 ```
 
-합격 조건:
+- 새 run ID로 시작하고 `--resume`, `--initialize-from`, 이전 checkpoint를 사용하지 않는다.
+- 기본 max steps는 5,000,000이다.
+- Linux Unity 6000.4 player가 `-nographics`에서 종료될 수 있으므로 DISPLAY가 없으면
+  launcher가 Xvfb를 사용한다.
+- PPO update 사이에는 CUDA 사용률이 낮을 수 있다. 시작 로그의 `[GPU]`와
+  `nvidia-smi`의 trainer process로 실제 device를 확인한다.
 
-1. `DG5FGraspV4?team=0` 연결
-2. observation/action shape 오류 없음
-3. 512 step 이상 도달(20 Agent batch 처리로 최종 step은 초과 가능)
-4. Unity crash, `NaN`, communicator timeout 없음
-
-## 5. 50k stability smoke
+TensorBoard:
 
 ```bash
-cp training/config/dg5f_grasp.yaml /tmp/dg5f_grasp_50k.yaml
-sed -i 's/max_steps: 5000000/max_steps: 50000/' /tmp/dg5f_grasp_50k.yaml
-
-CONFIG=/tmp/dg5f_grasp_50k.yaml \
-ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_v4_smoke_50k \
-NUM_ENVS=1 TIME_SCALE=10 \
-training/scripts/train_dg5f_grasp.sh
+tensorboard --logdir training/results --port 6006
 ```
 
-확인할 항목:
+episode reward와 length뿐 아니라 성공률, 최종 오차, 완료 시간, timeout과 안전 실패를
+함께 본다. 중단 후 같은 실험을 재개해야 할 때만 동일 run ID와 `--resume`을 사용한다.
+폐기된 파지 모델에서 새 run을 초기화하지 않는다.
 
-- 즉시 실패 reset 반복, 무한 episode 또는 20초 timeout 누락 없음
-- 공 이탈·낙하·비유한 좌표 발생 시 원인별 실패 벌점(Timeout `-0.1`, GripLost/Dropped `-0.5`,
-  안전 위반 `-1.0`)과 원인을 기록한 뒤 reset
-- 물리 관통 reset이 임계 깊이/시간에서만 발생하고 단계 보너스가 반복 지급되지 않음
-- checkpoint와 ONNX 생성
-- cumulative reward, episode length, 상승·유지·이동량 통계가 유한
+## 5. 500-seed 결정론 평가
 
-## 6. TensorBoard
+최신 Reach player를 다시 빌드한 뒤 run ID로 평가할 checkpoint를 선택한다. 평가 wrapper는
+trainer를 deterministic inference 모드로 연결하고 완료 후 같은 run의 canonical ONNX와
+CSV hash를 승인 JSON에 묶는다.
 
 ```bash
-vision/.vision/bin/tensorboard --logdir training/results --port 6006
+DG5F_RUN_ID=dg5f-grasp-point-reach-5m \
+DG5F_EVAL_EPISODES=500 \
+DG5F_EVAL_BASE_SEED=500000 \
+training/scripts/run_dg5f_grasp_point_reach_evaluation.sh
 ```
 
-주요 지표:
+평가기와 CSV validator는 다음을 모두 확인해야 한다.
 
-- `Environment/Cumulative Reward`
-- episode length
-- policy entropy
-- `Grasp/Success`
-- `Grasp/CompletionSeconds`
-- `Curriculum/Stage`
-- `Grasp/MaxLiftHeightMeters`, `Grasp/HoldSeconds`
-- `Motion/NormalizedArmTravel`
-- `Failure/*` 원인별 rate
+- 정확히 500개 고유 seed와 episode 행
+- 성공률 90% 이상
+- 모든 성공 행의 거리 `<= 0.01 m`, 속도 `<= 0.05 m/s`, hold `>= 0.25 s`
+- 비유한 물리, workspace 안전 실패, 중복 seed 0건
 
-stock ML-Agents는 `Grasp/Success`를 curriculum criterion으로 사용할 수 없으므로 기본 config는
-lesson 0으로 고정된다. 최소 200회 고정 정책 평가에서 성공률 80% 이상을 확인한 뒤 다음 config를
-생성한다. 조건 미달이면 스크립트가 non-zero로 종료한다.
+여러 checkpoint가 통과하면 평균 최종 오차, median 완료 시간, p95 완료 시간 순으로
+모델을 선택한다. CSV와 선택한 ONNX는 같은 run의 산출물로 함께 보관한다.
+
+평가 interface의 기본값은 500 episode, base seed 500000, timeout 1200초다.
+`DG5F_EVAL_CSV`, `DG5F_EVAL_APPROVAL`, `DG5F_EVAL_TIMEOUT_SECONDS`, `RESULTS_DIR`,
+`ENV_PATH`, `VENV`로 출력과 실행 환경을 바꿀 수 있지만 승인 episode 수는 500으로
+고정한다.
+
+## 6. Editor 연결 디버깅
+
+player 없이 확인할 때:
 
 ```bash
-vision/.vision/bin/python training/scripts/promote_dg5f_lesson.py \
-  --current-stage 0 --episodes 200 --successes 160 \
-  --base-config training/config/dg5f_grasp.yaml \
-  --output /tmp/dg5f_grasp_stage1.yaml
+RUN_ID=dg5f-grasp-point-reach-editor \
+training/scripts/train_dg5f_grasp_point_reach.sh
 ```
 
-## 7. 5M 본학습
+trainer가 `Start training by pressing the Play button in the Unity Editor`를 출력하면
+Reach training scene을 열고 Play한다. Editor에서 여러 scene이나 예전 Grasp Behavior를
+동시에 실행하지 않는다.
 
-launcher 기본 RUN_ID가 `dg5f_grasp_v4`이므로 다음 명령에서 생략할 수 있다.
+## 7. 문제 해결
 
-```bash
-ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-NUM_ENVS=1 TIME_SCALE=10 \
-training/scripts/train_dg5f_grasp.sh
-```
-
-이전 결과와 checkpoint는 삭제하거나 `--force`로 덮어쓰지 않는다. 이전 checkpoint는 V4 계약에 재사용하지 않는다.
-
-### 중단 후 V4 재개
-
-```bash
-ENV_PATH=training/builds/DG5FGrasp/DG5FGrasp.x86_64 \
-RUN_ID=dg5f_grasp_v4 NUM_ENVS=1 TIME_SCALE=10 \
-training/scripts/train_dg5f_grasp.sh --resume
-```
-
-## 8. Editor 연결 디버깅
-
-1. Unity에서 `Assets/MLAgents/Grasp/DG5F_GraspTraining.unity`를 연다.
-2. trainer를 실행해 연결을 기다린다.
-3. Unity Play를 누른다.
-
-```bash
-RUN_ID=dg5f_grasp_v4_editor_debug \
-NUM_ENVS=1 TIME_SCALE=1 \
-training/scripts/train_dg5f_grasp.sh
-```
-
-## 9. Launcher 환경변수
-
-| 변수 | 기본값 | 용도 |
-|---|---|---|
-| `VENV` | 활성 `VIRTUAL_ENV`, 없으면 `vision/.vision` | Python 가상환경 (`ax310` 권장) |
-| `TORCH_DEVICE` | `cuda` | PPO 신경망 장치 (`cuda`, `cuda:0`, `cpu`) |
-| `UNITY_DISPLAY_MODE` | `auto` | 화면 없는 Linux에서 `xvfb` 자동 사용; 강제값은 `xvfb`/`nographics` |
-| `CONFIG` | `training/config/dg5f_grasp.yaml` | ML-Agents YAML |
-| `RESULTS_DIR` | `training/results` | checkpoint/TensorBoard 결과 |
-| `RUN_ID` | `dg5f_grasp_v4` | 학습 실행 식별자 |
-| `ENV_PATH` | 빈 값 | Linux player 경로; 빈 값이면 Editor 연결 |
-| `NUM_ENVS` | `1` | 병렬 Unity 프로세스 수. 프로세스마다 Agent 20개 |
-| `TIME_SCALE` | `10` | Unity simulation 배속 |
-
-## 10. 문제 해결
-
-### `project is already open`
-
-같은 Unity 프로젝트를 연 Editor를 종료하고 batchmode 명령을 다시 실행한다.
-
-### Trainer가 Unity 연결을 기다림
-
-- `ENV_PATH`와 실행 권한 확인
-- 기존 Unity player/trainer 프로세스 확인
-- 필요하면 `--base-port 5006` 추가
-
-### 기존 RUN_ID 오류
-
-- 같은 V4 실험 재개: `--resume`
-- 새 실험: 새 RUN_ID
-- `--force`: 해당 결과를 명시적으로 폐기할 때만 사용
-
-### Episode가 예상보다 길어짐
-
-V4는 `MaxStep=0`을 유지하지만 자체 상태기계가 Unity 시뮬레이션 시간 정확히 20초에서 timeout 실패를 기록한다. 벽시계가 아니라 physics time을 사용한다.
-
-### `Failed to open plugin: ...libassimp.so`
-
-Ubuntu 24.04에서 URDF Importer native plugin의 `libminizip.so.1` 또는 unversioned
-`libdl.so`가 없을 때 발생한다. 이 서버에서는 다음으로 설치/호환 링크를 만든다.
-
-```bash
-sudo apt-get install -y libminizip-dev xvfb
-sudo ln -sfn /lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.so
-sudo ldconfig
-```
-
-`ldd training/builds/DG5FGrasp/DG5FGrasp_Data/Plugins/libassimp.so`에 `not found`가 없어야 한다.
-
-### Unity player가 `SIGSEGV`로 즉시 종료
-
-Unity `6000.4.0f1` Linux player에서 `--no-graphics`를 사용하면 video subsystem 초기화 전
-`strcasecmp(NULL, "x11")`을 호출하는 crash가 발생한다. launcher 기본값 `UNITY_DISPLAY_MODE=auto`는
-`DISPLAY`가 없는 서버에서 `xvfb-run`을 사용해 이 문제를 우회한다. 이 빌드에서는
-`UNITY_DISPLAY_MODE=nographics`를 사용하지 않는다.
-
-### `Expected all tensors to be on the same device` (`cpu` / `cuda:0`)
-
-ax310의 새 PyTorch에서는 `torch.set_default_device()`가 thread-local이다. 이 ML-Agents
-버전의 background trainer thread가 trajectory tensor를 CPU에 만들 수 있으므로
-`training/config/dg5f_grasp.yaml`의 `threaded: false`를 유지한다. 호환 launcher는 과거
-smoke YAML의 `threaded: true`도 동작하도록 새 Python thread에 CUDA device mode를 적용한다.
-
-실행 로그의 `[Config]`가 `/tmp/gpu-smoke.yaml`처럼 나오면 이전 shell에서 `CONFIG`가
-남은 것이다. 본학습 전에 `unset CONFIG`를 실행하여 저장소 기본 config를 사용한다.
-
-### 종료 시 `No module named 'onnxscript'`
-
-새 PyTorch의 기본 dynamo ONNX exporter와 ML-Agents가 고정한 `onnx==1.15.0` 사이의
-호환 문제다. launcher는 `training/scripts/mlagents_learn_compat.py`를 통해 ML-Agents가
-원래 사용하던 legacy exporter(`dynamo=False`)를 선택한다. `onnxscript` 설치를 위해
-ONNX/Numpy/Protobuf를 임의 업그레이드하지 않는다.
+- **Behavior 또는 tensor shape 불일치**: scene/prefab을 Reach builder로 재생성하고
+  `DG5FGraspPointReach`, 26, 6을 확인한다.
+- **player를 찾지 못함**: `ENV_PATH`가 실행 가능한
+  `DG5FGraspPointReach.x86_64`인지 확인한다.
+- **기존 RUN_ID 오류**: 새 실험이면 새 ID를 사용한다. 재개가 목적일 때만 `--resume`한다.
+- **trainer가 연결을 기다림**: player process, port 충돌, Xvfb와 Unity log를 확인한다.
+- **GPU tensor device 오류**: 공용 Python 3.10 venv와 compatibility launcher를 사용하고
+  `TORCH_DEVICE`를 확인한다.
+- **학습은 되지만 성공이 없음**: 먼저 reset target 반경, GraspPoint 위치, arm drive
+  clamp와 20초 simulation-time 계산을 PlayMode 테스트로 확인한다. 폐기 모델을
+  bootstrap하는 방식으로 우회하지 않는다.

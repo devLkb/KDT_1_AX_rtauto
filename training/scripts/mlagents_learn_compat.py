@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import atexit
 from functools import wraps
+import inspect
 import os
 import threading
 
@@ -19,11 +20,15 @@ from mlagents.torch_utils import default_device, torch
 
 
 _torch_onnx_export = torch.onnx.export
+_onnx_export_supports_dynamo = (
+    "dynamo" in inspect.signature(_torch_onnx_export).parameters
+)
 
 
 @wraps(_torch_onnx_export)
 def _legacy_onnx_export(*args, **kwargs):
-    kwargs.setdefault("dynamo", False)
+    if _onnx_export_supports_dynamo:
+        kwargs.setdefault("dynamo", False)
     return _torch_onnx_export(*args, **kwargs)
 
 
@@ -32,19 +37,19 @@ torch.onnx.export = _legacy_onnx_export
 
 # torch.set_default_device() installs a thread-local TorchFunctionMode in the
 # ax310 PyTorch build. ML-Agents may create trajectory tensors in its optional
-# background trainer thread, so install the selected device mode in every new
-# Python thread as well. This also makes old/smoke YAML files with
-# ``threaded: true`` safe on CUDA.
-_thread_run = threading.Thread.run
+# background trainer thread, so install a non-CPU selected device mode in every
+# new Python thread as well. CPU does not need this mode, and PyTorch 2.1's CPU
+# implementation can corrupt its mode stack when concurrent threads install it.
+_selected_device = default_device()
+if _selected_device.type != "cpu":
+    _thread_run = threading.Thread.run
 
+    @wraps(_thread_run)
+    def _run_with_torch_device(self, *args, **kwargs):
+        torch.set_default_device(_selected_device)
+        return _thread_run(self, *args, **kwargs)
 
-@wraps(_thread_run)
-def _run_with_torch_device(self, *args, **kwargs):
-    torch.set_default_device(default_device())
-    return _thread_run(self, *args, **kwargs)
-
-
-threading.Thread.run = _run_with_torch_device
+    threading.Thread.run = _run_with_torch_device
 
 from mlagents.trainers.learn import main  # noqa: E402
 

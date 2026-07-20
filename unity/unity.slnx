@@ -1,8 +1,8 @@
 ﻿<Solution>
+  <Project Path="KDT.ReachTraining.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
-  <Project Path="KDT.GraspTraining.csproj" />
-  <Project Path="KDT.GraspTraining.PlayModeTests.csproj" />
+  <Project Path="KDT.ReachTraining.PlayModeTests.csproj" />
+  <Project Path="KDT.ReachTraining.Editor.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
-  <Project Path="KDT.GraspTraining.Editor.csproj" />
-  <Project Path="KDT.GraspTraining.Tests.csproj" />
+  <Project Path="KDT.ReachTraining.Tests.csproj" />
 </Solution>

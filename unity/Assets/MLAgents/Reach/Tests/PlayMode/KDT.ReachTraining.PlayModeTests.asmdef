@@ -1,0 +1,13 @@
+{
+  "name": "KDT.ReachTraining.PlayModeTests",
+  "rootNamespace": "KDT.ReachTraining.PlayModeTests",
+  "references": [
+    "KDT.ReachTraining",
+    "Unity.ML-Agents"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "autoReferenced": false
+}

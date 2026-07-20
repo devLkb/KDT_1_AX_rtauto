@@ -1,90 +1,49 @@
-# DG5F joint26 단계별 학습 계획
+# DG5FGraspPointReach 단일 학습 계획
 
 ## 고정 정책 계약
 
-V2부터 V4까지 `SpecVersion=2.1.0`, Behavior Name
-`DG5FGraspJoint`, observation 116개, continuous action 26개를 유지한다.
+- Behavior `DG5FGraspPointReach`, spec `1.0.0`
+- observation 26개, continuous action 6개
+- UR5e 팔만 제어하고 DG5F 손가락 20관절은 정책에서 제외
+- `GraspPoint` 위치 도달만 학습하며 파지, 상승, 자세 제어는 제외
+- 빨간 목표의 패널 평면 반경 0.20~0.85 m와 전 방향 360°를 각각 균등 생성
+- 성공은 1 cm 이내와 0.05 m/s 이하를 0.25초 연속 유지
+- episode는 최대 20 simulation seconds
 
-### Observation
+세부 observation/action 순서와 reward 수식은
+[`AGENT_SPEC.md`](AGENT_SPEC.md)를 바꾸지 않고 따른다.
 
-| 인덱스 | 내용 |
-|---|---|
-| 0..5 | 팔 6축 각도 |
-| 6..11 | 팔 6축 속도 |
-| 12..31 | 손 20관절 각도 |
-| 32..51 | 손 20관절 속도 |
-| 52..71 | 손 20관절 명령 target |
-| 72..80 | 공 위치, 선속도, 각속도 |
-| 81 | 공 수직 변위 |
-| 82..96 | 손끝 5개의 공 상대 위치 |
-| 97..101 | 손가락별 접촉 |
-| 102..107 | 팔 6축 명령 target |
-| 108..111 | V1..V4 목표 one-hot |
-| 112..115 | 접근, 최적 거리, 임계값, 경과 시간 |
+## 학습 순서
 
-### Action
+1. EditMode/PlayMode 계약 테스트와 100회 reset 안정성 검증
+2. Linux built player로 정확히 512 agent-step communicator smoke
+3. checkpoint 없이 fresh PPO run 시작
+4. 최대 5M steps 학습하며 TensorBoard와 안전 실패 감시
+5. 학습과 겹치지 않는 500개 고정 seed 결정론 평가
 
-- `0..5`: 팔 관절 target 각도 증분
-- `6..25`: 엄지부터 새끼손가락까지 `5 x 4` 손 관절 target 각도 증분
-- 손 target은 decision마다 최대 `±4°`로 누적하고 각 관절 xDrive limit로
-  clamp한다.
-- closure action과 `OPEN -> FIST` 보간은 사용하지 않는다.
+기본 PPO:
 
-reset은 모든 팔/손 관절의 position, velocity, xDrive target, Agent 내부
-target 배열을 같은 값으로 동기화한다.
+| 항목 | 값 |
+|---|---:|
+| batch size | 256 |
+| buffer size | 2048 |
+| learning rate | `3e-4` |
+| hidden units / layers | 256 / 3 |
+| gamma | `0.99` |
+| max steps | 5,000,000 |
+| trainer normalization | false |
 
-## V1 bootstrap
+## 승인
 
-`dg5f_v1_gpu_fixed`의 526647-step checkpoint는 동결한다.
-`training/scripts/bootstrap_v1_to_joint26.py`가 다음과 같이 별도
-`dg5f_v1_joint26_bootstrap`을 만든다.
+- 평가 성공률 `>= 90%`
+- 성공 행 전부 1 cm / 0.05 m/s / 0.25초 조건 충족
+- 중복 seed, 비유한 물리, workspace 안전 실패 0건
+- 통과 모델 중 평균 최종 오차 최소, 동률이면 median/p95 완료 시간 최소
 
-- V1 observation `0..11` -> joint26 `0..11`
-- V1 observation `13..56` -> joint26 `72..115`
-- V1 closure observation/action은 폐기
-- hidden encoder와 critic/value head는 정확히 복사
-- arm action 6개와 log-sigma는 정확히 복사
-- 새 hand observation/action은 작은 난수와 보수적 log-sigma로 초기화
-- optimizer moment는 폐기하고 global step은 0
+512-step smoke나 training reward 상승은 승인 근거가 아니다.
 
-변환기는 tensor 이름과 shape 및 복사 결과를 모두 검증하고 불일치 시
-checkpoint를 만들지 않는다.
+## 폐기된 경로
 
-## V2 reward와 curriculum
-
-- decision 비용 `-0.001`
-- 접근 potential delta `0.25배`
-- 엄지 단독 접촉 potential `0.25`
-- opposing-only `0`
-- 엄지+opposing 동시 접촉 potential `0.5`
-- 연속 접촉 유지 potential `0.5 * clamp(t / 0.5초)`
-- 0.5초 성공 종료 `+2.0`
-- 공 이탈/비유한 물리 `-1.0`
-- 실패 종료 시 남은 접근/접촉/유지 potential을 0으로 정산
-- 접촉 손실 시 hold timer만 즉시 0으로 만들고 episode는 계속
-
-`joint26_stage` ML-Agents curriculum:
-
-1. grasp point 근처 공, 35% 고정 pre-grasp reset, 제한된 팔 범위와 작은
-   손 증분
-2. V1 `0.35..0.70m` 공 배치와 정상 팔 제어, 35% pre-grasp reset
-3. 완전히 편 손 reset과 20관절 독립 제어
-
-승인 평가는 stage 3에서만 수행한다.
-
-## 실행과 승인
-
-```bash
-dg5f v2 init
-dg5f v2 status
-dg5f v2 resume
-dg5f v3 init
-```
-
-- V2 표준 run: `dg5f_v2_joint26_gpu_fixed`
-- 실패 closure 보존 run: `dg5f_v2_closure_failed_343k`
-- 100k pilot: `Reach/Success >= 80%`, 접촉률 증가, 오류 0
-- pilot 실패 시 V1 bootstrap에서 learning rate `5e-5`의 새 run 시작
-- 최종 unseen-seed 200회: `Grasp/Success >= 80%`,
-  `Reach/Success >= 80%`, 모든 성공 hold `>= 0.5초`, seed/물리/reset/통신
-  오류 0
+move→grasp→lift 단계, curriculum, v1/v2/v3/v4 승격, arm encoder나 손 20 action의
+checkpoint 전이는 사용하지 않는다. 기존 결과물은 역사적 실험 산출물일 뿐 새 Behavior와
+호환되는 초기 모델로 취급하지 않는다.
