@@ -21,7 +21,7 @@ namespace KDT.GraspTraining.Editor
                 repositoryRoot,
                 "training",
                 "builds",
-                "DG5FGraspJoint26");
+                "DG5FGraspJoint26HandFirst");
             Directory.CreateDirectory(outputDirectory);
 
             var options = new BuildPlayerOptions

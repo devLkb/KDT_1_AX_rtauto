@@ -48,6 +48,7 @@ namespace KDT.GraspTraining.Tests
                 Is.EqualTo(-Dg5fGraspSpec.PotentialDelta(fullHold, noHold)));
 
             float remaining = Dg5fGraspSpec.FailurePotentialSettlement(
+                2,
                 Dg5fGraspSpec.ApproachPotential(0.2f),
                 dualContact,
                 fullHold);
@@ -199,6 +200,77 @@ namespace KDT.GraspTraining.Tests
         }
 
         [Test]
+        public void StageOneIgnoresEveryArmActionButHandChannelsRemainIndependent()
+        {
+            for (int arm = 0; arm < Dg5fGraspSpec.ArmJointCount; arm++)
+            {
+                float initial = -20f + arm;
+                Assert.That(
+                    Dg5fGraspSpec.NextArmTarget(
+                        1,
+                        initial,
+                        100f,
+                        arm % 2 == 0 ? 1f : -1f,
+                        2f,
+                        -180f,
+                        180f),
+                    Is.EqualTo(initial));
+                Assert.That(
+                    Dg5fGraspSpec.NextArmTarget(
+                        2,
+                        initial,
+                        0f,
+                        1f,
+                        2f,
+                        -180f,
+                        180f),
+                    Is.EqualTo(2f));
+            }
+
+            var handTargets = new float[Dg5fGraspSpec.HandJointCount];
+            for (int selected = 0; selected < handTargets.Length; selected++)
+            {
+                float[] next = (float[])handTargets.Clone();
+                next[selected] = Dg5fGraspSpec.AccumulateJointTarget(
+                    next[selected],
+                    1f,
+                    1f,
+                    -180f,
+                    180f);
+                Assert.That(next[selected], Is.EqualTo(1f));
+                for (int other = 0; other < next.Length; other++)
+                    if (other != selected) Assert.That(next[other], Is.Zero);
+            }
+        }
+
+        [Test]
+        public void StageOneDisablesOnlyApproachRewardAndPreservesContactSettlement()
+        {
+            Assert.That(Dg5fGraspSpec.ApproachRewardScaleForStage(1), Is.Zero);
+            Assert.That(
+                Dg5fGraspSpec.ApproachRewardScaleForStage(2),
+                Is.EqualTo(Dg5fGraspSpec.ApproachRewardScale));
+            Assert.That(
+                Dg5fGraspSpec.ApproachRewardScaleForStage(3),
+                Is.EqualTo(Dg5fGraspSpec.ApproachRewardScale));
+
+            float approach = Dg5fGraspSpec.ApproachPotential(0.01f);
+            float contact = Dg5fGraspSpec.DualContactPotential;
+            float hold = Dg5fGraspSpec.ContactHoldPotential(0.25f);
+            float stageOneSettlement = Dg5fGraspSpec.FailurePotentialSettlement(
+                1,
+                approach,
+                contact,
+                hold);
+            Assert.That(
+                stageOneSettlement,
+                Is.EqualTo(-contact - hold).Within(1e-6f));
+            Assert.That(
+                Dg5fGraspSpec.FailurePotentialSettlement(2, approach, contact, hold),
+                Is.LessThan(stageOneSettlement));
+        }
+
+        [Test]
         public void ArmSafeRangesAndNormalizationRemainStableForTransferLearning()
         {
             Assert.That(Dg5fGraspSpec.ArmSafeMinDeg, Is.EqualTo(new[]
@@ -215,10 +287,26 @@ namespace KDT.GraspTraining.Tests
         }
 
         [Test]
-        public void EpisodeTimeoutAndBallSafetyRetainExactBoundaries()
+        public void StageAndPostReachTimeoutsRetainExactBoundaries()
         {
-            Assert.That(Dg5fGraspSpec.ReachedEpisodeTimeout(19.999f), Is.False);
-            Assert.That(Dg5fGraspSpec.ReachedEpisodeTimeout(20f), Is.True);
+            Assert.That(Dg5fGraspSpec.EpisodeTimeoutSecondsForStage(1), Is.EqualTo(5f));
+            Assert.That(Dg5fGraspSpec.EpisodeTimeoutSecondsForStage(2), Is.EqualTo(20f));
+            Assert.That(Dg5fGraspSpec.EpisodeTimeoutSecondsForStage(3), Is.EqualTo(20f));
+            Assert.That(Dg5fGraspSpec.ReachedEpisodeTimeout(1, 4.999f), Is.False);
+            Assert.That(Dg5fGraspSpec.ReachedEpisodeTimeout(1, 5f), Is.True);
+            Assert.That(Dg5fGraspSpec.ReachedEpisodeTimeout(2, 19.999f), Is.False);
+            Assert.That(Dg5fGraspSpec.ReachedEpisodeTimeout(2, 20f), Is.True);
+
+            Assert.That(Dg5fGraspSpec.ReachedPostReachTimeout(1, 10f, 1f), Is.False);
+            Assert.That(Dg5fGraspSpec.ReachedPostReachTimeout(2, 5.999f, 1f), Is.False);
+            Assert.That(Dg5fGraspSpec.ReachedPostReachTimeout(2, 6f, 1f), Is.True);
+            Assert.That(Dg5fGraspSpec.ReachedPostReachTimeout(3, 6f, -1f), Is.False);
+            Assert.That(Dg5fGraspSpec.ReachedPostReachTimeout(3, float.NaN, 1f), Is.False);
+        }
+
+        [Test]
+        public void BallSafetyRetainsExactBoundaries()
+        {
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(0.85f, 0f, 0f), -1f), Is.False);
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(0.851f, 0f, 0f), -1f), Is.True);
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(float.NaN, 0f, 0f), -1f), Is.True);

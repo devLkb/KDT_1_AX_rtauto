@@ -24,6 +24,19 @@ namespace KDT.GraspTraining
         public const float PreGraspFraction = 0.35f;
 
         public const float EpisodeTimeoutSeconds = 20f;
+        public const float StageOneEpisodeTimeoutSeconds = 5f;
+        // Stage 1 holds the ball kinematic at the spawn pose until the hand
+        // reaches dual contact (or this deadline), then releases it under
+        // gravity. A free-falling ball escapes the rate-limited fingers in
+        // ~0.3 s, which made grasp success physically unreachable
+        // (0 successes in 100k steps, dg5f_v2_joint26_handfirst2 run).
+        public const float StageOneBallHoldMaxSeconds = 2.5f;
+        // Stage-1 per-decision hand delta. Defined here (not the serialized
+        // agent field, which the baked scene pins to 1) so the DLL hot-swap
+        // build can tune it: 25 decisions of hold time x 2 deg closes up to
+        // 50 deg around the held ball.
+        public const float StageOneHandDeltaDegPerDecision = 2f;
+        public const float PostReachTimeoutSeconds = 5f;
         public const float DecisionTimePenalty = -0.001f;
         public const float ApproachPotentialMaximum = 1f;
         public const float ApproachRewardScale = 0.25f;
@@ -96,6 +109,25 @@ namespace KDT.GraspTraining
             return ClampJointTarget(currentTargetDeg + delta, lowerLimitDeg, upperLimitDeg);
         }
 
+        public static float NextArmTarget(
+            int curriculumStage,
+            float initialTargetDeg,
+            float currentTargetDeg,
+            float normalizedAction,
+            float maximumDeltaDeg,
+            float lowerLimitDeg,
+            float upperLimitDeg)
+        {
+            if (curriculumStage == FirstCurriculumStage)
+                return ClampJointTarget(initialTargetDeg, lowerLimitDeg, upperLimitDeg);
+            return AccumulateJointTarget(
+                currentTargetDeg,
+                normalizedAction,
+                maximumDeltaDeg,
+                lowerLimitDeg,
+                upperLimitDeg);
+        }
+
         public static float ClampJointTarget(float valueDeg, float lowerLimitDeg, float upperLimitDeg)
         {
             if (!IsFinite(valueDeg) || !IsFinite(lowerLimitDeg) || !IsFinite(upperLimitDeg))
@@ -124,12 +156,19 @@ namespace KDT.GraspTraining
             return currentPotential - previousPotential;
         }
 
+        public static float ApproachRewardScaleForStage(int curriculumStage)
+        {
+            return curriculumStage == FirstCurriculumStage ? 0f : ApproachRewardScale;
+        }
+
         public static float FailurePotentialSettlement(
+            int curriculumStage,
             float approachPotential,
             float contactPotential,
             float holdPotential)
         {
-            return ApproachRewardScale * PotentialDelta(approachPotential, 0f)
+            return ApproachRewardScaleForStage(curriculumStage)
+                    * PotentialDelta(approachPotential, 0f)
                 + PotentialDelta(contactPotential, 0f)
                 + PotentialDelta(holdPotential, 0f);
         }
@@ -234,10 +273,32 @@ namespace KDT.GraspTraining
                 && ballLocalPosition.magnitude <= MaximumSpawnBallDistance;
         }
 
-        public static bool ReachedEpisodeTimeout(float elapsedSeconds)
+        public static float EpisodeTimeoutSecondsForStage(int curriculumStage)
+        {
+            return curriculumStage == FirstCurriculumStage
+                ? StageOneEpisodeTimeoutSeconds
+                : EpisodeTimeoutSeconds;
+        }
+
+        public static bool ReachedEpisodeTimeout(int curriculumStage, float elapsedSeconds)
         {
             return IsFinite(elapsedSeconds)
-                && elapsedSeconds >= EpisodeTimeoutSeconds - 1e-5f;
+                && elapsedSeconds >= EpisodeTimeoutSecondsForStage(curriculumStage) - 1e-5f;
+        }
+
+        public static bool ReachedPostReachTimeout(
+            int curriculumStage,
+            float elapsedSeconds,
+            float firstReachSeconds)
+        {
+            if (curriculumStage == FirstCurriculumStage
+                || !IsFinite(elapsedSeconds)
+                || !IsFinite(firstReachSeconds)
+                || firstReachSeconds < 0f)
+            {
+                return false;
+            }
+            return elapsedSeconds - firstReachSeconds >= PostReachTimeoutSeconds - 1e-5f;
         }
 
         public static bool ShouldResetForBall(Vector3 ballLocalPosition, float pedestalTopHeight)

@@ -27,14 +27,26 @@ namespace KDT.GraspTraining
         [Header("Episode")]
         public bool useDeterministicSpawns;
         public int spawnSeed = 12345;
+        // NonSerialized: this field must stay out of the player serialization
+        // layout. The DG5FGraspJoint26HandFirst player reuses the licensed
+        // 2026-07-17 scene binary with a hot-swapped KDT.GraspTraining.dll, and
+        // release players deserialize MonoBehaviours by raw field layout.
+        [NonSerialized]
+        [Tooltip("0 uses the ML-Agents curriculum. Values 1..3 are for local debugging and tests.")]
+        [Range(0, Dg5fGraspSpec.FinalCurriculumStage)]
+        public int curriculumStageOverride;
 
         [Header("Control")]
         public float armDeltaDegPerDecision = 2f;
         [Range(0f, Dg5fGraspSpec.MaximumHandDeltaDegPerDecision)]
         public float handDeltaDegPerDecision = Dg5fGraspSpec.MaximumHandDeltaDegPerDecision;
-        public float stageOneArmDeltaScale = 0.35f;
+        // Legacy fields kept solely to preserve the baked scene's serialization
+        // layout for the DLL hot-swap described above. Hand-first stage 1 freezes
+        // the arm entirely, so both values are unused. Remove them (and the
+        // NonSerialized above) at the next full Unity editor rebuild.
+        [HideInInspector] public float stageOneArmDeltaScale = 0.35f;
         public float stageOneHandDeltaDegPerDecision = 1f;
-        public float stageOneArmRangeDeg = 25f;
+        [HideInInspector] public float stageOneArmRangeDeg = 25f;
         public float stageOneSpawnRadius = 0.04f;
 
         readonly Dictionary<ArticulationBody, float> _initialTargetDeg =
@@ -57,12 +69,17 @@ namespace KDT.GraspTraining
         float _maxContactHoldSeconds;
         float _firstReachSeconds;
         int _ballReleaseFixedSteps;
+        bool _stageOneBallHeld;
         int _evaluationEpisodeId = -1;
         bool _episodeActive;
         bool _reachSucceeded;
         bool _thumbContactReached;
         bool _opposingContactReached;
         bool _dualContactReached;
+        string _lastFailureReason = "None";
+        bool _lastEpisodeSucceeded;
+        int _completedEpisodeCount;
+        float _lastMaxContactHoldSeconds;
         readonly bool[] _fingerContacts = new bool[Dg5fGraspSpec.FingerCount];
         System.Random _random;
         StatsRecorder _stats;
@@ -81,6 +98,15 @@ namespace KDT.GraspTraining
         public bool HasThumbContact => Dg5fGraspSpec.HasThumbContact(_fingerContacts);
         public bool HasOpposingContact => Dg5fGraspSpec.HasOpposingContact(_fingerContacts);
         public bool HasDualContact => Dg5fGraspSpec.HasDualContact(_fingerContacts);
+        public float CurrentEpisodeTimeoutSeconds =>
+            Dg5fGraspSpec.EpisodeTimeoutSecondsForStage(_curriculumStage);
+        public float CurrentPostReachSeconds => _reachSucceeded
+            ? Mathf.Max(0f, _episodeSeconds - _firstReachSeconds)
+            : 0f;
+        public string LastFailureReason => _lastFailureReason;
+        public bool LastEpisodeSucceeded => _lastEpisodeSucceeded;
+        public int CompletedEpisodeCount => _completedEpisodeCount;
+        public float LastMaxContactHoldSeconds => _lastMaxContactHoldSeconds;
 
         public float CurrentArmTargetDeg(int index)
         {
@@ -123,7 +149,7 @@ namespace KDT.GraspTraining
             foreach (var body in _allJoints)
                 _initialTargetDeg[body] = body.xDrive.target;
 
-            // The exact 20-second limit is measured in simulation time.
+            // Stage-dependent limits are measured in simulation time.
             MaxStep = 0;
             int randomSeed = useDeterministicSpawns
                 ? spawnSeed
@@ -273,6 +299,11 @@ namespace KDT.GraspTraining
 
         int ResolveCurriculumStage()
         {
+            if (curriculumStageOverride >= Dg5fGraspSpec.FirstCurriculumStage
+                && curriculumStageOverride <= Dg5fGraspSpec.FinalCurriculumStage)
+            {
+                return curriculumStageOverride;
+            }
             if (Dg5fEvaluationSession.IsEnabled) return Dg5fGraspSpec.FinalCurriculumStage;
             float configured = Academy.Instance.EnvironmentParameters.GetWithDefault(
                 Dg5fGraspSpec.CurriculumParameterName,
@@ -381,7 +412,9 @@ namespace KDT.GraspTraining
 
             _initialBallHeight = ball.position.y;
             // Articulation collider transforms lag direct jointPosition writes by one
-            // physics step. Keep the ball kinematic for that step, then release it.
+            // physics step. Keep the ball kinematic for that step, then release it
+            // (stage 1 instead enters the kinematic hold phase, see FixedUpdate).
+            _stageOneBallHeld = false;
             _ballReleaseFixedSteps = 2;
         }
 
@@ -481,7 +514,7 @@ namespace KDT.GraspTraining
             sensor.AddObservation(Dg5fGraspSpec.ApproachPotential(_bestGraspDistance));
             sensor.AddObservation(Dg5fGraspSpec.ApproachSuccessDistance / Dg5fGraspSpec.MaximumBallDistance);
             sensor.AddObservation(Mathf.Clamp01(
-                _episodeSeconds / Dg5fGraspSpec.EpisodeTimeoutSeconds));
+                _episodeSeconds / CurrentEpisodeTimeoutSeconds));
         }
 
         static void AddClampedVector(VectorSensor sensor, Vector3 value, float scale)
@@ -515,22 +548,14 @@ namespace KDT.GraspTraining
 
             for (int i = 0; i < _armTargetDeg.Length; i++)
             {
-                float maximumDelta = armDeltaDegPerDecision;
-                float lower = Dg5fGraspSpec.ArmSafeMinDeg[i];
-                float upper = Dg5fGraspSpec.ArmSafeMaxDeg[i];
-                if (_curriculumStage == Dg5fGraspSpec.FirstCurriculumStage)
-                {
-                    maximumDelta *= Mathf.Clamp01(stageOneArmDeltaScale);
-                    float initial = _initialTargetDeg[_armJoints[i]];
-                    lower = Mathf.Max(lower, initial - Mathf.Max(0f, stageOneArmRangeDeg));
-                    upper = Mathf.Min(upper, initial + Mathf.Max(0f, stageOneArmRangeDeg));
-                }
-                _armTargetDeg[i] = Dg5fGraspSpec.AccumulateJointTarget(
+                _armTargetDeg[i] = Dg5fGraspSpec.NextArmTarget(
+                    _curriculumStage,
+                    _initialTargetDeg[_armJoints[i]],
                     _armTargetDeg[i],
                     continuous[i],
-                    maximumDelta,
-                    lower,
-                    upper);
+                    armDeltaDegPerDecision,
+                    Dg5fGraspSpec.ArmSafeMinDeg[i],
+                    Dg5fGraspSpec.ArmSafeMaxDeg[i]);
             }
 
             float maximumHandDelta = Mathf.Min(
@@ -539,7 +564,7 @@ namespace KDT.GraspTraining
             if (_curriculumStage == Dg5fGraspSpec.FirstCurriculumStage)
                 maximumHandDelta = Mathf.Min(
                     maximumHandDelta,
-                    Mathf.Max(0f, stageOneHandDeltaDegPerDecision));
+                    Dg5fGraspSpec.StageOneHandDeltaDegPerDecision);
             for (int i = 0; i < _handTargetDeg.Length; i++)
             {
                 var drive = _handJoints[i].xDrive;
@@ -590,7 +615,15 @@ namespace KDT.GraspTraining
             if (_ballReleaseFixedSteps > 0)
             {
                 _ballReleaseFixedSteps--;
-                if (_ballReleaseFixedSteps == 0) ReleaseBall();
+                if (_ballReleaseFixedSteps == 0)
+                {
+                    // Stage 1 keeps the ball kinematic so the rate-limited
+                    // fingers can wrap around it before gravity applies.
+                    if (_curriculumStage == Dg5fGraspSpec.FirstCurriculumStage)
+                        _stageOneBallHeld = true;
+                    else
+                        ReleaseBall();
+                }
                 return;
             }
 
@@ -598,6 +631,18 @@ namespace KDT.GraspTraining
             if (!HasFinitePhysicsState())
             {
                 FinishEpisode(false, "NonFinitePhysics");
+                return;
+            }
+
+            if (_stageOneBallHeld)
+            {
+                _episodeSeconds += Time.fixedDeltaTime;
+                UpdateContactState(Time.fixedDeltaTime);
+                if (HasDualContact
+                    || _episodeSeconds >= Dg5fGraspSpec.StageOneBallHoldMaxSeconds)
+                {
+                    ReleaseBall();
+                }
                 return;
             }
 
@@ -623,12 +668,25 @@ namespace KDT.GraspTraining
                 return;
             }
 
-            if (Dg5fGraspSpec.ReachedEpisodeTimeout(_episodeSeconds))
+            if (Dg5fGraspSpec.ReachedPostReachTimeout(
+                    _curriculumStage,
+                    _episodeSeconds,
+                    _firstReachSeconds))
+            {
+                FinishEpisode(false, "PostReachTimeout");
+                return;
+            }
+
+            if (Dg5fGraspSpec.ReachedEpisodeTimeout(_curriculumStage, _episodeSeconds))
                 FinishEpisode(false, "Timeout");
         }
 
         void ReleaseBall()
         {
+            _stageOneBallHeld = false;
+            // Success must reflect a grasp that survives gravity: restart the
+            // dual-contact hold clock at the moment the ball becomes dynamic.
+            _contactHoldSeconds = 0f;
             ball.isKinematic = false;
             ball.useGravity = true;
             ball.linearVelocity = Vector3.zero;
@@ -662,7 +720,7 @@ namespace KDT.GraspTraining
         {
             float distance = GraspDistance();
             float currentPotential = Dg5fGraspSpec.ApproachPotential(distance);
-            AddReward(Dg5fGraspSpec.ApproachRewardScale
+            AddReward(Dg5fGraspSpec.ApproachRewardScaleForStage(_curriculumStage)
                 * Dg5fGraspSpec.PotentialDelta(_previousApproachPotential, currentPotential));
             _previousApproachPotential = currentPotential;
             if (Dg5fGraspSpec.IsFinite(distance))
@@ -717,6 +775,10 @@ namespace KDT.GraspTraining
         {
             if (!_episodeActive) return;
             _episodeActive = false;
+            _lastEpisodeSucceeded = success;
+            _lastFailureReason = failureReason;
+            _completedEpisodeCount++;
+            _lastMaxContactHoldSeconds = _maxContactHoldSeconds;
             ScoreRewardPotentials();
             if (success)
             {
@@ -766,6 +828,7 @@ namespace KDT.GraspTraining
         void SettleFailurePotentials()
         {
             AddReward(Dg5fGraspSpec.FailurePotentialSettlement(
+                _curriculumStage,
                 _previousApproachPotential,
                 _previousContactPotential,
                 _previousContactHoldPotential));
@@ -776,12 +839,23 @@ namespace KDT.GraspTraining
 
         void RecordFailureStatistics(string failureReason)
         {
-            string[] reasons = { "Timeout", "BallOutOfBounds", "NonFinitePhysics" };
+            bool postReachTimeout = failureReason == "PostReachTimeout";
+            _stats.Add(
+                "Failure/Timeout",
+                failureReason == "Timeout" || postReachTimeout ? 1f : 0f,
+                StatAggregationMethod.Average);
+            _stats.Add(
+                "Failure/PostReachTimeout",
+                postReachTimeout ? 1f : 0f,
+                StatAggregationMethod.Average);
+            string[] reasons = { "BallOutOfBounds", "NonFinitePhysics" };
             foreach (string reason in reasons)
+            {
                 _stats.Add(
                     $"Failure/{reason}",
                     failureReason == reason ? 1f : 0f,
                     StatAggregationMethod.Average);
+            }
         }
 
         float GraspDistance()

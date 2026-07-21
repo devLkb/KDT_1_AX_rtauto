@@ -15,7 +15,9 @@ status: active
 - vector observations: 116, stack 1
 - continuous actions: 26
 - decision period: 5 physics steps
-- episode timeout: 20 simulation seconds (`MaxStep=0`)
+- stage 1 timeout: 5 simulation seconds
+- stage 2/3 timeout: 20 simulation seconds, with a distinct 5-second
+  post-reach grasp timeout (`MaxStep=0`)
 
 ## Observation order
 
@@ -55,14 +57,17 @@ seeds while sharing the same policy.
 ## V2 reward and termination
 
 - `-0.001` per decision
-- `0.25 * delta(approach potential)`
+- stage 1: no approach-potential reward
+- stage 2/3: `0.25 * delta(approach potential)`
 - thumb-only contact potential `0.25`
 - opposing-only contact potential `0`
 - dual-contact potential `0.5`
 - hold potential `0.5 * clamp(hold / 0.5 seconds)`
 - dual contact held for 0.5 seconds: `+2.0`, success termination
 - ball out of bounds or non-finite physics: `-1.0`, failure termination
-- timeout: failure termination
+- ordinary timeout or post-reach timeout: failure termination
+- `Failure/Timeout` counts both timeout kinds;
+  `Failure/PostReachTimeout` marks the post-reach subset
 
 On any failed termination, remaining approach/contact/hold potentials are
 settled back to zero. Losing dual contact resets the hold timer immediately
@@ -73,10 +78,13 @@ termination condition.
 
 The standard ML-Agents environment parameter is `joint26_stage`.
 
-1. ball near grasp point, fixed 35% pre-grasp, reduced arm range/delta and hand
-   delta
+1. ball within 4 cm of grasp point, fixed 35% pre-grasp, all arm targets locked
+   to their initial pose, independent hand deltas capped at 1 degree
 2. V1 0.35–0.70 m spawn distribution, normal arm, fixed pre-grasp
 3. V1 spawn distribution, fully open hand, no control assistance
+
+Lessons 1 and 2 advance on the unsmoothed mean reward of the most recent 200
+episodes, at thresholds `2.2` and `1.8` respectively.
 
 Deterministic approval evaluation always uses stage 3.
 

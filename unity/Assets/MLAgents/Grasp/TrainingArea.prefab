@@ -801,11 +801,10 @@ MonoBehaviour:
   - {fileID: 2398541928209474577}
   useDeterministicSpawns: 0
   spawnSeed: 12345
+  curriculumStageOverride: 0
   armDeltaDegPerDecision: 2
   handDeltaDegPerDecision: 4
-  stageOneArmDeltaScale: 0.35
   stageOneHandDeltaDegPerDecision: 1
-  stageOneArmRangeDeg: 25
   stageOneSpawnRadius: 0.04
 --- !u!114 &8574306879298936672
 MonoBehaviour:

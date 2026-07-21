@@ -4,9 +4,12 @@
 
 - **처음 읽을 문서** — Unity·강화학습 용어부터 전체 흐름까지:
   [`ML_AGENTS_LEARNING_FLOW.md`](ML_AGENTS_LEARNING_FLOW.md)
-- Agent 계약: [`AGENT_SPEC.md`](AGENT_SPEC.md)
+- V2 Agent 계약: [`AGENT_SPEC.md`](AGENT_SPEC.md)
+- 외부 패키지 V3 계약: [`AGENT_SPEC_V3.md`](AGENT_SPEC_V3.md)
 - 설계와 근거: [`ML_AGENTS_DESIGN.md`](ML_AGENTS_DESIGN.md)
 - 빌드·학습 실행: [`ML_AGENTS_TRAINING_GUIDE.md`](ML_AGENTS_TRAINING_GUIDE.md)
+- V2 실패 학습 분석:
+  [`V2_TRAINING_FAILURE_ANALYSIS_20260717.md`](V2_TRAINING_FAILURE_ANALYSIS_20260717.md)
 
 ## SVH 비전 파이프라인
 
