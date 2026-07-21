@@ -45,6 +45,8 @@ vision/**/calib_log_*.csv
 vision/zed_object_detection/dataset/
 vision/zed_object_detection/runs/
 vision/zed_object_detection/*.pt
+# 파인튜닝된 커스텀 타겟 모델은 예외로 보존
+!vision/zed_object_detection/weights/dg5f_target_objects_yolov8s.pt
 
 # ML-Agents training/build outputs
 training/results/

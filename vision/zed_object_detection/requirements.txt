@@ -1,0 +1,5 @@
+# pyzed는 pip 패키지가 아니라 ZED SDK 설치 폴더의 get_python_api.py로 설치함 (README 참고)
+# torch/torchvision은 CUDA 지원판을 따로 설치할 것 (README 참고) — 여기 목록엔 포함하지 않음
+ultralytics
+opencv-python
+numpy
