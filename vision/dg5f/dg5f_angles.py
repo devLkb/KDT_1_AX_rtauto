@@ -1,159 +1,279 @@
-# -*- coding: utf-8 -*-
-"""MediaPipe 손 landmark(21×3) → Tesollo DG5F 20관절 각도[deg] 변환.
-
-DG5F 구조 (dg5f_right.urdf 실측, 2026-07-13 팁 좌표로 손가락 확정):
-  손가락 1 = 엄지:  1_1 CMC굽힘[-22,77] / 1_2 대향회전[-155,0] / 1_3 MCP[±90] / 1_4 IP[±90]
-  손가락 2~4 = 검지/중지/약지: n_1 벌림 / n_2 MCP[0,115] / n_3 PIP[±90] / n_4 DIP[±90]
-  손가락 5 = 새끼:  5_1 손바닥접기[0,60] / 5_2 MCP[-15,90] / 5_3 PIP / 5_4 DIP
-  (mimic 없음 — 20관절 전부 독립 구동)
-
-패킷 순서(고정, Unity Dg5fHandDriver와 계약):
-  [0..3] 엄지 1_1,1_2,1_3,1_4 / [4..7] 검지 2_1..2_4 / [8..11] 중지 / [12..15] 약지 / [16..19] 새끼
-
-⚠️ GATED=True 채널은 중립 0° 고정 (SVH spread 과민 전례). 2026-07-17 검지~약지 벌림
-   (index/middle/ring_abd) 해제 — Unity가 n_1을 이 채널 직결(ff)로 구동하는 신정책용.
-   새끼 채널(pinky_cmc/lat)만 게이트 유지. 벌림이 과민하면 h_min/max(±0.30rad)를 넓힐 것.
-⚠️ 방향(부호) 미확정 채널: 엄지 대향(1_2)·CMC(1_1) — 라이브 검증에서 반대면
-   해당 채널 (dg_min, dg_max)를 스왑 (SVH thumb_opposition 전례와 동일한 해법).
-"""
 import json
 import math
 import os
-
 import numpy as np
 
 from dg5f_paths import CALIB_PATH
 
 # --- MediaPipe landmark 인덱스 ---
-WRIST = 0
-THUMB = [1, 2, 3, 4]      # CMC, MCP, IP, TIP
-INDEX = [5, 6, 7, 8]      # MCP, PIP, DIP, TIP
-MIDDLE = [9, 10, 11, 12]
-RING = [13, 14, 15, 16]
-PINKY = [17, 18, 19, 20]
+WRIST = 0                 # 손목
+THUMB = [1, 2, 3, 4]      # 엄지 CMC, MCP, IP, TIP
+INDEX = [5, 6, 7, 8]      # 검지 MCP, PIP, DIP, TIP
+MIDDLE = [9, 10, 11, 12]  # 중지 MCP, PIP, DIP, TIP
+RING = [13, 14, 15, 16]   # 약지 MCP, PIP, DIP, TIP
+PINKY = [17, 18, 19, 20]  # 소지 MCP, PIP, DIP, TIP
 
-
+# _angle(a, b, c): 점 b를 꼭짓점으로 하는 두 벡터(b→a, b→c) 사이 각(rad)을 구하는 함수
 def _angle(a, b, c):
-    """점 b를 꼭짓점으로 하는 두 벡터 사이 각[rad]."""
+    # 점 b를 꼭짓점으로 하는 두 벡터 만들기
     v1, v2 = np.asarray(a) - np.asarray(b), np.asarray(c) - np.asarray(b)
+    # 미디어파이프에서 랜드마크는 a[x,y,z] 처럼 리스트로 받기때문에 np.asarray()로 NumPy 배열로 변환처리 후
+    # 벡터 연산(빼기, 내적, 길이 계산 등)을 하여 점 b를 꼭짓점으로 하는 두 벡터를 구함.
+
+    # 구한 두 벡터의 길이를 계산
     n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+    # np.linalg.norm(): 벡터의 크기(길이)를 구하는 함수, 길이 = √(x² + y² + z²) 이용
+
+    # 벡터의 길이가 0(또는 거의 0)인 경우 예외 처리
     if n1 < 1e-6 or n2 < 1e-6:
         return 0.0
+
+    # cosθ에서 각도 추출
     return float(np.arccos(np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)))
+    # np.dot(v1, v2) / (n1 * n2): 벡터의 내적 공식 이용하여 cosθ 값 구하기
+    # |a|*|b|*cosθ = a⋅b
+    # cosθ = a⋅b/|a|*|b|
+    # np.clip(): cosθ 값은 -1~1 사이로 나와야하지만 컴퓨터 부동소수점 연산 오차로 범위를 벗어날 수 있으므로, -1~1 범위로 제한 처리
+    # np.arccos(): 코사인(cos) 값으로부터 실제 각도(θ)를 구하는 함수
 
-
+# _bend(): 손가락 관절의 굽힘각(Flexion)을 계산하는 함수
 def _bend(lm, i, j, k):
-    """관절 j의 굽힘각[rad]: 펴면 0, 굽히면 +."""
     return math.pi - _angle(lm[i], lm[j], lm[k])
+    # - lm : MediaPipe의 21개 랜드마크 좌표
+    # - i : 이전 관절
+    # - j : 현재 관절(굽힘을 계산할 관절)
+    # - k : 다음 관절
+    # 위에서 구현한 _angle() 함수에 미디어파이프 전체 랜드마크 좌표에서 자신이 구할 관절의 내부 각도를 구하고
+    # math.pi(180°) 에서 구한 관절 내부 각도를 빼서 손가락 관절을 완전히 폈을때 기준 얼만큼 굽혔는지 그 각도를 구함.
 
-
+# _abduction(): 중지의 근위지골(9→10) 방향을 기준으로 손가락이 얼마나 좌우로 벌어졌는지 계산하는 함수
 def _abduction(lm, finger):
-    """손바닥 평면에 투영한 벌림각[rad, 부호有]. 중지 근위지골 방향 기준.
-    +: 검지 쪽, -: 새끼 쪽. (게이트 해제 후 사용 예정)"""
-    lm = np.asarray(lm)
-    palm_n = np.cross(lm[INDEX[0]] - lm[WRIST], lm[PINKY[0]] - lm[WRIST])
+    lm = np.asarray(lm)           # 랜드마크 리스트를 NumPy 배열로 변환처리
+
+    # 손바닥 평면의 법선 벡터 구하는 처리
+    palm_n = np.cross(            # np.cross(): 두 벡터의 외적 계산 함수로 손바닥 평면의 법선 벡터 구하기
+        lm[INDEX[0]] - lm[WRIST], # 손목→검지 MCP 벡터 구하기
+        lm[PINKY[0]] - lm[WRIST]  # 손목→소지 MCP 벡터 구하기
+      )
+
+    # 손바닥 법선 벡터(palm_n)의 길이 구하기 처리
+    # np.linalg.norm(): 벡터의 크기(길이)를 구하는 함수, 길이 = √(x² + y² + z²) 이용
     n = np.linalg.norm(palm_n)
+
+    # 벡터의 길이가 0(또는 거의 0)인 경우 예외 처리
     if n < 1e-9:
         return 0.0
-    palm_n /= n
-    ref = lm[MIDDLE[1]] - lm[MIDDLE[0]]          # 중지 근위지골
-    v = lm[finger[1]] - lm[finger[0]]            # 대상 근위지골
-    ref -= palm_n * np.dot(ref, palm_n)          # 평면 투영
-    v -= palm_n * np.dot(v, palm_n)
-    ang = _angle(ref + lm[finger[0]], lm[finger[0]], v + lm[finger[0]])
-    side = np.dot(np.cross(ref, v), palm_n)      # 부호: 검지쪽 +
+
+    palm_n /= n                                  # 법선벡터 정규화(벡터길이를 1로 정규화)
+    ref = lm[MIDDLE[1]] - lm[MIDDLE[0]]          # 중지 근위지골(9→10 벡터)
+    v = lm[finger[1]] - lm[finger[0]]            # 대상 근위지골(대상 손가락 mcp→pip 벡터)
+    
+    # 중지 근위지골(9→10)벡터에서 손바닥 평면 방향 벡터 성분만 남기도록 처리
+    ref -= palm_n * np.dot(ref, palm_n)          # np.dot(ref, palm_n): 중지 방향 벡터(ref)에서 손바닥 법선 방향 성분만을 남기도록 내적
+                                                 # palm_n * np.dot(ref, palm_n): 내적연산으로 구한 법선 방향 벡터성분을 법선 벡터와 곱해 벡터로 만들고
+                                                 # 그 값을 중지 방향 벡터(ref)에서 벡터 연산(빼기)하여 손바닥 평면 방향 벡터 성분만을 남기도록 처리.
+    
+    # 대상 손가락 mcp→pip 벡터에서 손바닥 평면 방향 성분만 남기도록 처리                                             
+    v -= palm_n * np.dot(v, palm_n)              # 위와 근위지골(9→10)벡터와 동일하게 처리
+    
+    # _angle() 함수로
+    ang = _angle(
+        ref + lm[finger[0]],    # ref + lm[finger[0]]: 대상손가락의 mcp에서 9→10벡터의 손바닥 평면 성분벡터만큼 이동한 좌표
+        lm[finger[0]],          # lm[finger[0]]      : 대상손가락의 mcp 좌표
+        v + lm[finger[0]]       # v + lm[finger[0]]  : 대상손가락의 mcp에 대상 손가락 mcp→pip 벡터의 손바닥 평면 성분벡터만큼 이동한 좌표
+    ) 
+    
+    # 중지를 기준으로 대상 손가락이 검지 쪽으로 벌어졌는지, 새끼 쪽으로 벌어졌는지를 판별
+    side = np.dot(np.cross(ref, v), palm_n)
+    # np.cross(ref, v): 9→10벡터에서 손바닥 평면 방향 성분만 남긴 벡터와 대상 손가락 mcp→pip 벡터에서 손바닥 평면 방향 성분만 남긴 벡터를 외적한 결과. 
+    #                   두 벡터가 같은 평면(손바닥 평면)에 있으므로 결과는 palm_n 축과 나란함
+    # np.dot(np.cross(ref, v), palm_n) : 위 외적 결과와 손바닥 평면 법선 벡터를 내적하여 palm_n(법선) 방향 성분의 크기만 스칼라로 남김.
+    #                                    이렇게 구한 스칼라의 부호로 +면 손등 방향, -면 손바닥 방향인지 확인
+    #                                    오른손 법칙에 따라 위 결과가 +면 시계방향, -면 반시계방향으로 측정한 각도
+    
+    # 위에서 구한 side로 최종 ang이 어느쪽으로 벌어진 것인지 부호를 결정.
     return ang if side >= 0 else -ang
-
-
-def _thumb_elevation(lm):
-    """엄지 중수골(CMC→MCP)의 손바닥 평면 이탈각[rad, 부호有] — thumb_cmc 신프록시.
-    옛 프록시(손목-CMC-MCP 3점각)는 세 점이 준일직선이라 노이즈 과대(§20-2 게이트 원인).
-    평면 이탈각(arcsin)은 전 구간 조건수 양호. 부호: 손바닥 법선 쪽 = +.
-    라이브에서 방향 반대면 채널 테이블 (dg_min, dg_max) 스왑 (관례 동일)."""
+    
+# _thumb_abduction(): 엄지 CMC의 벌림(abduction)각을 구하는 함수.
+#   엄지 근위 마디(1→2) 벡터를 손바닥 평면에 투영한 뒤,
+#   손 축(손목→검지 MCP, 0→5)의 평면 투영과 이루는 각을 잰다.
+#   TIP(4번)을 쓰지 않으므로 MCP·IP 굽힘이 값에 섞이지 않는다.
+def _thumb_abduction(lm):
     lm = np.asarray(lm)
-    n = np.cross(lm[INDEX[0]] - lm[WRIST], lm[PINKY[0]] - lm[WRIST])
+
+    # 손바닥 평면 법선 (기존 _thumb_elevation과 동일)
+    n = np.cross(lm[INDEX[0]] - lm[WRIST],
+                 lm[PINKY[0]] - lm[WRIST])
     nn = np.linalg.norm(n)
     if nn < 1e-9:
         return 0.0
     n /= nn
-    v = lm[THUMB[1]] - lm[THUMB[0]]
-    vn = np.linalg.norm(v)
+
+    ref = lm[INDEX[0]] - lm[WRIST]     # 손 축 벡터 (0→5)
+    v   = lm[THUMB[1]] - lm[THUMB[0]]  # 엄지 근위 마디 벡터 (1→2) ← TIP 아님!
+
+    # 두 벡터 모두 손바닥 평면에 투영 (법선 성분 제거 — _abduction과 동일 처리)
+    ref = ref - n * np.dot(ref, n)
+    v   = v   - n * np.dot(v, n)
+
+    nr, nv = np.linalg.norm(ref), np.linalg.norm(v)
+    if nr < 1e-9 or nv < 1e-9:
+        return 0.0
+
+    # 평면 위 두 벡터 사이 각 (크기)
+    ang = float(np.arccos(np.clip(np.dot(ref / nr, v / nv), -1.0, 1.0)))
+
+    # 부호 판정 (_abduction과 동일한 방식): 외적을 법선에 투영해 방향 결정
+    side = np.dot(np.cross(ref, v), n)
+    return ang if side >= 0 else -ang
+
+# _thumb_elevation(): 엄지 손가락이 손바닥 평면으로부터 얼만큼 각도로 들려 있는지 각도를 구하는 함수
+def _thumb_elevation(lm):
+    lm = np.asarray(lm)    # 랜드마크 리스트를 NumPy 배열로 변환처리
+    
+    # 손목→중지mcp 벡터와 손목→새끼 mcp 벡터의 외적을 구해 손바닥 평면의 법선 벡터 구하기
+    n = np.cross(
+        lm[INDEX[0]] - lm[WRIST],    # 0→5 백터
+        lm[PINKY[0]] - lm[WRIST]     # 0→17 벡터
+    )
+    
+    # 손바닥 법선 벡터의 길이 구하기
+    nn = np.linalg.norm(n)
+    
+    # 벡터의 길이가 0(또는 거의 0)인 경우 예외 처리
+    if nn < 1e-9:
+        return 0.0
+    n /= nn                            # 법선벡터 정규화(벡터길이를 1로 정규화)
+    
+    v = lm[THUMB[1]] - lm[THUMB[0]]    # 엄지 방향 벡터(1→2 벡터)
+    vn = np.linalg.norm(v)             # 엄지 방향 벡터의 길이 구하기
+    
+    # 벡터의 길이가 0(또는 거의 0)인 경우 예외 처리
     if vn < 1e-9:
         return 0.0
-    return float(np.arcsin(np.clip(np.dot(v / vn, n), -1.0, 1.0)))
+    v /= vn                            # 엄지 방향 벡터 정규화(벡터길이를 1로 정규화)
+        
+    # 엄지 손가락이 손바닥 평면으로부터 얼만큼 각도로 들려 있는지 각도 계산
+    return float(np.arcsin(np.clip(np.dot(v, n), -1.0, 1.0)))
+    # np.dot(v, n): 정규화된 엄지벡터와 정규화된 손바닥 법선 벡터를 내적하여 두 벡터 사이 각도의 cosθ을 구함.
+    #               cos θ = cos(90° − φ) = sin φ 이므로 dot(v, n) = cos θ = sin φ 
+    # np.clip(): cosθ 값은 -1~1 사이로 나와야하지만 컴퓨터 부동소수점 연산 오차로 범위를 벗어날 수 있으므로, -1~1 범위로 제한 처리
+    # np.arcsin(): sin값을 값으로부터 실제 각도(φ)를 구하는 함수
+
+# _palm_fold(): 
+def _palm_fold(lm):
+    lm = np.asarray(lm)    # 랜드마크 리스트를 NumPy 배열로 변환처리
+
+    # 요측(엄지쪽) 손바닥 평면의 법선 벡터 — 비교적 손바닥 접힘 운동에 안 딸려가는 검지·중지로 기준면을 만든다
+    n_rad = np.cross(                  # np.cross(): 두 벡터의 외적으로 요측 평면 법선 구하기
+	      lm[INDEX[0]] - lm[MIDDLE[0]],  # 중지 MCP→검지 MCP 벡터(9→5 벡터)
+	      lm[MIDDLE[0]] - lm[WRIST]      # 손목→중지 MCP 벡터(0→9 벡터)
+    )
+    
+    # 척측(새끼쪽) 손바닥 평면의 법선 벡터 — 비교적 손바닥 접힘 운동에 딸려가는 약지·새끼 MCP로 만든다
+    n_uln = np.cross(
+	      lm[RING[0]] - lm[WRIST],       # 손목→약지 MCP 벡터(0→13 벡터)
+	      lm[PINKY[0]] - lm[WRIST]       # 손목→소지 MCP 벡터(0→17 벡터)
+    )
+      
+    # 두 손바닥 평면이 접히는 경첩(힌지)축 벡터 구하기. 손목→약지 MCP 벡터(0→13 벡터)
+    hinge = lm[RING[0]] - lm[WRIST]
+
+    # 세 벡터의 길이를 구해 하나라도 0(또는 거의 0)이면 예외 처리
+    nr, nu, nh = np.linalg.norm(n_rad), np.linalg.norm(n_uln), np.linalg.norm(hinge)
+    if nr < 1e-9 or nu < 1e-9 or nh < 1e-9:
+        return 0.0
+    
+    # 전부 단위벡터로 정규화
+    n_rad, n_uln, hinge = n_rad / nr, n_uln / nu, hinge / nh
+
+    # 두 법선 사이의 '부호 있는' 각도를 힌지축 기준으로 구하기
+    x = float(np.dot(n_rad, n_uln))                    # x: 두 손바닥 평면이 접힌 각도의 cos 성분
+    y = float(np.dot(np.cross(n_rad, n_uln), hinge))   # y: 두 손바닥 평면의 법선벡터의 외적을 계산하여 두 손바닥 평면의 법선벡터로 이루어진
+                                                       # 평면의 법선벡터(np.cross(a, b)=|a|·|b|·sin θ)를 구하고, 
+                                                       # np.cross() 벡터와 힌지축 벡터는 서로 동일한 축에 놓인 두 벡터이므로
+                                                       # 내적 연산을 통해 부호를 결정하여 최종 성분을 sin 구함.
+
+    # np.arctan2(y, x): (y, x)로부터 각도(θ)를 구하는 함수 — 단순 arctan과 달리 접힘/폄 방향(부호)까지 포함된 결과를 얻을 수 있음.
+    return float(np.arctan2(y, x))
 
 
 def compute_raw(lm):
-    """landmark → 20채널 raw 사람각도[rad], 패킷 순서."""
     return [
-        # 엄지 — ⚠️2026-07-14 프록시 교차 재배선(§20-7, 로봇 기하 실측 근거):
-        #   1_1은 앞뒤 관절이 아니라 손바닥 평면 안 스윕(풀스윕 시 법선 1.5cm/전방 13.4cm),
-        #   깊이(앞뒤)는 1_2(대향 롤)가 만듦(굽힌 채 1_2 스윕 시 법선 3→8.3cm).
-        #   따라서 사람 가로 스윕→1_1, 사람 앞뒤(elevation)→1_2 로 교차 배선.
-        #   (§20-5의 elevation→1_1 직결은 관절 오배정이었음)
-        _angle(lm[INDEX[0]], lm[WRIST], lm[THUMB[3]]), # 0 → 1_1: 가로 스윕 proxy
-        _thumb_elevation(lm),                          # 1 → 1_2: 앞뒤(elevation) proxy
-        _bend(lm, THUMB[0], THUMB[1], THUMB[2]),       # 2 thumb_mcp
-        _bend(lm, THUMB[1], THUMB[2], THUMB[3]),       # 3 thumb_ip
+        # 엄지
+        _thumb_abduction(lm),                          # 엄지cmc→mcp 벡터와 손목→검지mcp(0→5) 벡터의 손바닥 평면 성분만을 남겨 얼만큼 벌려져 있는지 각도. 엄지 cmc의 수평 성분
+        _thumb_elevation(lm),                          # 엄지 손가락이 손바닥 평면(손목→검지, 손목→소지 평면)으로부터 얼만큼 각도로 들려 있는지 각도. 즉 엄지 cmc의 수직 성분
+        _bend(lm, THUMB[0], THUMB[1], THUMB[2]),       # thumb_mcp(2번) 관절의 각도
+        _bend(lm, THUMB[1], THUMB[2], THUMB[3]),       # thumb_ip(3번) 관절의 각도
         # 검지
-        _abduction(lm, INDEX),                         # 4 index_abd (게이트)
-        _bend(lm, WRIST, INDEX[0], INDEX[1]),          # 5 index_mcp
-        _bend(lm, INDEX[0], INDEX[1], INDEX[2]),       # 6 index_pip
-        _bend(lm, INDEX[1], INDEX[2], INDEX[3]),       # 7 index_dip
+        _abduction(lm, INDEX),                         # 중지의 근위지골(9→10) 방향을 기준으로 검지가 얼마나 좌우로 벌어졌는지 각도
+        _bend(lm, WRIST, INDEX[0], INDEX[1]),          # index_mcp(5번) 관절의 각도
+        _bend(lm, INDEX[0], INDEX[1], INDEX[2]),       # index_pip(6번) 관절의 각도
+        _bend(lm, INDEX[1], INDEX[2], INDEX[3]),       # index_dip(7번) 관절의 각도
         # 중지
-        _abduction(lm, MIDDLE),                        # 8 (게이트)
-        _bend(lm, WRIST, MIDDLE[0], MIDDLE[1]),        # 9
-        _bend(lm, MIDDLE[0], MIDDLE[1], MIDDLE[2]),    # 10
-        _bend(lm, MIDDLE[1], MIDDLE[2], MIDDLE[3]),    # 11
+        _abduction(lm, MIDDLE),                        # middle_abd — 기준(9→10)과 자기 자신 비교라 항상 ≈0 (중립 유지용)
+        _bend(lm, WRIST, MIDDLE[0], MIDDLE[1]),        # middle_mcp(9번) 관절의 각도
+        _bend(lm, MIDDLE[0], MIDDLE[1], MIDDLE[2]),    # middle_pip(10번) 관절의 각도
+        _bend(lm, MIDDLE[1], MIDDLE[2], MIDDLE[3]),    # middle_dip(11번) 관절의 각도
         # 약지
-        _abduction(lm, RING),                          # 12 (게이트)
-        _bend(lm, WRIST, RING[0], RING[1]),            # 13
-        _bend(lm, RING[0], RING[1], RING[2]),          # 14
-        _bend(lm, RING[1], RING[2], RING[3]),          # 15
-        # 새끼 — ⚠️관절 의미가 다른 손가락과 다름 (2026-07-13 왼손 관절 스윕 실측):
-        #   5_1=손바닥접기, 5_2=측면 기울임(굽힘 아님! 굽힘성분 0.42/측면 0.81),
-        #   5_3=굽힘(0.98), 5_4=굽힘(0.99) → 굽힘 관절이 2개뿐.
-        #   사람 MCP→5_3, (PIP+DIP)평균→5_4, 5_1·5_2는 게이트 중립.
-        _bend(lm, WRIST, PINKY[0], PINKY[1]) * 0.5,    # 16 pinky_cmc → 5_1 (게이트)
-        _abduction(lm, PINKY),                         # 17 pinky_lat → 5_2 측면 (게이트)
-        _bend(lm, WRIST, PINKY[0], PINKY[1]),          # 18 pinky_mcp → 5_3
-        (_bend(lm, PINKY[0], PINKY[1], PINKY[2])
-         + _bend(lm, PINKY[1], PINKY[2], PINKY[3])) / 2.0,  # 19 pinky_pip → 5_4 (pip·dip 평균)
+        _abduction(lm, RING),                          # ring_abd — 중지(9→10) 기준 약지 벌림각
+        _bend(lm, WRIST, RING[0], RING[1]),            # ring_mcp(13번) 관절의 각도
+        _bend(lm, RING[0], RING[1], RING[2]),          # ring_pip(14번) 관절의 각도
+        _bend(lm, RING[1], RING[2], RING[3]),          # ring_dip(15번) 관절의 각도
+        # 새끼
+        _palm_fold(lm),                                # pinky_cmc → 손바닥접기 각도, 5_1 대응용
+        _abduction(lm, PINKY),                         # pinky_lat → 중지의 근위지골(9→10) 방향을 기준으로 새끼가 얼마나 좌우로 벌어졌는지 각도, 5_2 대응용
+        _bend(lm, WRIST, PINKY[0], PINKY[1]),          # pinky_mcp(17번) 관절의 각도, 5_3 대응용
+        (_bend(lm, PINKY[0], PINKY[1], PINKY[2])       # pinky_mcp(18번), pinky_mcp(19번) 관절의 각도, 5_4 대응용
+         + _bend(lm, PINKY[1], PINKY[2], PINKY[3])) / 2.0,       
     ]
 
-
-# =========================================================================
-# 채널 테이블: (이름, human_min, human_max[rad], dg_min, dg_max[deg], gated)
-#   사람각 human_min→dg_min, human_max→dg_max 선형 매핑 후 dg 범위로 clamp.
-#   방향 반전 = (dg_min, dg_max) 스왑. gated=True면 중립값(dg_neutral) 고정 송신.
-#   human_min/max는 dg5f_calibration.json 이 있으면 자동 덮어씀.
-#   dg_min/max 기본값은 URDF 리밋 안쪽의 보수적 구간(하드리밋 충돌 방지).
-# =========================================================================
+# 채널 테이블:
 GATED_NEUTRAL_DEG = 0.0
 
-# 왼손 모델용 부호 반전 채널 (2026-07-13 좌/우 URDF 리밋 비교로 도출).
-#   좌우 리밋이 (lower,upper)→(-upper,-lower)로 뒤집힌 관절 = 값도 부호 반전 필요.
-#   벌림(abd) 계열은 리밋이 대칭이어도 물리 방향이 미러라 전부 포함.
-#   대칭 리밋(±90) 채널은 왼손 주먹 프로브 시각 검증으로 확정(2026-07-13):
-#     엄지 mcp/ip = 반전 필요(+60이면 엄지가 주먹 밖으로 꺾임), 새끼 pip/dip = 반전 불필요
-#     (-70이면 주먹 밖으로 펴짐), 검지~약지 pip/dip = 반전 불필요.
-#   새끼: 5_3/5_4(굽힘)는 좌우 모두 양수=굽힘(스윕 실측) → 반전 없음.
-#   엄지 mcp/ip 반전은 핀치 탐색으로 재확인(2026-07-13): 왼손 음수 조합만 엄지-검지 4.9cm 도달.
+# 왼손 모델용 부호 반전 채널
 LEFT_MIRROR_CHANNELS = {
     "thumb_cmc", "thumb_opp", "thumb_mcp", "thumb_ip",
     "index_abd", "middle_abd", "ring_abd",
     "pinky_cmc", "pinky_lat",
 }
 
+# 벌림(좌우) 채널 — 사람 벌림각(rad)을 로봇 벌림각(deg)으로 **1:1 직접 매핑**(로봇 범위로 clamp).
+#   percentile min/max 정규화를 쓰면 안 되는 이유(2026-07-20 실측): 보정 세션에서 벌림을 조금만 해도
+#   사람 범위가 좁게 잡혀(예 index 양수쪽 hmax=0.096rad=5.5°) 로봇 dmax=20°까지 ~3.6배 증폭 →
+#   "사람보다 훨씬 많이 벌어짐". 로봇 벌림 가동범위(±20~30°)가 사람 손가락 벌림 범위(±20~25°)와
+#   비슷해 1:1이 자연스럽다. raw=0(중지와 평행=모음)→0°는 자동으로 성립(부호 있는 각이라).
+#   ABD_GAIN을 키우면 더 과장, 줄이면 더 절제 — 라이브 체감으로 미세조정.
+# thumb_cmc는 0을 사이에 두지 않는 벌림(hmin/hmax 둘 다 음수)이라 여기서 제외 — 기존 선형 유지.
+ABDUCTION_CHANNELS = {"index_abd", "middle_abd", "ring_abd", "pinky_lat"}
+ABD_GAIN = 1.0  # 로봇도 = 사람 벌림각(deg) × 이 값. 1.0 = 1:1(증폭 없음).
+
+# 엄지 깊이 대향(thumb_opp)도 진짜 각도형 프록시(_thumb_elevation=arcsin, 0=평면)라 벌림과 같은
+#   1:1 직접 매핑으로 뺀다 — 보정(사람 24°→로봇 105° 4.4배)이 만든 증폭 제거. 사람 대향각(들림)을
+#   그대로 로봇 깊이각으로. GAIN 1.0=무증폭(자연스럽지만 대향 약함). 파지 도달 부족하면 ↑(단 평면 대비
+#   깊이가 다시 커지면 엄지가 앞으로 기우는 문제 재발 — 평면 cmc 스윙 ~63°와 균형 보며 조정).
+THUMB_OPP_GAIN = 1.0
+
+# 엄지 평면 벌림(thumb_cmc, 1_1)도 진짜 각도형 프록시(_thumb_abduction=평면상 부호각)라
+#   thumb_opp와 같은 1:1 직접 매핑으로 뺀다 — 옛 선형[-0.52,-0.03]rad→[65,0]°이 만든 ~1.66배
+#   증폭(2026-07-21 로그 실측: 사람 벌림 34° → 로봇 56°) 제거. 사람 벌림각(deg)을 그대로 로봇
+#   벌림각으로. v<0=벌림만 취해 양수 deg(우수 프레임), 왼손은 LEFT_MIRROR가 부호 반전.
+#   GAIN 1.0=무증폭. 파지 시 벌림이 부족하면 ↑(단 사람 대비 과장되면 다시 부자연). ⚠️우수(right)
+#   방향은 미검증 — 현재 방향 보존은 왼손 기준(라이브에서 벌림 추종 방향 재확인 필요).
+THUMB_CMC_GAIN = 1.0
+
 DG5F_CHANNELS = [
     # name          hmin   hmax    dg_min  dg_max  gated
-    # ⚠️채널 이름은 관절 기준(thumb_cmc=1_1, thumb_opp=1_2)이고, 프록시는 §20-7에서
-    # 교차 재배선됨: thumb_cmc(1_1)의 사람각 = 가로 스윕, thumb_opp(1_2) = 앞뒤 elevation.
-    # human 기본범위도 프록시에 맞춰 교차. 보정 파일 값도 2026-07-14 함께 스왑됨.
-    ("thumb_cmc",   0.10,  0.55,    0.0,   65.0,  False),
-    # thumb_opp(1_2): 사람 elevation(앞뒤) → 대향 롤. dg_min -15 = 휴지 약간 대향(§20-2),
-    # dg_max -120: 실측상 깊이(법선) 성분은 1_2≈80°서 최대, 120°까지 전방 유지(§20-7).
-    ("thumb_opp",   0.15,  0.85,  -15.0, -120.0,  False),
+    # thumb_cmc(1_1): 2026-07-21 1:1 직접매핑으로 전환(map_to_dg5f 아래 thumb_cmc 분기 참조).
+    #   dmin/dmax는 이제 선형보간 끝점이 아니라 clamp 경계[0, 65]°(우수 프레임, 양수=벌림)로 쓰인다.
+    #   hmin/hmax(-0.52,-0.03)는 1:1 분기에서 미사용(보정 로드가 덮어써도 무해).
+    ("thumb_cmc",  -0.52, -0.03,    0.0,   65.0,  False),
+    # thumb_opp(1_2, 깊이 대향): dmax -120→-75 + dmin -15→0(2026-07-20) — ①사람 대향각(~24°)이
+    #   로봇 105°로 4.4배 증폭돼 깊이 스윙(81°)이 평면 스윙(62°)을 압도 → -75로 축소.
+    #   ②dmin -15는 사람 엄지가 평평(elev≈0)해도 로봇을 항상 15° 앞으로 기울이는 '상시 깊이 오프셋'
+    #   (로그 실측 opp 최소 16°) → 0으로 바꿔 평평한 엄지는 평면에 눕힘. 최대 대향(dmax)은 불변.
+    #   (파지 도달은 여전히 희생 — 정밀 파지는 IK 모드 담당.)
+    ("thumb_opp",   0.15,  0.85,    0.0,  -75.0,  False),
     ("thumb_mcp",   0.05,  0.90,    0.0,   80.0,  False),
     ("thumb_ip",    0.05,  1.20,    0.0,   80.0,  False),
     ("index_abd",  -0.30,  0.30,  -25.0,   20.0,  False),
@@ -168,73 +288,60 @@ DG5F_CHANNELS = [
     ("ring_mcp",    0.05,  1.20,    0.0,  105.0,  False),
     ("ring_pip",    0.10,  1.80,    0.0,   85.0,  False),
     ("ring_dip",    0.05,  1.20,    0.0,   80.0,  False),
-    ("pinky_cmc",   0.05,  0.60,    0.0,   50.0,  True),
-    ("pinky_lat",  -0.30,  0.30,  -12.0,   12.0,  True),   # 5_2 측면 기울임 — 게이트
-    ("pinky_mcp",   0.05,  1.20,    0.0,   85.0,  False),  # → 5_3 (실질 MCP 굽힘)
-    ("pinky_pip",   0.10,  1.80,    0.0,   80.0,  False),  # → 5_4 (pip·dip 평균)
+    # pinky_cmc(5_1, 손바닥 접기): 2026-07-20 게이트(사용자 요청) — 앞굽힘을 가장 크게 망치는 오염원.
+    #   프록시 raw는 컵핑(22°)>굽힘오염(7.7°)로 신호가 있으나, 사람범위 6.9°→로봇 50°로 7.2배 증폭돼
+    #   굽힘만 해도 로봇 5_1이 40° 스윙 + 정지 노이즈 14°도 증폭. SNR 나빠 유지가치 낮음.
+    #   컵핑을 조금 살리려면 gated False + dg (50,0)→(12,0)으로 '아주 적게 제한'이 대안(주석 참고).
+    ("pinky_cmc",   0.09,  0.21,   50.0,    0.0,  True),
+    # pinky_lat(5_2): 2026-07-20 게이트 해제(True→False) — 사용자 요청("옆으로 벌림이 안 됨").
+    #   새끼 굽힘이 이 값에 섞이는 crosstalk(~50%)는 감수. 0 중심 매핑이라 crosstalk 영향은 ±12°로 제한.
+    ("pinky_lat",  -0.30,  0.30,  -12.0,   12.0,  False),
+    ("pinky_mcp",   0.05,  1.20,    0.0,   85.0,  False),
+    ("pinky_pip",   0.10,  1.80,    0.0,   80.0,  False),
 ]
 
 CHANNEL_NAMES = [c[0] for c in DG5F_CHANNELS]
 
-
 def map_to_dg5f(raw, hand="right"):
-    """raw 사람각도 20개[rad] → DG5F 관절각 20개[deg] (게이트/미러/clamp 적용).
-
-    hand="left"면 LEFT_MIRROR_CHANNELS 채널 값을 부호 반전 (왼손 URDF는
-    해당 관절 리밋이 좌우 대칭으로 뒤집혀 있음). Unity 쪽에서 프리팹 자체
-    리밋으로 한 번 더 clamp 하므로 초과분은 안전.
-    """
     out = []
     for v, (name, hmin, hmax, dmin, dmax, gated) in zip(raw, DG5F_CHANNELS):
         if gated:
             out.append(GATED_NEUTRAL_DEG)
             continue
-        t = (v - hmin) / (hmax - hmin) if hmax > hmin else 0.0
-        t = min(1.0, max(0.0, t))
-        deg = dmin + t * (dmax - dmin)
+        if name in ABDUCTION_CHANNELS:
+            # 1:1 직접 매핑: 사람 벌림각(rad)→deg × ABD_GAIN, 로봇 가동범위[dmin,dmax]로 clamp.
+            # raw=0→0°(중지 정렬)은 자동 성립. 좁은 percentile 범위 증폭 문제를 근본 제거.
+            deg = math.degrees(v) * ABD_GAIN
+            deg = min(dmax, max(dmin, deg))
+        elif name == "thumb_opp":
+            # 깊이 대향도 1:1 직접(무증폭): 사람 들림각(v≥0)을 그대로 로봇 깊이각으로.
+            # dmin=0(평면)/dmax=-75(최대 대향) 부호에 맞춰 음수로, [dmax,dmin]=[-75,0] clamp.
+            deg = -math.degrees(max(0.0, v)) * THUMB_OPP_GAIN
+            deg = max(dmax, min(dmin, deg))
+        elif name == "thumb_cmc":
+            # 평면 벌림 1:1 직접(무증폭): 사람 벌림각(v<0=벌림)을 그대로 로봇 벌림각으로.
+            # v<0만 취해 양수 deg(우수 프레임), v≥0(모음/역)은 0. 왼손은 아래 LEFT_MIRROR가 부호 반전.
+            # dmin=0/dmax=65로 로봇 벌림 가동범위만 clamp(옛 선형보간의 1.66배 증폭 제거).
+            deg = -math.degrees(min(0.0, v)) * THUMB_CMC_GAIN
+            deg = min(dmax, max(dmin, deg))
+        else:
+            t = (v - hmin) / (hmax - hmin) if hmax > hmin else 0.0
+            t = min(1.0, max(0.0, t))
+            deg = dmin + t * (dmax - dmin)
         if hand == "left" and name in LEFT_MIRROR_CHANNELS:
             deg = -deg
         out.append(deg)
     return out
 
-
-# =========================================================================
-# 엄지 손끝 위치 리타게팅 (패킷 [20..22] 위치 3 + [23] 핀치 + [24] 끝거리비)
-#   채널별 선형 매핑은 엄지의 결합 운동(대향×굽힘×접기)을 재현 못함 →
-#   엄지만 "손끝 위치"를 보내고 Unity에서 IK(CCD).
-#   축: ez=손목→중지MCP(손가락 방향), ey=새끼MCP→검지MCP(측면), ex=cross(ey,ez)
-#       (손바닥 법선). 해부학 랜드마크 기반이라 좌/우·거울 불변.
-#   값(2026-07-15 §26 '펴짐 비율' 재재정의 — Unity Dg5fThumbIK 방향별 도달 테이블과 계약):
-#       리치벡터 = 방향(단위벡터, 해부학 축 성분) × 크기(펴짐 비율 0~1)
-#       크기 = |엄지끝−CMC| 직선 / (같은 프레임 엄지 마디합 × 직진도 상한) — "직진도".
-#       Unity가 가상 앵커 + 방향 × 펴짐비율 × 그 방향 로봇 최대도달(FK 테이블)로 복원.
-#   왜(§26, 2026-07-15): §25의 "직선/(손길이×보정비율)"은 보정 세션의 최대치를 상수로
-#       박는 방식이라 MediaPipe z 압축의 **방향 의존 오차**를 못 넘김 — 라이브 실측에서
-#       손가락 방향으로 뻗으면 |n|→1.0, 손바닥 옆/앞으로 뻗으면 |n|→0.69~0.74
-#       (thumbik_20260715_1744/1803.csv). 사람이 쭉 펴도 로봇 목표가 70%에 머무는 원인.
-#       직진도(같은 프레임, 같은 랜드마크끼리의 비)는 삼각부등식으로 항상 0~1이고,
-#       일직선이면 이방성 스케일 오차(z 압축)가 분자·분모에 똑같이 걸려 비가 보존 —
-#       어느 방향으로 뻗어도 1.0. 카메라·세션 간 보정 이전 문제도 소멸(무보정 동작).
-#   §25의 이전 정의·근거(마디합→최대도달 재정의, 1_2 정책)는 WORKLOG §25 참조.
-# =========================================================================
-# 핀치 히스테리시스(vision_node에서 적용): 걸림 <PINCH_ON, 풀림 >PINCH_OFF
-#   단일 임계는 경계 근처에서 플래그가 깜빡여 엄지가 두 목표 사이를 왕복(까딱임) — 실측 교훈.
+# 엄지 손끝 위치 리타게팅
 PINCH_ON, PINCH_OFF = 0.30, 0.42
 
-# 사람 엄지 직진도 상한 = 쭉 폈을 때의 (직선/마디합) 실측치. MediaPipe 랜드마크는 쭉 펴도
-# 완전 일직선이 아니라서(자연 굴곡) 1.0에 못 미침 — 이 값으로 나눠 "쭉 폄 = 1.0"으로 정렬.
-# calibrate_dg5f.py v3가 p95로 실측 저장(선택). 기본 0.97은 전형적 직진도의 보수적 근사.
+# 사람 엄지 직진도 상한
 DEFAULT_THUMB_STRAIGHT = 0.97
 CALIB_VERSION = 3  # v3: thumb_straight_ratio(직진도). v2 thumb_reach_ratio(직선/손길이)는 폐기.
 _thumb_straight_calib = None
 
-# 손가락(검지~새끼) 직진도 상한 — 엄지(0.97)와 분리한다. 해부학이 달라서: 엄지는 쭉 펴도
-# IP에 자연 굴곡이 남지만 손가락은 거의 일직선이라 직진도가 1.0에 더 가깝다.
-# ⚠️ 실측 전 잠정값(2026-07-16). 틀렸을 때 방향:
-#    - 실제보다 **낮으면** 사람이 다 펴기 전에 비율이 1.0 포화 → 로봇이 먼저 쭉 펴짐(무해)
-#    - 실제보다 **높으면** 쭉 펴도 로봇이 덜 펴짐 → §26에서 엄지가 겪은 바로 그 증상
-#    그래서 보수적으로 낮게 잡는다. 라이브에서 쭉 폈을 때 [send] |idx|가 1.0에 못 미치면
-#    이 값을 낮출 것. (엄지처럼 calibrate가 손가락별 p95를 저장하게 만드는 건 추후 과제)
+# 손가락(검지~새끼) 직진도 상한
 DEFAULT_FINGER_STRAIGHT = 0.98
 
 # 리치벡터를 싣는 손가락(패킷 [25..36] 순서 고정) — 엄지는 [20..22]에 따로 있어 제외.
@@ -251,19 +358,16 @@ WRIST_TIP_FINGERS = [("thumb", THUMB), ("index", INDEX), ("middle", MIDDLE),
 #   v4 <37f>: + [25..36] 검지/중지/약지/새끼 리치벡터 (각 3, TIP_FINGERS 순서)
 #   v5 <52f>: + [37..51] 손목→끝 벡터 5개 (엄지·검지·중지·약지·새끼, WRIST_TIP_FINGERS 순서,
 #             각 3 = 해부학 프레임 성분 ÷ 손길이) — 새 방식(로봇 관점 IK, ikMode=RobotRootTipVector)
+#   v6 <72f>: + [52..71] compute_raw()의 20채널 **라디안 원값**(매핑·필터 전, 프록시 출력 그대로) —
+#             디버그용. Unity가 비전 라디안 vs 로봇 관절 라디안을 직접 비교/로깅하는 데 씀.
 # ⚠️ 수신기 판별이 `>=`라 상위 버전을 하위 Unity에 쏴도 앞부분만 읽고 뒤는 무시된다(양방향 호환).
-#    v5를 v4까지 아는 Unity에 쏴도 손목→끝 필드만 무시, 나머지 동작 불변.
+#    v6를 v5까지 아는 Unity에 쏴도 라디안 필드만 무시, 나머지 동작 불변.
 # =========================================================================
-PACKET_FMT = "<52f"
-PACKET_LEN = 52
+PACKET_FMT = "<72f"
+PACKET_LEN = 72
 
 
 def _anat_frame(lm):
-    """손바닥 해부학 좌표계 → (ex, ey, ez, hand_len). 손길이 퇴화면 None.
-
-    축: ez=손목→중지MCP(손가락 방향), ey=새끼MCP→검지MCP(측면), ex=cross(ey,ez)(손바닥 법선).
-    해부학 랜드마크 기반이라 좌/우·거울 불변 — 엄지·손가락 전부 이 프레임을 공유한다.
-    """
     wrist, mid_mcp = lm[WRIST], lm[MIDDLE[0]]
     hand_len = float(np.linalg.norm(mid_mcp - wrist))
     if hand_len < 1e-6:
@@ -277,13 +381,6 @@ def _anat_frame(lm):
 
 
 def _reach_vector(lm, chain_idx, cap, ex, ey, ez):
-    """리치벡터 = 해부학 축 단위방향 × 펴짐 비율(직진도). 퇴화 프레임이면 (0,0,0).
-
-    chain_idx = [앵커, 중간1, 중간2, 끝] landmark 인덱스 (엄지=CMC 기준, 손가락=MCP 기준).
-    직진도 = |끝−앵커| ÷ (같은 프레임 마디합 × 상한), 1.0 클램프.
-    같은 프레임 같은 랜드마크끼리의 비라서 삼각부등식으로 항상 0~1이고, 일직선이면
-    이방성 z 압축이 분자·분모에 똑같이 걸려 비가 보존 — 어느 방향으로 뻗어도 1.0 (§26).
-    """
     d = lm[chain_idx[3]] - lm[chain_idx[0]]
     straight = float(np.linalg.norm(d))
     chain = float(np.linalg.norm(lm[chain_idx[1]] - lm[chain_idx[0]])
@@ -297,14 +394,6 @@ def _reach_vector(lm, chain_idx, cap, ex, ey, ez):
 
 
 def compute_thumb_tip(lm):
-    """landmark → (엄지 리치벡터[3, '펴짐 비율' 0~1], 엄지-검지 끝거리 비율).
-
-    리치벡터 = 해부학 좌표계 단위 방향 × 펴짐 비율. 펴짐 비율(직진도) =
-    |엄지끝−CMC| / (같은 프레임 CMC→MCP→IP→끝 마디합 × 직진도 상한), 1.0 클램프.
-    같은 프레임 같은 랜드마크끼리의 비라서 카메라 깊이 오차·손 크기와 무관하게
-    쭉 펴면 방향 불문 ~1.0 (송신 단계에서 0~1 보장 확립).
-    pinch_d는 기존과 동일하게 손길이 정규화 — 핀치 임계(0.30/0.42 등) 튜닝 유지.
-    """
     lm = np.asarray(lm)
     frame = _anat_frame(lm)
     if frame is None:
@@ -317,13 +406,6 @@ def compute_thumb_tip(lm):
 
 
 def compute_finger_tips(lm):
-    """landmark → 검지·중지·약지·새끼 리치벡터 12 float (패킷 [25..36], TIP_FINGERS 순서).
-
-    엄지와 **같은** §26 직진도 정의를 그대로 쓴다 — 앵커만 CMC 대신 각 손가락 MCP.
-    사람 MCP ↔ 로봇 n_1 피벗 대응: 로봇 n_1은 벌림 관절이라 마디 길이에 기여하지 않아
-    사람 3마디 ↔ 로봇 4관절이어도 체인 대응이 성립한다.
-    Unity는 IK 컴포넌트가 붙은 손가락 값만 골라 쓴다 — 나머지는 그냥 무시(각도 방식 유지).
-    """
     lm = np.asarray(lm)
     frame = _anat_frame(lm)
     if frame is None:
@@ -336,14 +418,6 @@ def compute_finger_tips(lm):
 
 
 def compute_wrist_tip_vectors(lm):
-    """landmark → 손목→각 손가락 끝 벡터 5개 = 15 float (패킷 [37..51], WRIST_TIP_FINGERS 순서).
-
-    새 방식(로봇 관점 IK)용. 각 벡터 = (손가락끝 − 손목)을 해부학 프레임 (ex,ey,ez)로 분해한 뒤
-    손길이(손목→중지MCP)로 나눈 것 — 카메라 거리·손 크기 무관(정규화)하고 좌/우·회전 불변.
-    Unity는 로봇 손목(palm)에서 이 벡터 × 로봇 손길이 방향으로 목표를 찍어 IK를 푼다.
-    리치벡터(§26)와 달리 '직진도 0~1'이 아니라 실제 손목→끝 변위라 크기가 1을 넘는다
-    (편 손가락은 대략 1.3~2.0). 로봇/사람 마디 비율 차이는 도달 불가 시 CCD가 최근접에서 멈춰 흡수.
-    """
     lm = np.asarray(lm)
     frame = _anat_frame(lm)
     if frame is None:
@@ -360,8 +434,6 @@ def compute_wrist_tip_vectors(lm):
 
 
 # --- 보정 파일 자동 로드 (calibrate_raw.py 방식과 동일 스키마) ---
-# ⚠️ 경로는 dg5f_paths.CALIB_PATH 하나로 통일 — calibrate_dg5f.py(저장)와 여기(로드)가
-#    서로 다른 경로를 쓰다 2026-07-16에 발각됨(저장은 CWD 상대, 로드는 스크립트 기준).
 _CALIB_PATH = CALIB_PATH
 
 
@@ -376,8 +448,6 @@ def _load_calibration():
     except Exception as e:
         print(f"[dg5f_angles] 보정 파일 읽기 실패({e}) — 기본값 사용")
         return False
-    # 버전 게이트: v1 thumb_chain_ratio(마디합)·v2 thumb_reach_ratio(직선/손길이)는
-    # 의미가 달라 읽지 않음 — v3 직진도는 무보정으로도 동작하므로 경고 없이 기본값 사용.
     ver = int(data.get("version", 1))
     ts = data.get("thumb_straight_ratio")
     if ver >= CALIB_VERSION and ts:
@@ -387,9 +457,19 @@ def _load_calibration():
         print(f"[dg5f_angles] 엄지 직진도 상한 = 기본값 {DEFAULT_THUMB_STRAIGHT} "
               f"(보정 파일 v{ver}, thumb_straight_ratio 없음 — 무보정 동작 정상. "
               "더 정밀히 맞추려면 calibrate_dg5f.py 재실행). human_ranges는 그대로 사용.")
+    # 보정 범위 폭이 0이면 기본값 유지 — map_to_dg5f가 폭 0이면 t=0(dg_min 고정)이 되는 함정.
+    # 예: middle_abd는 기준(중지)과 자기 자신 비교라 정의상 항상 0 → 보정이 (0,0)을 저장함
+    # (2026-07-20 실보정에서 발각: 중지 3_1이 -20°로 상시 누움).
+    def _rng(n, hmin, hmax):
+        if n in hr:
+            lo, hi = float(hr[n]["min"]), float(hr[n]["max"])
+            if hi - lo > 1e-6:
+                return lo, hi
+            print(f"[dg5f_angles] {n}: 보정 범위 폭 0 — 기본값({hmin}, {hmax}) 유지")
+        return hmin, hmax
+
     DG5F_CHANNELS = [
-        (n, float(hr[n]["min"]) if n in hr else hmin,
-            float(hr[n]["max"]) if n in hr else hmax, dmin, dmax, g)
+        (n, *_rng(n, hmin, hmax), dmin, dmax, g)
         for (n, hmin, hmax, dmin, dmax, g) in DG5F_CHANNELS]
     return True
 
