@@ -6,8 +6,21 @@ VENV="${DG5F_VENV:-/root/venvs/ax310}"
 FROZEN_V1_RUN_ID="dg5f_v1_gpu_fixed"
 FAILED_CLOSURE_V2_RUN_ID="dg5f_v2_closure_failed_343k"
 FAILED_CLOSURE_V2_ORIGINAL_RUN_ID="dg5f_v2_gpu_fixed"
+FAILED_JOINT26_PILOT_RUN_ID="dg5f_v2_joint26_gpu_fixed"
+FAILED_JOINT26_LR5E5_RUN_ID="dg5f_v2_joint26_lr5e5_gpu_fixed"
+# 2026-07-18: hand-first 로직이 없는 옛 DG5FGraspJoint26 빌드로 실행돼 실패.
+# training/archives/V2_HANDFIRST_STALEBUILD_FAILED.md 참조.
+FAILED_HANDFIRST_STALEBUILD_RUN_ID="dg5f_v2_joint26_handfirst_lr5e5_gpu_fixed"
+# 2026-07-18: 공이 0.04초 만에 자유낙하해 파지 성공이 물리적으로 불가능했던
+# 첫 hand-first 시도. 100k stage-1 gate로 중단.
+# training/archives/V2_HANDFIRST2_GATE_STOPPED.md 참조.
+FAILED_HANDFIRST2_GATE_RUN_ID="dg5f_v2_joint26_handfirst2_lr5e5_gpu_fixed"
+# 2026-07-18: 839959 step에서 결과 디렉터리/Unity player 교체 중 중단된
+# 마지막 DG5FGraspJoint hand-first run. 새 StableGrasp run과 섞지 않는다.
+RETIRED_HANDFIRST3_RUN_ID="dg5f_v2_joint26_handfirst3_lr5e5_gpu_fixed"
 V1_JOINT26_BOOTSTRAP_RUN_ID="dg5f_v1_joint26_bootstrap"
-JOINT26_BEHAVIOR="DG5FGraspJoint"
+V2_BEHAVIOR="DG5FGraspJoint"
+V3_BEHAVIOR="DG5FStableGrasp"
 
 # Preferred CLI: dg5f v2 status / dg5f v2 resume / dg5f v3 init.
 # Keep the old environment-variable-only form compatible for existing jobs.
@@ -24,20 +37,28 @@ case "$STAGE" in
     STAGE_PLAYER="$ROOT/training/builds/DG5FGrasp/DG5FGrasp.x86_64"
     STAGE_SESSION="dg5f_v1"
     PREVIOUS_RUN_ID=""
+    SOURCE_BEHAVIOR=""
+    TARGET_BEHAVIOR="DG5FGrasp"
     ;;
   v2)
-    STAGE_RUN_ID="dg5f_v2_joint26_gpu_fixed"
-    STAGE_CONFIG="$ROOT/training/config/dg5f_grasp_v2.yaml"
-    STAGE_PLAYER="$ROOT/training/builds/DG5FGraspJoint26/DG5FGrasp.x86_64"
-    STAGE_SESSION="dg5f_v2_joint26"
+    # 운영상 v2는 839959-step의 중단된 Joint run이 아니라, 새로 전달된
+    # StableGrasp 3.0.0 Unity 환경에서 step 0부터 학습하는 run을 가리킨다.
+    STAGE_RUN_ID="dg5f_v2_stablegrasp_v3_lr5e5_gpu_fixed"
+    STAGE_CONFIG="$ROOT/training/config/dg5f_grasp_v3.yaml"
+    STAGE_PLAYER="$ROOT/training/builds/DG5FGraspV3/DG5FGrasp.x86_64"
+    STAGE_SESSION="dg5f_v2_stablegrasp_v3"
     PREVIOUS_RUN_ID="$V1_JOINT26_BOOTSTRAP_RUN_ID"
+    SOURCE_BEHAVIOR="$V2_BEHAVIOR"
+    TARGET_BEHAVIOR="$V3_BEHAVIOR"
     ;;
   v3)
     STAGE_RUN_ID="dg5f_v3_gpu_fixed"
     STAGE_CONFIG="$ROOT/training/config/dg5f_grasp_v3.yaml"
     STAGE_PLAYER="$ROOT/training/builds/DG5FGraspV3/DG5FGrasp.x86_64"
     STAGE_SESSION="dg5f_v3"
-    PREVIOUS_RUN_ID="dg5f_v2_joint26_gpu_fixed"
+    PREVIOUS_RUN_ID="dg5f_v2_stablegrasp_v3_lr5e5_gpu_fixed"
+    SOURCE_BEHAVIOR="$V3_BEHAVIOR"
+    TARGET_BEHAVIOR="$V3_BEHAVIOR"
     ;;
   v4)
     STAGE_RUN_ID="dg5f_v4_gpu_fixed"
@@ -45,6 +66,8 @@ case "$STAGE" in
     STAGE_PLAYER="$ROOT/training/builds/DG5FGraspV4/DG5FGrasp.x86_64"
     STAGE_SESSION="dg5f_v4"
     PREVIOUS_RUN_ID="dg5f_v3_gpu_fixed"
+    SOURCE_BEHAVIOR="$V3_BEHAVIOR"
+    TARGET_BEHAVIOR="$V3_BEHAVIOR"
     ;;
   "")
     STAGE_RUN_ID="dg5f_v1_gpu_fixed"
@@ -52,6 +75,8 @@ case "$STAGE" in
     STAGE_PLAYER=""
     STAGE_SESSION="dg5f"
     PREVIOUS_RUN_ID=""
+    SOURCE_BEHAVIOR="$V2_BEHAVIOR"
+    TARGET_BEHAVIOR="$V2_BEHAVIOR"
     ;;
 esac
 
@@ -74,8 +99,8 @@ RUN_DIR="$RESULTS_DIR/$RUN_ID"
 DEFAULT_PLAYER="$ROOT/training/builds/DG5FGrasp/DG5FGrasp.x86_64"
 if [[ -n "$STAGE_PLAYER" ]]; then
   DEFAULT_PLAYER="$STAGE_PLAYER"
-elif [[ "$CONFIG" == *"/dg5f_grasp_v2.yaml" ]]; then
-  DEFAULT_PLAYER="$ROOT/training/builds/DG5FGraspJoint26/DG5FGrasp.x86_64"
+elif [[ "$CONFIG" == *"/dg5f_grasp_v2"*.yaml ]]; then
+  DEFAULT_PLAYER="$ROOT/training/builds/DG5FGraspJoint26HandFirst/DG5FGrasp.x86_64"
 fi
 if [[ -n "$STAGE" ]]; then
   PLAYER="$DEFAULT_PLAYER"
@@ -115,7 +140,7 @@ usage() {
   dg5f v2 status
   dg5f v2 watch
   dg5f v2 resume
-  dg5f v3 init       # dg5f_v2_joint26_gpu_fixed에서 자동 전이
+  dg5f v3 init       # 새 StableGrasp v2 run에서 자동 전이
   dg5f v4 stop
 
 커스텀 실험은 단계 접두사 없이 DG5F_RUN_ID, DG5F_CONFIG, DG5F_PLAYER,
@@ -146,6 +171,52 @@ prepare_v2_bootstrap() {
   "$VENV/bin/python" "$converter" \
     --source "$source_checkpoint" \
     --output-run "$output_run"
+}
+
+prepare_behavior_bridge() {
+  local source_run_id="$1" source_behavior="$2" target_behavior="$3"
+  local source_checkpoint bridge_run_id bridge_dir bridge_checkpoint
+  local source_hash existing_hash
+  source_checkpoint="$RESULTS_DIR/$source_run_id/$source_behavior/checkpoint.pt"
+  bridge_run_id="${source_run_id}__as_${target_behavior}"
+  bridge_dir="$RESULTS_DIR/$bridge_run_id/$target_behavior"
+  bridge_checkpoint="$bridge_dir/checkpoint.pt"
+
+  [[ -f "$source_checkpoint" ]] || {
+    echo "[ERROR] 전이 원본 checkpoint가 없습니다: $source_checkpoint" >&2
+    return 2
+  }
+  source_hash="$(sha256sum "$source_checkpoint" | awk '{print $1}')"
+  if [[ -f "$bridge_checkpoint" ]]; then
+    existing_hash="$(sha256sum "$bridge_checkpoint" | awk '{print $1}')"
+    [[ "$existing_hash" == "$source_hash" ]] || {
+      echo "[ERROR] 기존 behavior 전이 bridge가 원본과 다릅니다: $bridge_checkpoint" >&2
+      return 2
+    }
+  else
+    mkdir -p "$bridge_dir"
+    cp "$source_checkpoint" "$bridge_checkpoint"
+    chmod 0444 "$bridge_checkpoint"
+  fi
+
+  "$VENV/bin/python" - \
+    "$RESULTS_DIR/$bridge_run_id/bridge_manifest.json" \
+    "$source_run_id" "$source_behavior" "$target_behavior" "$source_hash" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+path.write_text(json.dumps({
+    "format": "dg5f-behavior-bridge",
+    "source_run_id": sys.argv[2],
+    "source_behavior": sys.argv[3],
+    "target_behavior": sys.argv[4],
+    "checkpoint_sha256": sys.argv[5],
+}, indent=2) + "\n", encoding="utf-8")
+PY
+  echo "[Transfer] behavior 이름 bridge: $source_behavior -> $target_behavior" >&2
+  echo "$bridge_run_id"
 }
 
 # Read process arguments from /proc instead of matching a pgrep regular
@@ -326,26 +397,39 @@ status() {
     echo "상태: 중지됨"
   fi
 
+  echo "환경: $PLAYER"
+  echo "설정: $CONFIG"
+  if [[ "$RUN_ID" == "dg5f_v2_stablegrasp_v3_lr5e5_gpu_fixed" ]]; then
+    echo "계약: StableGrasp 3.0.0 / DG5FStableGrasp / 새 step-0 학습"
+  fi
+
   echo
-  echo "--- process ---"
+  echo "--- 프로세스 ---"
   ps -eo pid,stat,etime,%cpu,%mem,cmd \
     | grep -E "mlagents_learn_compat.py|DG5FGrasp.x86_64" \
     | grep -v grep \
     | sed -E 's/[[:space:]]+/ /g' || true
 
   echo
-  echo "--- GPU process ---"
+  echo "--- GPU 프로세스 ---"
   nvidia-smi --query-compute-apps=pid,name,used_gpu_memory \
     --format=csv,noheader 2>/dev/null || true
 
   echo
-  echo "--- metrics ---"
+  echo "--- 학습 지표 ---"
   "$VENV/bin/python" "$ROOT/training/scripts/dg5f_status.py" "$RUN_DIR"
+  if [[ "$RUN_ID" == "dg5f_v2_stablegrasp_v3_lr5e5_gpu_fixed"
+        && -n "$pids"
+        && -f "$CONSOLE_LOG"
+        && -z "$(grep -E '\[INFO\] .*\. Step:' "$CONSOLE_LOG" | tail -1)" ]]; then
+    echo "첫 summary 전 데이터 수집 중 (이 run의 첫 출력은 20,000 step)."
+  fi
 }
 
 launch() {
   local mode="$1"
   local source_run_id="${2:-}"
+  local initialize_from_run_id=""
   if [[ "$mode" == init && -z "$source_run_id" ]]; then
     echo "[ERROR] 사용법: dg5f init <source_run_id>" >&2
     exit 2
@@ -354,13 +438,30 @@ launch() {
         && ( "$RUN_ID" == "$FROZEN_V1_RUN_ID"
           || "$RUN_ID" == "$FAILED_CLOSURE_V2_RUN_ID"
           || "$RUN_ID" == "$FAILED_CLOSURE_V2_ORIGINAL_RUN_ID"
+          || "$RUN_ID" == "$FAILED_JOINT26_PILOT_RUN_ID"
+          || "$RUN_ID" == "$FAILED_JOINT26_LR5E5_RUN_ID"
+          || "$RUN_ID" == "$FAILED_HANDFIRST_STALEBUILD_RUN_ID"
+          || "$RUN_ID" == "$FAILED_HANDFIRST2_GATE_RUN_ID"
+          || "$RUN_ID" == "$RETIRED_HANDFIRST3_RUN_ID"
           || "$RUN_ID" == "$V1_JOINT26_BOOTSTRAP_RUN_ID" ) ]]; then
     echo "[ERROR] 보호된 원본/실패/bootstrap run은 resume할 수 없습니다: $RUN_ID" >&2
-    echo "        joint26 V2 표준 run은 dg5f v2 resume으로만 재개하세요." >&2
+    echo "        새 hand-first V2는 dg5f v2 init으로 시작하고 이후 resume하세요." >&2
     exit 2
   fi
   if [[ "$mode" == start && "$STAGE" == v2 ]]; then
     echo "[ERROR] 표준 joint26 V2는 무작위 start를 금지합니다. dg5f v2 init을 사용하세요." >&2
+    exit 2
+  fi
+  if [[ "$mode" == init && "$STAGE" == v3
+        && ( "$source_run_id" == "$FAILED_CLOSURE_V2_RUN_ID"
+          || "$source_run_id" == "$FAILED_CLOSURE_V2_ORIGINAL_RUN_ID"
+          || "$source_run_id" == "$FAILED_JOINT26_PILOT_RUN_ID"
+          || "$source_run_id" == "$FAILED_JOINT26_LR5E5_RUN_ID"
+          || "$source_run_id" == "$FAILED_HANDFIRST_STALEBUILD_RUN_ID"
+          || "$source_run_id" == "$FAILED_HANDFIRST2_GATE_RUN_ID"
+          || "$source_run_id" == "$RETIRED_HANDFIRST3_RUN_ID" ) ]]; then
+    echo "[ERROR] 실패 V2 run은 V3 전이 원본으로 사용할 수 없습니다: $source_run_id" >&2
+    echo "        표준 원본: dg5f_v2_stablegrasp_v3_lr5e5_gpu_fixed" >&2
     exit 2
   fi
   require_files
@@ -393,11 +494,18 @@ launch() {
       echo "[ERROR] 전이 원본과 새 RUN_ID가 같을 수 없습니다: $RUN_ID" >&2
       exit 2
     }
-    local source_checkpoint="$RESULTS_DIR/$source_run_id/$JOINT26_BEHAVIOR/checkpoint.pt"
+    local source_checkpoint="$RESULTS_DIR/$source_run_id/$SOURCE_BEHAVIOR/checkpoint.pt"
     [[ -f "$source_checkpoint" ]] || {
       echo "[ERROR] 전이 원본 checkpoint가 없습니다: $source_checkpoint" >&2
       exit 2
     }
+    initialize_from_run_id="$source_run_id"
+    if [[ "$SOURCE_BEHAVIOR" != "$TARGET_BEHAVIOR" ]]; then
+      initialize_from_run_id="$(
+        prepare_behavior_bridge \
+          "$source_run_id" "$SOURCE_BEHAVIOR" "$TARGET_BEHAVIOR"
+      )"
+    fi
   fi
 
   mkdir -p "$ROOT/training/logs"
@@ -414,7 +522,7 @@ launch() {
     "$TRAINER"
   )
   [[ "$mode" == resume ]] && train+=(--resume)
-  [[ "$mode" == init ]] && train+=(--initialize-from "$source_run_id")
+  [[ "$mode" == init ]] && train+=(--initialize-from "$initialize_from_run_id")
 
   local train_cmd inner
   printf -v train_cmd '%q ' "${train[@]}"
@@ -422,7 +530,9 @@ launch() {
     "$ROOT" "$train_cmd" "$CONSOLE_LOG"
   tmux new-session -d -s "$SESSION" "bash -lc $(printf '%q' "$inner")"
   echo "시작됨: run=$RUN_ID, mode=$mode, config=$CONFIG, envs=$NUM_ENVS, time_scale=$TIME_SCALE"
-  [[ "$mode" == init ]] && echo "전이 원본: $source_run_id"
+  if [[ "$mode" == init ]]; then
+    echo "전이 원본: $source_run_id ($SOURCE_BEHAVIOR -> $TARGET_BEHAVIOR)"
+  fi
   if [[ -n "$STAGE" ]]; then
     echo "보기: dg5f $STAGE view    상태: dg5f $STAGE watch    중단: dg5f $STAGE stop"
   else

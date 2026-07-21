@@ -18,6 +18,9 @@ SHA-256:
 7717609a9489810d6b1a4a73b4f8edc9e4c878fa9b0fe853b28253322edfc7bc  dg5f_v2_closure_failed_343k.tar.gz
 ```
 
-The standard V2 run ID is now `dg5f_v2_joint26_gpu_fixed`. Its only valid
+The active V2 run ID is now
+`dg5f_v2_joint26_handfirst_lr5e5_gpu_fixed`. Its only valid
 initialization source is the verified `dg5f_v1_joint26_bootstrap` run produced
-from the frozen V1 checkpoint.
+from the frozen V1 checkpoint. The separate failed 1e-4 joint26 pilot is
+documented in `V2_JOINT26_LR1E4_FAILED.md`, and the failed 5e-5 joint26 pilot
+is documented in `V2_JOINT26_LR5E5_FAILED.md`.

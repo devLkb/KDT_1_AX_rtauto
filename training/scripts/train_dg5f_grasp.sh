@@ -62,6 +62,36 @@ if [[ -n "$ENV_PATH" ]]; then
     echo "[ERROR] Unity 학습 player가 없거나 실행할 수 없습니다: $ENV_PATH" >&2
     exit 2
   fi
+  # 외부 배포 패키지는 재현 가능한 timestamp를 사용하므로 소스/DLL mtime을
+  # 비교할 수 없다. 패키지 manifest가 있으면 binary hash와 trainer 계약을
+  # 검증하고, 저장소에서 만든 player만 아래 freshness 검사를 사용한다.
+  environment_manifest="$(dirname "$ENV_PATH")/DG5F_ENVIRONMENT.json"
+  if [[ ! -f "$environment_manifest"
+        && "$ENV_PATH" == "$ROOT/training/builds/DG5FGraspV3/DG5FGrasp.x86_64" ]]; then
+    environment_manifest="$ROOT/training/manifests/DG5FStableGrasp-v3.0.0.json"
+  fi
+  if [[ -f "$environment_manifest" ]]; then
+    "$VENV/bin/python" "$ROOT/training/scripts/validate_unity_environment.py" \
+      --env "$ENV_PATH" \
+      --config "$CONFIG" \
+      --manifest "$environment_manifest"
+  elif [[ "${DG5F_SKIP_BUILD_FRESHNESS:-0}" != 1 ]]; then
+    # 오래된 저장소 빌드로 학습하는 사고를 차단한다. Grasp 런타임 C# 소스가
+    # KDT.GraspTraining.dll보다 새로우면 빌드(또는 DLL 교체)를 먼저 갱신한다.
+    grasp_dll="$(dirname "$ENV_PATH")/DG5FGrasp_Data/Managed/KDT.GraspTraining.dll"
+    grasp_src_dir="$ROOT/unity/Assets/MLAgents/Grasp/Runtime"
+    if [[ -f "$grasp_dll" && -d "$grasp_src_dir" ]]; then
+      newest_src="$(find "$grasp_src_dir" -name '*.cs' -not -path '*/.ipynb_checkpoints/*' \
+        -newer "$grasp_dll" -print -quit)"
+      if [[ -n "$newest_src" ]]; then
+        echo "[ERROR] Unity 빌드가 Grasp 런타임 소스보다 오래됐습니다." >&2
+        echo "        빌드 DLL : $grasp_dll" >&2
+        echo "        새 소스  : $newest_src" >&2
+        echo "        빌드를 갱신하거나 DG5F_SKIP_BUILD_FRESHNESS=1 로 명시적으로 무시하세요." >&2
+        exit 2
+      fi
+    fi
+  fi
   args+=(--env "$ENV_PATH" --num-envs "$NUM_ENVS")
 
   case "$UNITY_DISPLAY_MODE" in

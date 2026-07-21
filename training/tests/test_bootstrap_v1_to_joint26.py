@@ -167,7 +167,11 @@ class BootstrapV1ToJoint26Tests(unittest.TestCase):
         set_torch_config(TorchSettings(device="cpu"))
         options = parse_command_line(
             [
-                str(Path(__file__).parents[1] / "config" / "dg5f_grasp_v2.yaml"),
+                str(
+                    Path(__file__).parents[1]
+                    / "config"
+                    / "dg5f_grasp_v2_handfirst_lr5e5.yaml"
+                ),
                 "--run-id",
                 "bootstrap-module-test",
                 "--torch-device",
