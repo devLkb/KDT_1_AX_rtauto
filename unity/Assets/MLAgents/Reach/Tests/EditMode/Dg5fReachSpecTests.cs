@@ -12,7 +12,7 @@ namespace KDT.ReachTraining.Tests
         [Test]
         public void PolicyContract_IsVersionedAndContiguous()
         {
-            Assert.That(Dg5fReachSpec.SpecVersion, Is.EqualTo("1.0.0"));
+            Assert.That(Dg5fReachSpec.SpecVersion, Is.EqualTo("1.1.0"));
             Assert.That(Dg5fReachSpec.BehaviorName, Is.EqualTo("DG5FGraspPointReach"));
             Assert.That(Dg5fReachSpec.ArmJointCount, Is.EqualTo(6));
             Assert.That(Dg5fReachSpec.ActionSize, Is.EqualTo(6));
@@ -345,6 +345,30 @@ namespace KDT.ReachTraining.Tests
                     Dg5fReachSpec.MaximumSuccessPointSpeed + 1e-4f,
                     0.02f),
                 Is.Zero);
+        }
+
+        [Test]
+        public void Curriculum_ProgressivelyTightensReachContract()
+        {
+            Assert.That(Dg5fReachSpec.SuccessDistanceForStage(1), Is.EqualTo(0.05f));
+            Assert.That(Dg5fReachSpec.SuccessDistanceForStage(2), Is.EqualTo(0.03f));
+            Assert.That(Dg5fReachSpec.SuccessDistanceForStage(3), Is.EqualTo(0.01f));
+            Assert.That(Dg5fReachSpec.RequiredSuccessHoldSecondsForStage(1), Is.EqualTo(0.02f));
+            Assert.That(Dg5fReachSpec.RequiredSuccessHoldSecondsForStage(2), Is.EqualTo(0.10f));
+            Assert.That(Dg5fReachSpec.RequiredSuccessHoldSecondsForStage(3), Is.EqualTo(0.25f));
+            Assert.That(Dg5fReachSpec.MinimumTargetRadiusForStage(1), Is.EqualTo(0.35f));
+            Assert.That(Dg5fReachSpec.MaximumTargetRadiusForStage(1), Is.EqualTo(0.70f));
+            Assert.That(Dg5fReachSpec.MinimumTargetRadiusForStage(3), Is.EqualTo(0.20f));
+            Assert.That(Dg5fReachSpec.MaximumTargetRadiusForStage(3), Is.EqualTo(0.85f));
+        }
+
+        [Test]
+        public void Curriculum_UsesTwoDegreesThenOneDegreeNearTarget()
+        {
+            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(1, 0.01f), Is.EqualTo(2f));
+            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(2, 0.20f), Is.EqualTo(2f));
+            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(2, 0.10f), Is.EqualTo(1f));
+            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(3, 0.01f), Is.EqualTo(1f));
         }
 
         [Test]

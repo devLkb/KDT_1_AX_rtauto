@@ -33,7 +33,10 @@ vision/**/calib_log_*.csv
 training/results/
 training/builds/
 training/archives/*.tar.gz
-unity/Assets/ML-Agents/Timers/*_timers.json*
+training/logs/*.png
+training/logs/*.gif
+training/logs/recovered/
+/DG5FStableGrasp-*.tar.xz
 unity/Assets/MLAgents/Grasp/Models/*.onnx
 
 # 로컬 배포 압축본·편집기 백업

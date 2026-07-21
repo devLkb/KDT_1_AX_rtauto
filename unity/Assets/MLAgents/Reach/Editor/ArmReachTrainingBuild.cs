@@ -8,7 +8,7 @@ namespace KDT.ReachTraining.Editor
 {
     public static class ArmReachTrainingBuild
     {
-        const string BuildDirectoryName = "DG5FGraspPointReach";
+        const string BuildDirectoryName = "DG5FGraspPointReachCurriculum";
         const string PlayerName = "DG5FGraspPointReach.x86_64";
 
         [MenuItem("Tools/ML-Agents/Build DG5F GraspPoint Reach Linux Player")]

@@ -5,20 +5,13 @@
 
 ## Policy
 
-| 항목 | 값 |
-|---|---|
-| Behavior name | `DG5FGraspPointReach` |
-| Spec version | `1.0.0` |
-| Vector observations | 26 |
-| Continuous actions | 6 |
-| Decision period | 5 physics steps |
-| Episode limit | 20 simulation seconds |
-| 제어 대상 | UR5e 6관절 |
-| 제어 제외 | DG5F 손가락 20관절 |
-
-`GraspPoint`는 palm에 고정된 하나의 논리적 말단점이다. palm-local 위치는
-`(0.017020322, 0.15246215, 0.013539946) m`이며 관측, 거리, 속도, 성공 판정에
-항상 이 점을 사용한다.
+- Behavior: `DG5FGraspJoint`
+- vector observations: 116, stack 1
+- continuous actions: 26
+- decision period: 5 physics steps
+- stage 1 timeout: 5 simulation seconds
+- stage 2/3 timeout: 20 simulation seconds, with a distinct 5-second
+  post-reach grasp timeout (`MaxStep=0`)
 
 ## Observation order
 
@@ -61,10 +54,18 @@ xDrive에는 정책이 쓰지 않는다.
 
 decision 보상:
 
-```text
-progress = 2 * (previous_distance - current_distance) / 1 m
-time_cost = -0.001
-```
+- `-0.001` per decision
+- stage 1: no approach-potential reward
+- stage 2/3: `0.25 * delta(approach potential)`
+- thumb-only contact potential `0.25`
+- opposing-only contact potential `0`
+- dual-contact potential `0.5`
+- hold potential `0.5 * clamp(hold / 0.5 seconds)`
+- dual contact held for 0.5 seconds: `+2.0`, success termination
+- ball out of bounds or non-finite physics: `-1.0`, failure termination
+- ordinary timeout or post-reach timeout: failure termination
+- `Failure/Timeout` counts both timeout kinds;
+  `Failure/PostReachTimeout` marks the post-reach subset
 
 성공은 아래 두 조건을 `0.25 s` 연속 만족할 때다.
 
@@ -73,11 +74,15 @@ time_cost = -0.001
 
 성공 terminal reward:
 
-```text
-2 + 2 * remaining_time_ratio + 2 * (1 - final_distance / 0.01 m)
-```
+1. ball within 4 cm of grasp point, fixed 35% pre-grasp, all arm targets locked
+   to their initial pose, independent hand deltas capped at 1 degree
+2. V1 0.35–0.70 m spawn distribution, normal arm, fixed pre-grasp
+3. V1 spawn distribution, fully open hand, no control assistance
 
-그 밖의 terminal:
+Lessons 1 and 2 advance on the unsmoothed mean reward of the most recent 200
+episodes, at thresholds `2.2` and `1.8` respectively.
+
+Deterministic approval evaluation always uses stage 3.
 
 - 20 simulation seconds timeout: `-1`
 - workspace 이탈 또는 비유한 물리 상태: `-2`

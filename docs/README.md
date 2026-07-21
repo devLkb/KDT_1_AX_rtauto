@@ -2,8 +2,14 @@
 
 ## DG5FGraspPointReach 강화학습
 
-현재 강화학습은 빨간 목표 좌표로 UR5e 팔을 움직여 palm의 `GraspPoint`를 배치하는
-단일 단계다. 손가락 20관절은 policy에서 제외되며 도달 후 기존 텔레옵으로 조작한다.
+- **처음 읽을 문서** — Unity·강화학습 용어부터 전체 흐름까지:
+  [`ML_AGENTS_LEARNING_FLOW.md`](ML_AGENTS_LEARNING_FLOW.md)
+- V2 Agent 계약: [`AGENT_SPEC.md`](AGENT_SPEC.md)
+- 외부 패키지 V3 계약: [`AGENT_SPEC_V3.md`](AGENT_SPEC_V3.md)
+- 설계와 근거: [`ML_AGENTS_DESIGN.md`](ML_AGENTS_DESIGN.md)
+- 빌드·학습 실행: [`ML_AGENTS_TRAINING_GUIDE.md`](ML_AGENTS_TRAINING_GUIDE.md)
+- V2 실패 학습 분석:
+  [`V2_TRAINING_FAILURE_ANALYSIS_20260717.md`](V2_TRAINING_FAILURE_ANALYSIS_20260717.md)
 
 읽는 순서:
 

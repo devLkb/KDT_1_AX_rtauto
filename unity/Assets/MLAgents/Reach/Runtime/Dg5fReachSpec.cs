@@ -9,8 +9,11 @@ namespace KDT.ReachTraining
     /// </summary>
     public static class Dg5fReachSpec
     {
-        public const string SpecVersion = "1.0.0";
+        public const string SpecVersion = "1.1.0";
         public const string BehaviorName = "DG5FGraspPointReach";
+        public const string CurriculumParameterName = "reach_stage";
+        public const int FirstCurriculumStage = 1;
+        public const int FinalCurriculumStage = 3;
 
         public const int ArmJointCount = 6;
         public const int ObservationSize = 26;
@@ -26,6 +29,11 @@ namespace KDT.ReachTraining
         public const int HoldProgressObservationIndex = 25;
 
         public const float MaximumArmDeltaDegPerDecision = 4f;
+        public const float TrainingArmDeltaDegPerDecision = 2f;
+        public const float PrecisionArmDeltaDegPerDecision = 1f;
+        public const float PrecisionDeltaDistance = 0.10f;
+        public const float LegacyMinimumTargetRadius = 0.35f;
+        public const float LegacyMaximumTargetRadius = 0.70f;
         public const float MinimumTargetRadius = 0.20f;
         public const float MaximumTargetRadius = 0.85f;
         public const float TargetRadius = 0.02f;
@@ -101,15 +109,36 @@ namespace KDT.ReachTraining
             float targetCenterY,
             Predicate<Vector3> acceptsCandidate)
         {
+            return SpawnTargetLocalPosition(
+                random,
+                initialGraspPointLocal,
+                targetCenterY,
+                acceptsCandidate,
+                MinimumTargetRadius,
+                MaximumTargetRadius);
+        }
+
+        public static Vector3 SpawnTargetLocalPosition(
+            System.Random random,
+            Vector3 initialGraspPointLocal,
+            float targetCenterY,
+            Predicate<Vector3> acceptsCandidate,
+            float minimumTargetRadius,
+            float maximumTargetRadius)
+        {
             if (random == null) throw new ArgumentNullException(nameof(random));
             if (!IsFinite(initialGraspPointLocal) || !IsFinite(targetCenterY))
                 throw new ArgumentException("Spawn inputs must be finite.");
+            if (!IsFinite(minimumTargetRadius) || !IsFinite(maximumTargetRadius)
+                || minimumTargetRadius < 0f
+                || maximumTargetRadius < minimumTargetRadius)
+                throw new ArgumentOutOfRangeException(nameof(minimumTargetRadius));
 
             for (int attempt = 0; attempt < MaximumSpawnAttempts; attempt++)
             {
                 float radius = Mathf.Lerp(
-                    MinimumTargetRadius,
-                    MaximumTargetRadius,
+                    minimumTargetRadius,
+                    maximumTargetRadius,
                     (float)random.NextDouble());
                 float azimuth = 2f * Mathf.PI * (float)random.NextDouble();
                 var candidate = new Vector3(
@@ -269,11 +298,21 @@ namespace KDT.ReachTraining
 
         public static float SuccessReward(float elapsedSeconds, float finalDistance)
         {
+            return SuccessReward(FinalCurriculumStage, elapsedSeconds, finalDistance);
+        }
+
+        public static float SuccessReward(
+            int curriculumStage,
+            float elapsedSeconds,
+            float finalDistance)
+        {
             float timeFraction = IsFinite(elapsedSeconds)
                 ? 1f - Mathf.Clamp01(Mathf.Max(0f, elapsedSeconds) / EpisodeTimeoutSeconds)
                 : 0f;
             float precisionFraction = IsFinite(finalDistance)
-                ? 1f - Mathf.Clamp01(Mathf.Max(0f, finalDistance) / SuccessDistance)
+                ? 1f - Mathf.Clamp01(
+                    Mathf.Max(0f, finalDistance)
+                    / SuccessDistanceForStage(curriculumStage))
                 : 0f;
             return 2f + 2f * timeFraction + 2f * precisionFraction;
         }
@@ -287,12 +326,23 @@ namespace KDT.ReachTraining
 
         public static bool MeetsSuccessState(float centerDistance, float pointSpeed)
         {
+            return MeetsSuccessState(
+                FinalCurriculumStage,
+                centerDistance,
+                pointSpeed);
+        }
+
+        public static bool MeetsSuccessState(
+            int curriculumStage,
+            float centerDistance,
+            float pointSpeed)
+        {
             return IsFinite(centerDistance)
                 && IsFinite(pointSpeed)
                 && centerDistance >= 0f
                 && pointSpeed >= 0f
-                && centerDistance <= SuccessDistance
-                && pointSpeed <= MaximumSuccessPointSpeed;
+                && centerDistance <= SuccessDistanceForStage(curriculumStage)
+                && pointSpeed <= MaximumSuccessPointSpeedForStage(curriculumStage);
         }
 
         public static float NextSuccessHoldSeconds(
@@ -301,7 +351,22 @@ namespace KDT.ReachTraining
             float pointSpeed,
             float deltaSeconds)
         {
-            if (!MeetsSuccessState(centerDistance, pointSpeed)
+            return NextSuccessHoldSeconds(
+                FinalCurriculumStage,
+                previousHoldSeconds,
+                centerDistance,
+                pointSpeed,
+                deltaSeconds);
+        }
+
+        public static float NextSuccessHoldSeconds(
+            int curriculumStage,
+            float previousHoldSeconds,
+            float centerDistance,
+            float pointSpeed,
+            float deltaSeconds)
+        {
+            if (!MeetsSuccessState(curriculumStage, centerDistance, pointSpeed)
                 || !IsFinite(previousHoldSeconds)
                 || !IsFinite(deltaSeconds)
                 || deltaSeconds < 0f)
@@ -313,15 +378,83 @@ namespace KDT.ReachTraining
 
         public static float SuccessHoldProgress(float holdSeconds)
         {
+            return SuccessHoldProgress(FinalCurriculumStage, holdSeconds);
+        }
+
+        public static float SuccessHoldProgress(int curriculumStage, float holdSeconds)
+        {
             if (!IsFinite(holdSeconds)) return 0f;
             return Mathf.Clamp01(
-                Mathf.Max(0f, holdSeconds) / RequiredSuccessHoldSeconds);
+                Mathf.Max(0f, holdSeconds)
+                / RequiredSuccessHoldSecondsForStage(curriculumStage));
         }
 
         public static bool HasCompletedSuccessHold(float holdSeconds)
         {
+            return HasCompletedSuccessHold(FinalCurriculumStage, holdSeconds);
+        }
+
+        public static bool HasCompletedSuccessHold(
+            int curriculumStage,
+            float holdSeconds)
+        {
             return IsFinite(holdSeconds)
-                && holdSeconds >= RequiredSuccessHoldSeconds;
+                && holdSeconds >= RequiredSuccessHoldSecondsForStage(curriculumStage);
+        }
+
+        public static int ClampCurriculumStage(float value)
+        {
+            if (!IsFinite(value)) return FirstCurriculumStage;
+            return Mathf.Clamp(
+                Mathf.RoundToInt(value),
+                FirstCurriculumStage,
+                FinalCurriculumStage);
+        }
+
+        public static float MinimumTargetRadiusForStage(int curriculumStage)
+        {
+            return curriculumStage <= FirstCurriculumStage
+                ? LegacyMinimumTargetRadius
+                : MinimumTargetRadius;
+        }
+
+        public static float MaximumTargetRadiusForStage(int curriculumStage)
+        {
+            return curriculumStage <= FirstCurriculumStage
+                ? LegacyMaximumTargetRadius
+                : MaximumTargetRadius;
+        }
+
+        public static float SuccessDistanceForStage(int curriculumStage)
+        {
+            if (curriculumStage <= FirstCurriculumStage) return 0.05f;
+            if (curriculumStage < FinalCurriculumStage) return 0.03f;
+            return SuccessDistance;
+        }
+
+        public static float MaximumSuccessPointSpeedForStage(int curriculumStage)
+        {
+            if (curriculumStage <= FirstCurriculumStage) return 1000f;
+            if (curriculumStage < FinalCurriculumStage) return 0.15f;
+            return MaximumSuccessPointSpeed;
+        }
+
+        public static float RequiredSuccessHoldSecondsForStage(int curriculumStage)
+        {
+            if (curriculumStage <= FirstCurriculumStage) return 0.02f;
+            if (curriculumStage < FinalCurriculumStage) return 0.10f;
+            return RequiredSuccessHoldSeconds;
+        }
+
+        public static float ArmDeltaDegForStage(
+            int curriculumStage,
+            float centerDistance)
+        {
+            if (curriculumStage > FirstCurriculumStage
+                && IsFinite(centerDistance)
+                && centerDistance <= PrecisionDeltaDistance)
+                return PrecisionArmDeltaDegPerDecision;
+            return TrainingArmDeltaDegPerDecision;
         }
 
         public static bool ReachedEpisodeTimeout(float elapsedSeconds)

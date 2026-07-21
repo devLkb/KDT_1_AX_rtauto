@@ -1,0 +1,68 @@
+# Hand-first V2 restart. The 116-observation / 26-action policy is initialized
+# from dg5f_v1_joint26_bootstrap at global step zero without optimizer state.
+behaviors:
+  DG5FGraspJoint:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 1024
+      buffer_size: 10240
+      learning_rate: 0.00005
+      beta: 0.005
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    keep_checkpoints: 10
+    checkpoint_interval: 100000
+    max_steps: 2000000
+    time_horizon: 128
+    # ~80 agents(20 area x 4 env), stage 1 episode ~50 decisions 기준으로
+    # summary당 수백 episode가 모이도록 잡는다. 200이면 summary당 0~1 episode라
+    # Mean Reward가 단일 표본으로 얼어붙는다.
+    summary_freq: 20000
+    threaded: false
+
+torch_settings:
+  device: cuda
+
+environment_parameters:
+  joint26_stage:
+    curriculum:
+      - name: hand_only_near_ball_pregrasp
+        completion_criteria:
+          measure: reward
+          behavior: DG5FGraspJoint
+          threshold: 2.2
+          min_lesson_length: 200
+          signal_smoothing: false
+          require_reset: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 1.0
+      - name: v1_spawn_pregrasp
+        completion_criteria:
+          measure: reward
+          behavior: DG5FGraspJoint
+          threshold: 1.8
+          min_lesson_length: 200
+          signal_smoothing: false
+          require_reset: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 2.0
+      - name: full_open_independent_joints
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 3.0

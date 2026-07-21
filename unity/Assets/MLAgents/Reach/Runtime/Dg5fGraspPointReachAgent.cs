@@ -42,6 +42,7 @@ namespace KDT.ReachTraining
         float _bestDistance;
         float _episodeSeconds;
         float _successHoldSeconds;
+        int _curriculumStage = Dg5fReachSpec.FinalCurriculumStage;
         int _evaluationEpisode = -1;
         bool _episodeActive;
 
@@ -175,6 +176,10 @@ namespace KDT.ReachTraining
             else
             {
                 _evaluationEpisode = -1;
+                _curriculumStage = Dg5fReachSpec.ClampCurriculumStage(
+                    Academy.Instance.EnvironmentParameters.GetWithDefault(
+                        Dg5fReachSpec.CurriculumParameterName,
+                        Dg5fReachSpec.FinalCurriculumStage));
             }
 
             ResetArm();
@@ -226,7 +231,9 @@ namespace KDT.ReachTraining
                 _random,
                 initialGraspLocal,
                 targetCenterLocalY,
-                IsSceneValidSpawn);
+                IsSceneValidSpawn,
+                Dg5fReachSpec.MinimumTargetRadiusForStage(_curriculumStage),
+                Dg5fReachSpec.MaximumTargetRadiusForStage(_curriculumStage));
             target.position = robotBase.TransformPoint(targetLocal);
         }
 
@@ -317,7 +324,9 @@ namespace KDT.ReachTraining
 
             // 25: low-speed in-tolerance hold progress.
             sensor.AddObservation(
-                Dg5fReachSpec.SuccessHoldProgress(_successHoldSeconds));
+                Dg5fReachSpec.SuccessHoldProgress(
+                    _curriculumStage,
+                    _successHoldSeconds));
         }
 
         public override void OnActionReceived(ActionBuffers actions)
@@ -336,7 +345,7 @@ namespace KDT.ReachTraining
                 _bestDistance = Mathf.Min(_bestDistance, distance);
 
             float maximumDelta = Mathf.Min(
-                Dg5fReachSpec.MaximumArmDeltaDegPerDecision,
+                Dg5fReachSpec.ArmDeltaDegForStage(_curriculumStage, distance),
                 Mathf.Max(0f, armDeltaDegPerDecision));
             for (int index = 0; index < _armJoints.Length; index++)
             {
@@ -391,12 +400,15 @@ namespace KDT.ReachTraining
             float pointSpeed = GraspPointVelocity().magnitude;
             _bestDistance = Mathf.Min(_bestDistance, distance);
             _successHoldSeconds = Dg5fReachSpec.NextSuccessHoldSeconds(
+                _curriculumStage,
                 _successHoldSeconds,
                 distance,
                 pointSpeed,
                 Time.fixedDeltaTime);
 
-            if (Dg5fReachSpec.HasCompletedSuccessHold(_successHoldSeconds))
+            if (Dg5fReachSpec.HasCompletedSuccessHold(
+                    _curriculumStage,
+                    _successHoldSeconds))
             {
                 FinishEpisode(true, "Success", true, true);
                 return;
@@ -425,8 +437,16 @@ namespace KDT.ReachTraining
             LastEpisodeSucceeded = success;
             LastTerminationReason = terminationReason;
             AddReward(success
-                ? Dg5fReachSpec.SuccessReward(_episodeSeconds, finalDistance)
+                ? Dg5fReachSpec.SuccessReward(
+                    _curriculumStage,
+                    _episodeSeconds,
+                    finalDistance)
                 : Dg5fReachSpec.FailurePenalty(terminationReason));
+
+            _stats.Add(
+                "Reach/CurriculumStage",
+                _curriculumStage,
+                StatAggregationMethod.Average);
 
             _stats.Add(
                 "Reach/Success",
