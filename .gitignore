@@ -1,13 +1,25 @@
-# Unity — 열 때 자동 생성되는 것들
-unity/Library/
-unity/Temp/
-unity/Obj/
-unity/Logs/
-unity/UserSettings/
+# Unity — 편집기/IDE가 자동 생성하는 로컬 산출물
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Ll]ogs/
+unity/[Uu]ser[Ss]ettings/
+unity/[Bb]uild/
+unity/[Bb]uilds/
 unity/MemoryCaptures/
 unity/Screenshots/
+unity/Recordings/
+unity/CrashReports/
 unity/*.csproj
 unity/*.sln
+unity/*.slnx
+unity/*.userprefs
+
+# ML-Agents 프로파일러가 실행마다 생성하는 타이머
+unity/Assets/ML-Agents/Timers/
+
+# 소스 Assets의 *.meta는 Unity GUID/참조 정보이므로 의도적으로 무시하지 않는다.
+# 위 ML-Agents 타이머처럼 폴더 전체가 생성물인 경우만 예외다.
 
 # Python
 venv/
@@ -37,7 +49,9 @@ training/logs/*.png
 training/logs/*.gif
 training/logs/recovered/
 /DG5FStableGrasp-*.tar.xz
+# 학습 중 생성되는 정책은 제외하되, 현재 Grasp 환경의 배포 모델은 소스와 함께 보존한다.
 unity/Assets/MLAgents/Grasp/Models/*.onnx
+!unity/Assets/MLAgents/Grasp/Models/DG5FGrasp.onnx
 
 # 로컬 배포 압축본·편집기 백업
 /*.tar.gz

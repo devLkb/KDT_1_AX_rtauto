@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 1781382163880266631}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.057550494, y: 0.10008936, z: 0.018118693}
+  m_LocalPosition: {x: 0, y: 0.05, z: 0.04}
   m_LocalScale: {x: 1.0000005, y: 0.9999996, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -721,12 +721,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
   m_BrainParameters:
-    VectorObservationSize: 116
+    VectorObservationSize: 57
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 26
+      m_NumContinuousActions: 7
       BranchSizes: 
-    VectorActionSize: 1a000000
+    VectorActionSize: 07000000
     VectorActionDescriptions:
     - shoulder_pan_delta
     - shoulder_lift_delta
@@ -734,32 +734,13 @@ MonoBehaviour:
     - wrist_1_delta
     - wrist_2_delta
     - wrist_3_delta
-    - finger_1_joint_1_delta
-    - finger_1_joint_2_delta
-    - finger_1_joint_3_delta
-    - finger_1_joint_4_delta
-    - finger_2_joint_1_delta
-    - finger_2_joint_2_delta
-    - finger_2_joint_3_delta
-    - finger_2_joint_4_delta
-    - finger_3_joint_1_delta
-    - finger_3_joint_2_delta
-    - finger_3_joint_3_delta
-    - finger_3_joint_4_delta
-    - finger_4_joint_1_delta
-    - finger_4_joint_2_delta
-    - finger_4_joint_3_delta
-    - finger_4_joint_4_delta
-    - finger_5_joint_1_delta
-    - finger_5_joint_2_delta
-    - finger_5_joint_3_delta
-    - finger_5_joint_4_delta
+    - grip_delta
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: cff3fe4ee1104cb5f820e8299896a744, type: 3}
   m_InferenceDevice: 0
   m_BehaviorType: 0
-  m_BehaviorName: DG5FGraspJoint
+  m_BehaviorName: DG5FGrasp
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
@@ -801,11 +782,8 @@ MonoBehaviour:
   - {fileID: 2398541928209474577}
   useDeterministicSpawns: 0
   spawnSeed: 12345
-  curriculumStageOverride: 0
   armDeltaDegPerDecision: 2
-  handDeltaDegPerDecision: 4
-  stageOneHandDeltaDegPerDecision: 1
-  stageOneSpawnRadius: 0.04
+  gripDeltaPerDecision: 0.04
 --- !u!114 &8574306879298936672
 MonoBehaviour:
   m_ObjectHideFlags: 0
