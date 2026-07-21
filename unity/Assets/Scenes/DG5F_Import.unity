@@ -492,6 +492,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ur5e_dg5f_left
       objectReference: {fileID: 0}
+    - target: {fileID: 1727392371639058237, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.y
+      value: 0.0000003576281
+      objectReference: {fileID: 0}
     - target: {fileID: 2243244832484548650, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: target
       value: 
@@ -499,6 +503,22 @@ PrefabInstance:
     - target: {fileID: 2243244832484548650, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: enableIK
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2538438813607046178, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.y
+      value: 0.0000003427267
+      objectReference: {fileID: 0}
+    - target: {fileID: 3127812730014815439, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9979827
+      objectReference: {fileID: 0}
+    - target: {fileID: 3127812730014815439, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.06348725
+      objectReference: {fileID: 0}
+    - target: {fileID: 3127812730014815439, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 7.28
       objectReference: {fileID: 0}
     - target: {fileID: 3631061392646900532, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_LocalPosition.x
@@ -540,13 +560,25 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3966762499356854577, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.y
+      value: 0.000000387431
+      objectReference: {fileID: 0}
     - target: {fileID: 4073788651573096819, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: ikMode
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6780434064719581595, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_LocalScale.y
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7772299558725847277, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.target
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8651681430860641931, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.y
+      value: 0.00000042468542
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -30,6 +30,9 @@ public class Dg5fReceiver : MonoBehaviour
     /// v5 손목→끝 벡터를 싣는 손가락 수 (엄지·검지·중지·약지·새끼 — 새 방식 RobotRootTipVector용)
     public const int WristTipCount = 5;
 
+    /// v6 라디안 원값 채널 수 (compute_raw 20채널 = 매핑·필터 전 프록시 라디안, 디버그/비교용)
+    public const int RawRadCount = 20;
+
     readonly float[] _latest = new float[ChannelCount];
     // v2 패킷(24f): 20 관절각 + 엄지끝 정규화좌표(ex,ey,ez) + 핀치 플래그
     // v3 패킷(25f): + 엄지-검지 끝거리 비율(손길이 정규화, 연속값) — 핀치 연속 블렌딩용
@@ -38,12 +41,15 @@ public class Dg5fReceiver : MonoBehaviour
     readonly float[] _fingerTips = new float[FingerTipCount * 3];
     // v5 패킷(52f): + 손목→끝 벡터 5×3(엄지~새끼). 해부학 프레임 성분 ÷ 손길이(정규화). 새 방식용.
     readonly float[] _wristTips = new float[WristTipCount * 3];
+    // v6 패킷(72f): + 20채널 라디안 원값(매핑·필터 전). 비전 라디안 vs 로봇 관절 라디안 비교/로깅용.
+    readonly float[] _rawRad = new float[RawRadCount];
     float _pinchDist;
     volatile bool _hasData;
     volatile bool _hasTip;
     volatile bool _hasPinchDist;
     volatile bool _hasFingerTips;
     volatile bool _hasWristTips;
+    volatile bool _hasRawRad;
     long _lastPacketUtcTicks; // 수신 스레드에서 Unity Time API 사용 불가 → DateTime 사용
 
     UdpClient _client;
@@ -82,6 +88,7 @@ public class Dg5fReceiver : MonoBehaviour
                 bool v3 = data.Length >= (ChannelCount + 5) * 4;
                 bool v4 = data.Length >= (ChannelCount + 5 + FingerTipCount * 3) * 4;
                 bool v5 = data.Length >= (ChannelCount + 5 + FingerTipCount * 3 + WristTipCount * 3) * 4;
+                bool v6 = data.Length >= (ChannelCount + 5 + FingerTipCount * 3 + WristTipCount * 3 + RawRadCount) * 4;
                 lock (_lock)
                 {
                     for (int i = 0; i < ChannelCount; i++)
@@ -98,6 +105,10 @@ public class Dg5fReceiver : MonoBehaviour
                         for (int i = 0; i < WristTipCount * 3; i++)
                             _wristTips[i] = BitConverter.ToSingle(
                                 data, (ChannelCount + 5 + FingerTipCount * 3 + i) * 4);
+                    if (v6)
+                        for (int i = 0; i < RawRadCount; i++)
+                            _rawRad[i] = BitConverter.ToSingle(
+                                data, (ChannelCount + 5 + FingerTipCount * 3 + WristTipCount * 3 + i) * 4);
                 }
                 Interlocked.Exchange(ref _lastPacketUtcTicks, DateTime.UtcNow.Ticks);
                 _hasData = true;
@@ -105,6 +116,7 @@ public class Dg5fReceiver : MonoBehaviour
                 if (v3) _hasPinchDist = true;
                 if (v4) _hasFingerTips = true;
                 if (v5) _hasWristTips = true;
+                if (v6) _hasRawRad = true;
             }
             catch (Exception e)
             {
@@ -163,6 +175,15 @@ public class Dg5fReceiver : MonoBehaviour
             int o = (fingerIndex - 1) * 3;
             vecNormalized = new Vector3(_wristTips[o], _wristTips[o + 1], _wristTips[o + 2]);
         }
+        return true;
+    }
+
+    /// v6 패킷의 20채널 라디안 원값(compute_raw, 매핑·필터 전)을 buffer에 복사. v6 미수신이면 false.
+    /// 채널 순서는 관절각과 동일: [0..3]엄지 [4..7]검지 [8..11]중지 [12..15]약지 [16..19]새끼.
+    public bool GetRawRadians(float[] buffer)
+    {
+        if (!_hasRawRad) return false;
+        lock (_lock) { Array.Copy(_rawRad, buffer, RawRadCount); }
         return true;
     }
 

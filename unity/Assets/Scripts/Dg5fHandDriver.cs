@@ -53,6 +53,23 @@ public class Dg5fHandDriver : MonoBehaviour
         "5_1 pinky_cmc", "5_2 pinky_lat", "5_3 pinky_mcp", "5_4 pinky_pip",
     };
 
+    // --- 관절 격리 디버그(드롭다운) ---
+    //   미디어파이프는 전 채널 정상 송신하고, 여기서 관절 1개를 골라 '그 관절만' 수신값으로 움직이고
+    //   나머지 19개는 0(중립)으로 얼린다. 관절 하나씩 사람처럼 잘 동작하는지 확인용.
+    //   격리 중엔 IK도 무시하고 20관절 전부 여기서 구동(IK 손가락도 얼려짐).
+    public enum IsolatedJoint
+    {
+        None_전체동작,
+        j1_1_thumb_cmc, j1_2_thumb_opp, j1_3_thumb_mcp, j1_4_thumb_ip,
+        j2_1_index_abd, j2_2_index_mcp, j2_3_index_pip, j2_4_index_dip,
+        j3_1_middle_abd, j3_2_middle_mcp, j3_3_middle_pip, j3_4_middle_dip,
+        j4_1_ring_abd, j4_2_ring_mcp, j4_3_ring_pip, j4_4_ring_dip,
+        j5_1_pinky_cmc, j5_2_pinky_lat, j5_3_pinky_mcp, j5_4_pinky_pip,
+    }
+    [Tooltip("한 관절만 수신값으로 움직이고 나머지는 0(중립)으로 얼려 격리 테스트. "
+             + "'None_전체동작'이면 정상 구동. 격리 중엔 IK도 무시하고 20관절 전부 여기서 구동.")]
+    public IsolatedJoint isolateJoint = IsolatedJoint.None_전체동작;
+
     [Tooltip("켜면 매 FixedUpdate(50Hz)에 20관절의 [비전 라디안(v6 수신) / 로봇 관절 실제 라디안]을 "
              + "별도 CSV(Logs/rad_dg5f_*.csv)에 저장. 비전↔로봇 라디안 비교용")]
     public bool logRadiansToFile = true;
@@ -127,13 +144,17 @@ public class Dg5fHandDriver : MonoBehaviour
         // v6 비전 라디안 원값(매핑·필터 전 프록시 출력) — 있으면 로봇 관절 라디안과 비교/로깅
         bool hasRad = _receiver.GetRawRadians(_rawRadBuf);
         bool doDbg = debugThumbLog && (Time.time - _lastDbgLog >= 0.5f);
+        int isoIdx = (int)isolateJoint - 1;   // -1 = 전체동작. 0..19 = 그 관절만 라이브.
+        bool isoActive = isoIdx >= 0;
         for (int i = 0; i < _joints.Length; i++)
         {
-            if (_ikOwned[i / 4]) continue; // 이 손가락 4채널은 Dg5fFingerIK가 구동
+            if (!isoActive && _ikOwned[i / 4]) continue; // 정상시 IK 손가락은 IK가 구동(격리시엔 여기서 전부 구동)
             var ab = _joints[i];
             if (ab == null) continue;
             var d = ab.xDrive;
-            float target = Mathf.Clamp(_angles[i], d.lowerLimit, d.upperLimit);
+            // 격리 중이면 선택 관절만 수신값, 나머지는 0(중립)으로 고정
+            float want = (!isoActive || i == isoIdx) ? _angles[i] : 0f;
+            float target = Mathf.Clamp(want, d.lowerLimit, d.upperLimit);
             _smoothed[i] = Mathf.Lerp(_smoothed[i], target, k);
             d.target = _smoothed[i];
             ab.xDrive = d;
