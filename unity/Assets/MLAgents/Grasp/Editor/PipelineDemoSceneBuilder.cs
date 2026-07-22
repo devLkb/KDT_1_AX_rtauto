@@ -6,25 +6,32 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace KDT.ReachTraining.Editor
+namespace KDT.GraspTraining.Editor
 {
     /// <summary>
-    /// Builds a single-robot live demo scene from the already-wired
-    /// DG5F_GraspPointReachArea_00 training-area instance: keeps its
-    /// CameraTargetReceiver + trained Reach model, and re-enables the hand
-    /// teleop path (Dg5fReceiver/Dg5fHandDriver) that ArmReachTrainingSceneBuilder
-    /// disables for training. ArmTargetIK/HandSliderUI/Dg5fFingerIK/Dg5fThumbIK/
-    /// RobotInitialPoseSync are left disabled — HandSliderUI in particular applies
-    /// its armJoints every FixedUpdate and would fight the RL agent's direct
-    /// xDrive writes on the same joints.
+    /// Builds the single-robot live pipeline scene from the already-trained
+    /// DG5FGrasp behavior (57 obs / 7 action, arm + grip closure): duplicates
+    /// DG5F_GraspTrainingArea_00 out of the 20-parallel training scene, re-enables
+    /// the hand teleop path (Dg5fReceiver/Dg5fHandDriver) that GraspTrainingSceneBuilder
+    /// disables for training, and adds a CameraTargetReceiver that feeds the ball's
+    /// one-shot spawn position (Dg5fGraspAgent.cameraReceiver) instead of continuously
+    /// overwriting a Transform — GraspBall is a real simulated Rigidbody, not a
+    /// kinematic marker, so it must stay physics-driven between episode resets.
+    /// Dg5fGraspAgent.driveHandJoints is set to false so the trained policy only
+    /// actuates the 6 arm joints; the 20 finger joints are left to Dg5fHandDriver.
+    /// ArmTargetIK/HandSliderUI/Dg5fFingerIK/Dg5fFingerIKMode/Dg5fIKVectorDebug/
+    /// Dg5fThumbIK/RobotInitialPoseSync are force-disabled — some finger-level
+    /// instances were found already enabled on the checked-in training area, which
+    /// would fight Dg5fHandDriver once hand physics is re-enabled.
     /// </summary>
     public static class PipelineDemoSceneBuilder
     {
         public const string SourceScenePath =
-            "Assets/MLAgents/Reach/DG5F_GraspPointReachTraining.unity";
-        public const string SourceAreaName = "DG5F_GraspPointReachArea_00";
+            "Assets/MLAgents/Grasp/DG5F_GraspTraining.unity";
+        public const string SourceAreaName = "DG5F_GraspTrainingArea_00";
         public const string DemoScenePath = "Assets/Scenes/Pipeline_Demo.unity";
         const string HandRootName = "ll_dg_palm";
+        const int CameraReceiverPort = 5007;
 
         static readonly string[] HandTeleopTypeNames =
         {
@@ -33,18 +40,16 @@ namespace KDT.ReachTraining.Editor
             "Dg5fJointLogger"
         };
 
-        // Must stay disabled: HandSliderUI re-applies its armJoints every
-        // FixedUpdate and would fight the RL agent's direct arm xDrive writes.
-        // ArmTargetIK/Dg5fFingerIK/Dg5fThumbIK are the pre-RL/pre-Dg5fHandDriver
-        // manual-IK control path and would fight Dg5fHandDriver on the same
-        // finger joints. Some of these were found already enabled on individual
-        // finger sub-objects in the checked-in training area, so this is forced
-        // rather than assumed.
+        // Must stay disabled: HandSliderUI/ArmTargetIK would fight the RL agent's
+        // direct arm xDrive writes, and the finger-level IK scripts would fight
+        // Dg5fHandDriver on the same finger joints once hand physics is re-enabled.
         static readonly string[] ForceDisabledTypeNames =
         {
             "ArmTargetIK",
             "HandSliderUI",
             "Dg5fFingerIK",
+            "Dg5fFingerIKMode",
+            "Dg5fIKVectorDebug",
             "Dg5fThumbIK",
             "RobotInitialPoseSync"
         };
@@ -68,10 +73,8 @@ namespace KDT.ReachTraining.Editor
             GameObject areaCopy = UnityEngine.Object.Instantiate(sourceArea);
             areaCopy.name = SourceAreaName;
 
-            // Create the demo scene additively (NOT Single) so sourceScene stays
-            // loaded until after the copy has been moved out of it — closing
-            // sourceScene first (or via NewSceneMode.Single, which tears down
-            // every loaded scene) destroys areaCopy along with it.
+            // Additive (not Single) so sourceScene stays loaded until the copy has
+            // been moved out of it — closing it first destroys areaCopy along with it.
             Scene demoScene = EditorSceneManager.NewScene(
                 NewSceneSetup.DefaultGameObjects,
                 NewSceneMode.Additive);
@@ -81,18 +84,38 @@ namespace KDT.ReachTraining.Editor
             EditorSceneManager.CloseScene(sourceScene, true);
             EditorSceneManager.SetActiveScene(demoScene);
 
+            // Now that demoScene exists alongside whatever else is loaded, it's
+            // always safe to close a stale scene at the same path (never the
+            // last loaded scene at this point).
+            CloseExistingDemoSceneIfLoaded(demoScene);
+
             ReEnableHandTeleop(areaCopy);
+            CameraTargetReceiver cameraReceiver = ConfigureCameraReceiver(areaCopy);
+            ConfigureAgent(areaCopy, cameraReceiver);
             SetInferenceOnly(areaCopy);
 
             EnsureFolder("Assets/Scenes");
-            EditorSceneManager.SaveScene(demoScene, DemoScenePath);
+            if (!EditorSceneManager.SaveScene(demoScene, DemoScenePath))
+                throw new InvalidOperationException($"Failed to save {DemoScenePath}.");
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             Selection.activeGameObject = areaCopy;
             Debug.Log(
                 $"[PipelineDemoSceneBuilder] Built {DemoScenePath} from "
-                + $"{SourceAreaName} (hand teleop re-enabled, arm stays RL-controlled).");
+                + $"{SourceAreaName} (Grasp-based; hand teleop re-enabled, "
+                + "arm+grip stays RL with driveHandJoints=false, ball spawn "
+                + "wired to CameraTargetReceiver).");
+        }
+
+        static void CloseExistingDemoSceneIfLoaded(Scene except)
+        {
+            for (int i = SceneManager.sceneCount - 1; i >= 0; i--)
+            {
+                Scene s = SceneManager.GetSceneAt(i);
+                if (s != except && s.path == DemoScenePath)
+                    EditorSceneManager.CloseScene(s, true);
+            }
         }
 
         static void ReEnableHandTeleop(GameObject area)
@@ -124,6 +147,36 @@ namespace KDT.ReachTraining.Editor
             {
                 collider.enabled = true;
             }
+        }
+
+        static CameraTargetReceiver ConfigureCameraReceiver(GameObject area)
+        {
+            Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
+            if (agent == null)
+                throw new InvalidOperationException(
+                    $"Missing {nameof(Dg5fGraspAgent)} on {area.name}.");
+
+            CameraTargetReceiver receiver =
+                agent.gameObject.GetComponent<CameraTargetReceiver>();
+            if (receiver == null)
+                receiver = agent.gameObject.AddComponent<CameraTargetReceiver>();
+
+            receiver.port = CameraReceiverPort;
+            receiver.robotBase = agent.robotBase;
+            receiver.target = null;
+            receiver.continuousApply = false;
+            receiver.inputIsCameraSpace = false;
+            receiver.clampToWorkspace = true;
+            receiver.minRadius = Dg5fGraspSpec.V1MinimumSpawnRadius;
+            receiver.maxRadius = Dg5fGraspSpec.V1MaximumSpawnRadius;
+            return receiver;
+        }
+
+        static void ConfigureAgent(GameObject area, CameraTargetReceiver cameraReceiver)
+        {
+            Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
+            agent.cameraReceiver = cameraReceiver;
+            agent.driveHandJoints = false;
         }
 
         static void SetInferenceOnly(GameObject area)

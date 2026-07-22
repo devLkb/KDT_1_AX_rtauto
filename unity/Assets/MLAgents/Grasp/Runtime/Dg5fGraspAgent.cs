@@ -30,6 +30,12 @@ namespace KDT.GraspTraining
         [Header("Control")]
         public float armDeltaDegPerDecision = 2f;
         public float gripDeltaPerDecision = 0.04f;
+        [Tooltip("false면 손가락 20관절 xDrive를 쓰지 않음 — 손은 별도 텔레옵(Dg5fHandDriver)이 전담. " +
+                 "팔 6관절 제어는 영향받지 않음. 학습 인스턴스는 항상 true(기본값)로 둘 것.")]
+        public bool driveHandJoints = true;
+        [Tooltip("설정하면 랜덤 스폰 대신 이 리시버의 최신 카메라 좌표로 공을 스폰 (없으면 기존 랜덤 로직 유지). " +
+                 "학습 인스턴스는 비워둘 것.")]
+        public CameraTargetReceiver cameraReceiver;
 
         readonly Dictionary<ArticulationBody, float> _initialTargetDeg =
             new Dictionary<ArticulationBody, float>();
@@ -220,10 +226,9 @@ namespace KDT.GraspTraining
             if (ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = ballCollider.bounds.extents.y;
-            Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
-                Next01(),
-                Next01(),
-                ballRadius);
+            Vector3 ballLocalPosition = TryGetCameraSpawnPosition(ballRadius, out Vector3 cameraPosition)
+                ? cameraPosition
+                : Dg5fGraspSpec.SpawnBallLocalPosition(Next01(), Next01(), ballRadius);
             if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
                 throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
 
@@ -244,6 +249,33 @@ namespace KDT.GraspTraining
             // Articulation collider transforms lag direct jointPosition writes by one
             // physics step. Keep the ball kinematic for that step, then release it.
             _ballReleaseFixedSteps = 2;
+        }
+
+        /// cameraReceiver의 최신 좌표를 v1 스폰 규칙(패널 상판 고정 높이, 수평 반경
+        /// [V1MinimumSpawnRadius, V1MaximumSpawnRadius] 클램프)에 맞춰 변환한다.
+        /// 카메라의 원시 Y값은 깊이 노이즈로 패널 표면과 어긋날 수 있어 신뢰하지 않고,
+        /// 항상 SupportTopHeight + ballRadius로 고정한다(랜덤 스폰과 동일한 방식).
+        bool TryGetCameraSpawnPosition(float ballRadius, out Vector3 ballLocalPosition)
+        {
+            ballLocalPosition = Vector3.zero;
+            if (cameraReceiver == null
+                || !cameraReceiver.TryGetRobotLocalPosition(out Vector3 cameraLocal))
+            {
+                return false;
+            }
+
+            float horizontalRadius = new Vector2(cameraLocal.x, cameraLocal.z).magnitude;
+            if (horizontalRadius < 1e-6f) return false;
+            horizontalRadius = Mathf.Clamp(
+                horizontalRadius,
+                Dg5fGraspSpec.V1MinimumSpawnRadius,
+                Dg5fGraspSpec.V1MaximumSpawnRadius);
+            float azimuth = Mathf.Atan2(cameraLocal.z, cameraLocal.x);
+            ballLocalPosition = new Vector3(
+                Mathf.Cos(azimuth) * horizontalRadius,
+                Dg5fGraspSpec.SupportTopHeight + Mathf.Max(0f, ballRadius),
+                Mathf.Sin(azimuth) * horizontalRadius);
+            return Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius);
         }
 
         float Next01()
@@ -376,6 +408,7 @@ namespace KDT.GraspTraining
 
         void ApplyGripTargets()
         {
+            if (!driveHandJoints) return;
             for (int i = 0; i < _handJoints.Length; i++)
             {
                 var drive = _handJoints[i].xDrive;

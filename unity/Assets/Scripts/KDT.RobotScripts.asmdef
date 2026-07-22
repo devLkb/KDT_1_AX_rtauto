@@ -1,13 +1,8 @@
 {
-  "name": "KDT.ReachTraining.Editor",
-  "rootNamespace": "KDT.ReachTraining.Editor",
-  "references": [
-    "KDT.ReachTraining",
-    "Unity.ML-Agents"
-  ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "name": "KDT.RobotScripts",
+  "rootNamespace": "",
+  "references": [],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

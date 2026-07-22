@@ -3,7 +3,9 @@
   "rootNamespace": "KDT.GraspTraining.Editor",
   "references": [
     "KDT.GraspTraining",
-    "Unity.ML-Agents"
+    "Unity.ML-Agents",
+    "KDT.RobotScripts",
+    "Unity.InferenceEngine"
   ],
   "includePlatforms": ["Editor"],
   "autoReferenced": true

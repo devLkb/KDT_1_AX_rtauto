@@ -25,8 +25,15 @@ public class CameraTargetReceiver : MonoBehaviour
 
     [Tooltip("좌표계 원점 — 로봇팔 베이스 Transform")]
     public Transform robotBase;
-    [Tooltip("이동시킬 타겟 오브젝트(빨간 공) — Reach 학습 씬의 Target/RedBall과 동일 오브젝트")]
+    [Tooltip("이동시킬 타겟 오브젝트(빨간 공) — Reach 학습 씬의 Target/RedBall과 동일 오브젝트. " +
+             "continuousApply=false면 비워둘 수 있다(TryGetRobotLocalPosition을 다른 스크립트가 직접 호출).")]
     public Transform target;
+
+    [Tooltip("true(기본): 매 프레임 target.position을 카메라 좌표로 덮어씀(Reach의 실시간 추종). " +
+             "false: 자동 적용을 끄고, TryGetRobotLocalPosition()을 호출한 쪽(예: Grasp 에이전트의 " +
+             "에피소드 리셋)에서 필요할 때만 1회성으로 좌표를 가져다 쓴다 — 물리 시뮬레이션되는 공을 " +
+             "매 프레임 텔레포트해서 물리와 충돌하지 않게 하기 위함.")]
+    public bool continuousApply = true;
 
     [Tooltip("true: 수신 좌표를 cameraTransform 기준 카메라 로컬 좌표로 해석. " +
              "false: 수신 좌표가 이미 robotBase 로컬 좌표(기존 동작).")]
@@ -61,9 +68,9 @@ public class CameraTargetReceiver : MonoBehaviour
 
     void Start()
     {
-        if (robotBase == null || target == null)
+        if (robotBase == null || (continuousApply && target == null))
         {
-            Debug.LogError("[CameraTargetReceiver] robotBase, target을 Inspector에서 지정해야 함.");
+            Debug.LogError("[CameraTargetReceiver] robotBase가 없거나, continuousApply=true인데 target이 없음.");
             enabled = false;
             return;
         }
@@ -86,15 +93,27 @@ public class CameraTargetReceiver : MonoBehaviour
             ? (float)(DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc)).TotalSeconds
             : float.PositiveInfinity;
 
-        if (!TryGetLocalPosition(out Vector3 raw)) return;
+        if (!continuousApply) return;
+        if (!TryGetRobotLocalPosition(out Vector3 robotLocal)) return;
+        target.position = robotBase.TransformPoint(robotLocal);
+    }
 
-        Vector3 robotLocal = inputIsCameraSpace
+    /// robotBase 기준 로컬 좌표로 변환된 최신 카메라 좌표를 1회성으로 가져온다(카메라-공간
+    /// 변환 + 작업반경 클램프까지 적용됨). 데이터가 없으면 false.
+    /// continuousApply=false로 두고 다른 스크립트(예: 에피소드 리셋 시점의 공 스폰)에서
+    /// 필요할 때만 호출하는 용도.
+    public bool TryGetRobotLocalPosition(out Vector3 robotLocal)
+    {
+        robotLocal = Vector3.zero;
+        if (!TryGetLocalPosition(out Vector3 raw)) return false;
+
+        robotLocal = inputIsCameraSpace
             ? robotBase.InverseTransformPoint(
                 cameraTransform.TransformPoint(Vector3.Scale(raw, cameraAxisSign)))
             : raw;
 
         if (clampToWorkspace) robotLocal = ClampToWorkspace(robotLocal);
-        target.position = robotBase.TransformPoint(robotLocal);
+        return true;
     }
 
     void ReceiveLoop()
