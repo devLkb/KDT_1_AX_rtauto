@@ -26,9 +26,9 @@ class GraspPointReachContractTests(unittest.TestCase):
     def test_canonical_config_is_fresh_single_behavior_ppo(self):
         config = self.load_config()
         self.assertEqual(set(config), {"behaviors", "torch_settings"})
-        self.assertEqual(set(config["behaviors"]), {"DG5FGraspPointReach"})
+        self.assertEqual(set(config["behaviors"]), {"DG5FGraspReadyReach"})
 
-        settings = config["behaviors"]["DG5FGraspPointReach"]
+        settings = config["behaviors"]["DG5FGraspReadyReach"]
         self.assertEqual(settings["trainer_type"], "ppo")
         self.assertEqual(
             settings["hyperparameters"],
@@ -84,13 +84,13 @@ class GraspPointReachContractTests(unittest.TestCase):
             canonical = self.load_config()
             smoke = self.load_config(destination)
 
-        canonical_behavior = canonical["behaviors"]["DG5FGraspPointReach"]
-        smoke_behavior = smoke["behaviors"]["DG5FGraspPointReach"]
+        canonical_behavior = canonical["behaviors"]["DG5FGraspReadyReach"]
+        smoke_behavior = smoke["behaviors"]["DG5FGraspReadyReach"]
         self.assertEqual(smoke_behavior["max_steps"], 512)
         canonical_behavior["max_steps"] = 512
         self.assertEqual(smoke, canonical)
         self.assertEqual(
-            self.load_config()["behaviors"]["DG5FGraspPointReach"]["max_steps"],
+            self.load_config()["behaviors"]["DG5FGraspReadyReach"]["max_steps"],
             5_000_000,
         )
 
@@ -107,17 +107,11 @@ class GraspPointReachContractTests(unittest.TestCase):
                 GENERATOR.generate(source, destination)
             self.assertFalse(destination.exists())
 
-    def test_legacy_training_surfaces_are_removed(self):
+    def test_legacy_point_reach_transfer_surfaces_are_removed(self):
         legacy = (
-            "config/dg5f_grasp.yaml",
-            "config/dg5f_grasp_v2.yaml",
-            "config/dg5f_stable_grasp.yaml",
-            "scripts/bootstrap_v1_to_joint26.py",
-            "scripts/dg5f.sh",
-            "scripts/evaluate_dg5f_stable.py",
-            "scripts/evaluate_dg5f_v2.py",
-            "scripts/promote_dg5f_stable_model.py",
-            "scripts/train_dg5f_grasp.sh",
+            "config/dg5f_grasp_point_reach_v1.yaml",
+            "config/dg5f_grasp_point_reach_curriculum_v1.yaml",
+            "scripts/bootstrap_v1_to_point_reach.py",
         )
         for relative_path in legacy:
             self.assertFalse((TRAINING / relative_path).exists(), relative_path)

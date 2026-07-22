@@ -20,5 +20,5 @@ fi
   "$SOURCE_CONFIG" "$SMOKE_CONFIG"
 
 CONFIG="$SMOKE_CONFIG" \
-RUN_ID="${RUN_ID:-dg5f-grasp-point-reach-smoke-512}" \
+RUN_ID="${RUN_ID:-dg5f-grasp-ready-reach-smoke-512}" \
 "$ROOT/training/scripts/train_dg5f_grasp_point_reach.sh" "$@"

@@ -68,7 +68,7 @@ namespace KDT.ReachTraining.Editor
             GameObject panel = CreatePanel(area.transform);
             Transform target = CreateTarget(area.transform);
             Transform handRoot = FindTransform(robot, "ll_dg_palm");
-            DisableHandPhysics(handRoot);
+            ConfigureOpenHandPhysics(handRoot);
             Transform graspPoint = CreateGraspPoint(handRoot);
 
             var agent = robot.GetComponent<Dg5fGraspPointReachAgent>();
@@ -78,9 +78,16 @@ namespace KDT.ReachTraining.Editor
             agent.graspPoint = graspPoint;
             agent.graspPointBody = FindArticulationBody(robot, "tool0");
             agent.target = target;
+            agent.targetBody = target.GetComponent<Rigidbody>();
+            agent.palm = handRoot;
             agent.panelCollider = panel.GetComponent<BoxCollider>();
             agent.targetCenterLocalY = Dg5fReachSpec.TargetRadius;
+            agent.endEpisodeOnLock = true;
             agent.MaxStep = 0;
+            agent.safetySensors = ConfigureSafetySensors(
+                robot,
+                agent.panelCollider,
+                agent);
 
             var behavior = robot.GetComponent<BehaviorParameters>();
             if (behavior == null) behavior = robot.AddComponent<BehaviorParameters>();
@@ -96,7 +103,7 @@ namespace KDT.ReachTraining.Editor
 
             var requester = robot.GetComponent<DecisionRequester>();
             if (requester == null) requester = robot.AddComponent<DecisionRequester>();
-            requester.DecisionPeriod = 5;
+            requester.DecisionPeriod = Dg5fReachSpec.DecisionPeriod;
             requester.TakeActionsBetweenDecisions = false;
 
             PrefabUtility.SaveAsPrefabAssetAndConnect(
@@ -213,18 +220,20 @@ namespace KDT.ReachTraining.Editor
             }
         }
 
-        static void DisableHandPhysics(Transform handRoot)
+        static void ConfigureOpenHandPhysics(Transform handRoot)
         {
             foreach (ArticulationBody body in
                      handRoot.GetComponentsInChildren<ArticulationBody>(true))
             {
-                body.enabled = false;
+                body.enabled = true;
+                body.useGravity = false;
             }
 
             foreach (Collider collider in
                      handRoot.GetComponentsInChildren<Collider>(true))
             {
-                collider.enabled = false;
+                collider.enabled = true;
+                collider.isTrigger = false;
             }
 
             foreach (Renderer renderer in
@@ -232,6 +241,35 @@ namespace KDT.ReachTraining.Editor
             {
                 renderer.enabled = true;
             }
+        }
+
+        static ReachSurfaceContactSensor[] ConfigureSafetySensors(
+            GameObject robot,
+            Collider panel,
+            Dg5fGraspPointReachAgent agent)
+        {
+            var sensors = new List<ReachSurfaceContactSensor>();
+            foreach (Collider collider in
+                     robot.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || !collider.enabled || collider.isTrigger)
+                    continue;
+                ArticulationBody body =
+                    collider.GetComponentInParent<ArticulationBody>();
+                if (body == null || body.isRoot) continue;
+
+                ReachSurfaceContactSensor sensor =
+                    collider.GetComponent<ReachSurfaceContactSensor>();
+                if (sensor == null)
+                    sensor = collider.gameObject.AddComponent<ReachSurfaceContactSensor>();
+                sensor.agent = agent;
+                sensor.unsafeSurface = panel;
+                sensors.Add(sensor);
+            }
+            if (sensors.Count == 0)
+                throw new InvalidOperationException(
+                    "No moving robot colliders were available for panel safety.");
+            return sensors.ToArray();
         }
 
         static GameObject CreatePanel(Transform parent)
@@ -266,7 +304,11 @@ namespace KDT.ReachTraining.Editor
             target.transform.localScale =
                 Vector3.one * (Dg5fReachSpec.TargetRadius * 2f);
             SphereCollider collider = target.GetComponent<SphereCollider>();
-            collider.isTrigger = true;
+            collider.isTrigger = false;
+            var body = target.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.useGravity = false;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
             target.GetComponent<Renderer>().sharedMaterial =
                 GetOrCreateMaterial(TargetMaterialPath, "ReachTarget", Color.red);
             return target.transform;

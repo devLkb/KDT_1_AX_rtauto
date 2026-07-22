@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VENV="${VENV:-${VIRTUAL_ENV:-$ROOT/vision/.vision}}"
 CONFIG="${CONFIG:-$ROOT/training/config/dg5f_grasp_point_reach.yaml}"
 RESULTS_DIR="${RESULTS_DIR:-$ROOT/training/results}"
-RUN_ID="${RUN_ID:-dg5f-grasp-point-reach}"
+RUN_ID="${RUN_ID:-dg5f-grasp-ready-reach}"
 ENV_PATH="${ENV_PATH:-}"
 NUM_ENVS="${NUM_ENVS:-1}"
 TIME_SCALE="${TIME_SCALE:-10}"
@@ -15,7 +15,7 @@ XVFB_SCREEN="${XVFB_SCREEN:-640x480x24}"
 
 for argument in "$@"; do
   if [[ "$argument" == "--initialize-from" || "$argument" == --initialize-from=* ]]; then
-    echo "[ERROR] DG5FGraspPointReach must not initialize from another run" >&2
+    echo "[ERROR] DG5FGraspReadyReach must not initialize from another run" >&2
     exit 2
   fi
 done
@@ -28,8 +28,8 @@ if [[ ! -f "$CONFIG" ]]; then
   echo "[ERROR] ML-Agents config not found: $CONFIG" >&2
   exit 2
 fi
-if ! grep -q '^  DG5FGraspPointReach:$' "$CONFIG"; then
-  echo "[ERROR] config does not define DG5FGraspPointReach: $CONFIG" >&2
+if ! grep -q '^  DG5FGraspReadyReach:$' "$CONFIG"; then
+  echo "[ERROR] config does not define DG5FGraspReadyReach: $CONFIG" >&2
   exit 2
 fi
 

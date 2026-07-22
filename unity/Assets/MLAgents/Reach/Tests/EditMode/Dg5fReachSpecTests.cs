@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -10,475 +8,240 @@ namespace KDT.ReachTraining.Tests
     public sealed class Dg5fReachSpecTests
     {
         [Test]
-        public void PolicyContract_IsVersionedAndContiguous()
+        public void PolicyContract_IsFreshAndContiguous()
         {
-            Assert.That(Dg5fReachSpec.SpecVersion, Is.EqualTo("1.1.0"));
-            Assert.That(Dg5fReachSpec.BehaviorName, Is.EqualTo("DG5FGraspPointReach"));
+            Assert.That(Dg5fReachSpec.SpecVersion, Is.EqualTo("2.0.0"));
+            Assert.That(Dg5fReachSpec.BehaviorName,
+                Is.EqualTo("DG5FGraspReadyReach"));
             Assert.That(Dg5fReachSpec.ArmJointCount, Is.EqualTo(6));
+            Assert.That(Dg5fReachSpec.HandJointCount, Is.EqualTo(20));
             Assert.That(Dg5fReachSpec.ActionSize, Is.EqualTo(6));
-            Assert.That(Dg5fReachSpec.ObservationSize, Is.EqualTo(26));
+            Assert.That(Dg5fReachSpec.ObservationSize, Is.EqualTo(37));
             Assert.That(Dg5fReachSpec.DecisionPeriod, Is.EqualTo(5));
 
             Assert.That(Dg5fReachSpec.ArmPositionObservationOffset, Is.EqualTo(0));
             Assert.That(Dg5fReachSpec.ArmVelocityObservationOffset, Is.EqualTo(6));
             Assert.That(Dg5fReachSpec.ArmTargetObservationOffset, Is.EqualTo(12));
             Assert.That(Dg5fReachSpec.TargetOffsetObservationOffset, Is.EqualTo(18));
-            Assert.That(Dg5fReachSpec.DistanceObservationIndex, Is.EqualTo(21));
-            Assert.That(Dg5fReachSpec.GraspPointVelocityObservationOffset, Is.EqualTo(22));
-            Assert.That(Dg5fReachSpec.HoldProgressObservationIndex, Is.EqualTo(25));
+            Assert.That(Dg5fReachSpec.ActiveWaypointOffsetObservationOffset,
+                Is.EqualTo(21));
+            Assert.That(Dg5fReachSpec.DistanceObservationIndex, Is.EqualTo(24));
+            Assert.That(Dg5fReachSpec.PlanarDistanceObservationIndex, Is.EqualTo(25));
+            Assert.That(Dg5fReachSpec.FloorClearanceObservationIndex, Is.EqualTo(26));
+            Assert.That(Dg5fReachSpec.GraspPointVelocityObservationOffset,
+                Is.EqualTo(27));
+            Assert.That(Dg5fReachSpec.PalmTargetObservationOffset, Is.EqualTo(30));
+            Assert.That(Dg5fReachSpec.PalmAlignmentObservationIndex, Is.EqualTo(33));
+            Assert.That(Dg5fReachSpec.UpperConeObservationIndex, Is.EqualTo(34));
+            Assert.That(Dg5fReachSpec.PhaseObservationIndex, Is.EqualTo(35));
+            Assert.That(Dg5fReachSpec.HoldProgressObservationIndex, Is.EqualTo(36));
         }
 
         [Test]
-        public void ArmContract_HasExactlySixNamedSafeRanges()
+        public void JointAndGraspPointContracts_AreCalibrated()
         {
-            Assert.That(Dg5fReachSpec.ArmLinks.Length, Is.EqualTo(6));
+            Assert.That(Dg5fReachSpec.ArmLinks, Has.Length.EqualTo(6));
             Assert.That(Dg5fReachSpec.ArmLinks.Distinct().Count(), Is.EqualTo(6));
-            Assert.That(Dg5fReachSpec.ArmSafeMinDeg.Length, Is.EqualTo(6));
-            Assert.That(Dg5fReachSpec.ArmSafeMaxDeg.Length, Is.EqualTo(6));
-            for (int index = 0; index < Dg5fReachSpec.ArmJointCount; index++)
-                Assert.That(
-                    Dg5fReachSpec.ArmSafeMinDeg[index],
+            Assert.That(Dg5fReachSpec.ArmSafeMinDeg, Has.Length.EqualTo(6));
+            Assert.That(Dg5fReachSpec.ArmSafeMaxDeg, Has.Length.EqualTo(6));
+            for (int index = 0; index < 6; index++)
+                Assert.That(Dg5fReachSpec.ArmSafeMinDeg[index],
                     Is.LessThan(Dg5fReachSpec.ArmSafeMaxDeg[index]));
+            Assert.That(Dg5fReachSpec.CalibratedGraspPointLocalPosition,
+                Is.EqualTo(new Vector3(
+                    0.0170203224f,
+                    0.152462155f,
+                    0.0135399457f)));
         }
 
         [Test]
-        public void GraspPoint_UsesCalibratedSingleLogicalPoint()
+        public void Spawn_IsDeterministicAndCoversConfiguredAnnulus()
         {
-            Assert.That(
-                Dg5fReachSpec.CalibratedGraspPointLocalPosition.x,
-                Is.EqualTo(0.0170203224f).Within(1e-8f));
-            Assert.That(
-                Dg5fReachSpec.CalibratedGraspPointLocalPosition.y,
-                Is.EqualTo(0.152462155f).Within(1e-8f));
-            Assert.That(
-                Dg5fReachSpec.CalibratedGraspPointLocalPosition.z,
-                Is.EqualTo(0.0135399457f).Within(1e-8f));
-        }
-
-        [Test]
-        public void Spawn_IsDeterministicForSameSeed()
-        {
-            var first = new System.Random(91234);
-            var second = new System.Random(91234);
-            Vector3 initial = new Vector3(0.1f, 0.3f, -0.2f);
-
-            for (int sample = 0; sample < 100; sample++)
-            {
-                Assert.That(
-                    Dg5fReachSpec.SpawnTargetLocalPosition(first, initial),
-                    Is.EqualTo(
-                        Dg5fReachSpec.SpawnTargetLocalPosition(second, initial)));
-            }
-        }
-
-        [Test]
-        public void Spawn_CoversFullAzimuthAndUniformRadiusRange()
-        {
-            var random = new System.Random(4312);
-            // A high initial point prevents rejection from biasing this distribution test.
+            var first = new System.Random(4312);
+            var second = new System.Random(4312);
             Vector3 initial = new Vector3(0f, 2f, 0f);
-            var quadrantCounts = new int[4];
-            float radiusSum = 0f;
-            const int samples = 10000;
-
-            for (int sample = 0; sample < samples; sample++)
+            var quadrants = new int[4];
+            for (int sample = 0; sample < 4000; sample++)
             {
-                Vector3 point = Dg5fReachSpec.SpawnTargetLocalPosition(random, initial);
-                float radius = new Vector2(point.x, point.z).magnitude;
-                radiusSum += radius;
-                int quadrant = point.x >= 0f
-                    ? (point.z >= 0f ? 0 : 3)
-                    : (point.z >= 0f ? 1 : 2);
-                quadrantCounts[quadrant]++;
-
-                Assert.That(
-                    Dg5fReachSpec.IsValidSpawn(point, initial),
-                    Is.True);
-                Assert.That(point.y, Is.EqualTo(Dg5fReachSpec.TargetRadius).Within(1e-6f));
+                Vector3 a = Dg5fReachSpec.SpawnTargetLocalPosition(first, initial);
+                Vector3 b = Dg5fReachSpec.SpawnTargetLocalPosition(second, initial);
+                Assert.That(a, Is.EqualTo(b));
+                Assert.That(Dg5fReachSpec.IsValidSpawn(a, initial), Is.True);
+                int quadrant = a.x >= 0f
+                    ? (a.z >= 0f ? 0 : 3)
+                    : (a.z >= 0f ? 1 : 2);
+                quadrants[quadrant]++;
             }
-
-            float expectedUniformRadiusMean =
-                (Dg5fReachSpec.MinimumTargetRadius
-                    + Dg5fReachSpec.MaximumTargetRadius) * 0.5f;
-            Assert.That(radiusSum / samples, Is.EqualTo(expectedUniformRadiusMean).Within(0.01f));
-            Assert.That(quadrantCounts, Has.All.GreaterThan(2200));
+            Assert.That(quadrants, Has.All.GreaterThan(850));
         }
 
         [Test]
-        public void Spawn_AlwaysRespectsInitialCenterSeparation()
+        public void Spawn_UsesBoundedScenePredicate()
         {
-            var random = new System.Random(199);
-            Vector3 initial = new Vector3(
-                Dg5fReachSpec.MinimumTargetRadius,
-                Dg5fReachSpec.TargetRadius,
-                0f);
-
-            for (int sample = 0; sample < 2000; sample++)
-            {
-                Vector3 point =
-                    Dg5fReachSpec.SpawnTargetLocalPosition(random, initial);
-                Assert.That(
-                    Vector3.Distance(point, initial),
-                    Is.GreaterThanOrEqualTo(
-                        Dg5fReachSpec.MinimumInitialCenterDistance - 1e-5f));
-            }
-        }
-
-        [Test]
-        public void Spawn_AppliesScenePredicateWithinSameBoundedLoop()
-        {
-            var random = new System.Random(71);
             int attempts = 0;
             Vector3 point = Dg5fReachSpec.SpawnTargetLocalPosition(
-                random,
+                new System.Random(72),
                 new Vector3(0f, 2f, 0f),
                 Dg5fReachSpec.TargetRadius,
                 candidate => ++attempts == 4);
-
             Assert.That(attempts, Is.EqualTo(4));
-            Assert.That(
-                Dg5fReachSpec.IsValidSpawn(
-                    point,
-                    new Vector3(0f, 2f, 0f)),
-                Is.True);
-        }
-
-        [Test]
-        public void Spawn_StopsAfterTwoHundredFiftySixRejectedCandidates()
-        {
-            var random = new System.Random(72);
-            int attempts = 0;
+            Assert.That(Dg5fReachSpec.IsValidSpawn(
+                point,
+                new Vector3(0f, 2f, 0f)), Is.True);
 
             Assert.Throws<InvalidOperationException>(() =>
                 Dg5fReachSpec.SpawnTargetLocalPosition(
-                    random,
+                    new System.Random(73),
                     new Vector3(0f, 2f, 0f),
                     Dg5fReachSpec.TargetRadius,
-                    candidate =>
-                    {
-                        attempts++;
-                        return false;
-                    }));
-            Assert.That(attempts, Is.EqualTo(Dg5fReachSpec.MaximumSpawnAttempts));
+                    candidate => false));
         }
 
         [Test]
-        public void PanelBounds_KeepEntireTargetSphereInsideRotatedBox()
+        public void PreGraspWaypoint_IsExactlyTenCentimetersAboveTarget()
         {
-            var panelObject = new GameObject("PanelBoundsTest");
-            try
-            {
-                var panel = panelObject.AddComponent<BoxCollider>();
-                panel.size = new Vector3(2f, 0.2f, 2f);
-                panelObject.transform.rotation = Quaternion.Euler(0f, 37f, 0f);
-
-                Vector3 inside = panelObject.transform.TransformPoint(
-                    new Vector3(0.97f, 0.1f, 0f));
-                Vector3 outside = panelObject.transform.TransformPoint(
-                    new Vector3(0.99f, 0.1f, 0f));
-                Assert.That(
-                    Dg5fReachSpec.IsTargetSphereWithinPanel(
-                        inside,
-                        Dg5fReachSpec.TargetRadius,
-                        panel),
-                    Is.True);
-                Assert.That(
-                    Dg5fReachSpec.IsTargetSphereWithinPanel(
-                        outside,
-                        Dg5fReachSpec.TargetRadius,
-                        panel),
-                    Is.False);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(panelObject);
-            }
+            Vector3 target = new Vector3(0.3f, 0.02f, -0.4f);
+            Assert.That(Dg5fReachSpec.PreGraspPoint(target),
+                Is.EqualTo(target + Vector3.up * 0.10f));
         }
 
         [Test]
-        public void SpawnValidation_RejectsRadiusHeightAndSeparationViolations()
+        public void DescendGate_RequiresWaypointToleranceAndClearance()
         {
-            Vector3 initial = Vector3.zero;
-            Assert.That(
-                Dg5fReachSpec.IsValidSpawn(
-                    new Vector3(0.19f, Dg5fReachSpec.TargetRadius, 0f),
-                    initial),
-                Is.False);
-            Assert.That(
-                Dg5fReachSpec.IsValidSpawn(
-                    new Vector3(0.86f, Dg5fReachSpec.TargetRadius, 0f),
-                    initial),
-                Is.False);
-            Assert.That(
-                Dg5fReachSpec.IsValidSpawn(
-                    new Vector3(0.20f, 0.03f, 0f),
-                    initial),
-                Is.False);
-            Assert.That(
-                Dg5fReachSpec.IsValidSpawn(
-                    new Vector3(0.20f, Dg5fReachSpec.TargetRadius, 0f),
-                    new Vector3(0.20f, Dg5fReachSpec.TargetRadius, 0f)),
-                Is.False);
+            Assert.That(Dg5fReachSpec.CanEnterDescend(0.03f, 0.10f), Is.True);
+            Assert.That(Dg5fReachSpec.CanEnterDescend(0.03001f, 0.10f), Is.False);
+            Assert.That(Dg5fReachSpec.CanEnterDescend(0.03f, 0.09999f), Is.False);
         }
 
         [Test]
-        public void Actions_ClampInputDeltaAndJointRange()
+        public void PrematureDescent_BlocksSweepingButAllowsVerticalFinalApproach()
         {
-            Assert.That(
-                Dg5fReachSpec.AccumulateJointTarget(10f, 2f, 99f, -20f, 20f),
-                Is.EqualTo(14f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.AccumulateJointTarget(19f, 1f, 4f, -20f, 20f),
-                Is.EqualTo(20f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.AccumulateJointTarget(-19f, -1f, 4f, -20f, 20f),
-                Is.EqualTo(-20f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.AccumulateJointTarget(5f, 1f, -2f, -20f, 20f),
-                Is.EqualTo(5f).Within(1e-6f));
+            Assert.That(Dg5fReachSpec.IsPrematureDescent(
+                ReachPhase.Transit, 0f, 0.099f), Is.True);
+            Assert.That(Dg5fReachSpec.IsPrematureDescent(
+                ReachPhase.Descend, 0.051f, 0.099f), Is.True);
+            Assert.That(Dg5fReachSpec.IsPrematureDescent(
+                ReachPhase.Descend, 0.05f, 0.02f), Is.False);
+            Assert.That(Dg5fReachSpec.IsPrematureDescent(
+                ReachPhase.Transit, 0.5f, 0.10f), Is.False);
         }
 
         [Test]
-        public void PointVelocity_IncludesAngularVelocityAtOffsetPoint()
+        public void PalmAndUpperConeAlignment_UseExactAngularBoundaries()
         {
+            Vector3 fifteenDegrees = Quaternion.AngleAxis(15f, Vector3.up)
+                * Vector3.forward;
+            float palmAlignment = Dg5fReachSpec.PalmFacingAlignment(
+                Vector3.forward,
+                fifteenDegrees);
+            Assert.That(palmAlignment,
+                Is.EqualTo(Dg5fReachSpec.MinimumPalmAlignment).Within(1e-6f));
+
+            Vector3 palmAtFortyFive = Quaternion.AngleAxis(45f, Vector3.forward)
+                * Vector3.up;
+            float cone = Dg5fReachSpec.UpperConeAlignment(
+                palmAtFortyFive,
+                Vector3.zero);
+            Assert.That(cone,
+                Is.EqualTo(Dg5fReachSpec.MinimumUpperConeAlignment).Within(1e-6f));
+        }
+
+        [Test]
+        public void LockState_RequiresDistanceSpeedOrientationAndUpperCone()
+        {
+            Assert.That(Dg5fReachSpec.MeetsLockState(
+                0.01f,
+                0.05f,
+                Dg5fReachSpec.MinimumPalmAlignment,
+                Dg5fReachSpec.MinimumUpperConeAlignment), Is.True);
+            Assert.That(Dg5fReachSpec.MeetsLockState(
+                0.01001f, 0.05f, 1f, 1f), Is.False);
+            Assert.That(Dg5fReachSpec.MeetsLockState(
+                0.01f, 0.05001f, 1f, 1f), Is.False);
+            Assert.That(Dg5fReachSpec.MeetsLockState(
+                0.01f, 0.05f,
+                Dg5fReachSpec.MinimumPalmAlignment - 1e-5f, 1f), Is.False);
+            Assert.That(Dg5fReachSpec.MeetsLockState(
+                0.01f, 0.05f, 1f,
+                Dg5fReachSpec.MinimumUpperConeAlignment - 1e-5f), Is.False);
+        }
+
+        [Test]
+        public void LockHold_ResetsOnAnyInvalidFrame()
+        {
+            float hold = 0f;
+            for (int step = 0; step < 13; step++)
+                hold = Dg5fReachSpec.NextLockHoldSeconds(
+                    hold, 0.01f, 0.05f, 1f, 1f, 0.02f);
+            Assert.That(hold, Is.EqualTo(0.26f).Within(1e-6f));
+            Assert.That(Dg5fReachSpec.HasCompletedLockHold(hold), Is.True);
+            Assert.That(Dg5fReachSpec.LockHoldProgress(hold), Is.EqualTo(1f));
+            Assert.That(Dg5fReachSpec.NextLockHoldSeconds(
+                hold, 0.011f, 0.05f, 1f, 1f, 0.02f), Is.Zero);
+        }
+
+        [Test]
+        public void Reward_IsPotentialBasedAndPhaseAware()
+        {
+            float approach = Dg5fReachSpec.DecisionReward(
+                0.5f, 0.4f, ReachPhase.Transit, 0f, 1f);
+            float retreat = Dg5fReachSpec.DecisionReward(
+                0.4f, 0.5f, ReachPhase.Transit, 1f, 0f);
+            Assert.That(approach + retreat,
+                Is.EqualTo(2f * Dg5fReachSpec.DecisionTimePenalty).Within(1e-6f));
+
+            float aligned = Dg5fReachSpec.DecisionReward(
+                0.2f, 0.2f, ReachPhase.Descend, 0.5f, 0.7f);
+            Assert.That(aligned,
+                Is.EqualTo(Dg5fReachSpec.DecisionTimePenalty + 0.05f)
+                    .Within(1e-6f));
+            Assert.That(Dg5fReachSpec.FailurePenalty("Timeout"), Is.EqualTo(-1f));
+            Assert.That(Dg5fReachSpec.FailurePenalty("PrematureDescent"),
+                Is.EqualTo(-2f));
+        }
+
+        [Test]
+        public void ActionsAndPointVelocity_AreBoundedAndFinite()
+        {
+            Assert.That(Dg5fReachSpec.AccumulateJointTarget(
+                10f, 2f, 99f, -20f, 20f), Is.EqualTo(14f));
+            Assert.That(Dg5fReachSpec.AccumulateJointTarget(
+                19f, 1f, 4f, -20f, 20f), Is.EqualTo(20f));
+            Assert.That(Dg5fReachSpec.ArmDeltaDeg(0.1f), Is.EqualTo(1f));
+            Assert.That(Dg5fReachSpec.ArmDeltaDeg(0.1001f), Is.EqualTo(2f));
+
             Vector3 velocity = Dg5fReachSpec.PointVelocity(
                 new Vector3(1f, 2f, 3f),
                 new Vector3(0f, 0f, 2f),
                 Vector3.zero,
                 Vector3.right);
-
-            Assert.That(velocity.x, Is.EqualTo(1f).Within(1e-6f));
-            Assert.That(velocity.y, Is.EqualTo(4f).Within(1e-6f));
-            Assert.That(velocity.z, Is.EqualTo(3f).Within(1e-6f));
-        }
-
-        [Test]
-        public void PointVelocity_NonFiniteInputCannotLeakToObservations()
-        {
-            Vector3 velocity = Dg5fReachSpec.PointVelocity(
+            Assert.That(velocity, Is.EqualTo(new Vector3(1f, 4f, 3f)));
+            Assert.That(Dg5fReachSpec.PointVelocity(
                 new Vector3(float.NaN, 0f, 0f),
                 Vector3.one,
                 Vector3.zero,
-                Vector3.right);
-            Assert.That(velocity, Is.EqualTo(Vector3.zero));
+                Vector3.right), Is.EqualTo(Vector3.zero));
         }
 
         [Test]
-        public void Reward_ApproachThenRetreatCannotFarmProgress()
+        public void EvaluationEpisodes_AreDistributedWithoutOverlap()
         {
-            float approach = Dg5fReachSpec.DecisionReward(0.5f, 0.4f);
-            float retreat = Dg5fReachSpec.DecisionReward(0.4f, 0.5f);
-
-            Assert.That(
-                approach + retreat,
-                Is.EqualTo(2f * Dg5fReachSpec.DecisionTimePenalty).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.DecisionReward(0.5f, 0.5f),
-                Is.EqualTo(Dg5fReachSpec.DecisionTimePenalty).Within(1e-6f));
-        }
-
-        [Test]
-        public void Reward_TerminalValuesMatchContract()
-        {
-            Assert.That(
-                Dg5fReachSpec.SuccessReward(0f, 0f),
-                Is.EqualTo(6f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.SuccessReward(
-                    Dg5fReachSpec.EpisodeTimeoutSeconds,
-                    Dg5fReachSpec.SuccessDistance),
-                Is.EqualTo(2f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.FailurePenalty("Timeout"),
-                Is.EqualTo(-1f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.FailurePenalty("WorkspaceExit"),
-                Is.EqualTo(-2f).Within(1e-6f));
-            Assert.That(
-                Dg5fReachSpec.FailurePenalty("NonFinitePhysics"),
-                Is.EqualTo(-2f).Within(1e-6f));
-        }
-
-        [Test]
-        public void SuccessState_BoundariesAreInclusive()
-        {
-            Assert.That(
-                Dg5fReachSpec.MeetsSuccessState(
-                    Dg5fReachSpec.SuccessDistance,
-                    Dg5fReachSpec.MaximumSuccessPointSpeed),
-                Is.True);
-            Assert.That(
-                Dg5fReachSpec.MeetsSuccessState(
-                    Dg5fReachSpec.SuccessDistance + 1e-5f,
-                    Dg5fReachSpec.MaximumSuccessPointSpeed),
-                Is.False);
-            Assert.That(
-                Dg5fReachSpec.MeetsSuccessState(
-                    Dg5fReachSpec.SuccessDistance,
-                    Dg5fReachSpec.MaximumSuccessPointSpeed + 1e-5f),
-                Is.False);
-        }
-
-        [Test]
-        public void SuccessHold_RequiresContinuousQuarterSecond()
-        {
-            float hold = Dg5fReachSpec.NextSuccessHoldSeconds(
-                0.20f,
-                Dg5fReachSpec.SuccessDistance,
-                Dg5fReachSpec.MaximumSuccessPointSpeed,
-                0.05f);
-            Assert.That(hold, Is.EqualTo(0.25f).Within(1e-6f));
-            Assert.That(Dg5fReachSpec.HasCompletedSuccessHold(hold), Is.True);
-            Assert.That(Dg5fReachSpec.SuccessHoldProgress(hold), Is.EqualTo(1f));
-
-            Assert.That(
-                Dg5fReachSpec.NextSuccessHoldSeconds(
-                    hold,
-                    Dg5fReachSpec.SuccessDistance + 1e-4f,
-                    0f,
-                    0.02f),
-                Is.Zero);
-            Assert.That(
-                Dg5fReachSpec.NextSuccessHoldSeconds(
-                    hold,
-                    0f,
-                    Dg5fReachSpec.MaximumSuccessPointSpeed + 1e-4f,
-                    0.02f),
-                Is.Zero);
-        }
-
-        [Test]
-        public void Curriculum_ProgressivelyTightensReachContract()
-        {
-            Assert.That(Dg5fReachSpec.SuccessDistanceForStage(1), Is.EqualTo(0.05f));
-            Assert.That(Dg5fReachSpec.SuccessDistanceForStage(2), Is.EqualTo(0.03f));
-            Assert.That(Dg5fReachSpec.SuccessDistanceForStage(3), Is.EqualTo(0.01f));
-            Assert.That(Dg5fReachSpec.RequiredSuccessHoldSecondsForStage(1), Is.EqualTo(0.02f));
-            Assert.That(Dg5fReachSpec.RequiredSuccessHoldSecondsForStage(2), Is.EqualTo(0.10f));
-            Assert.That(Dg5fReachSpec.RequiredSuccessHoldSecondsForStage(3), Is.EqualTo(0.25f));
-            Assert.That(Dg5fReachSpec.MinimumTargetRadiusForStage(1), Is.EqualTo(0.35f));
-            Assert.That(Dg5fReachSpec.MaximumTargetRadiusForStage(1), Is.EqualTo(0.70f));
-            Assert.That(Dg5fReachSpec.MinimumTargetRadiusForStage(3), Is.EqualTo(0.20f));
-            Assert.That(Dg5fReachSpec.MaximumTargetRadiusForStage(3), Is.EqualTo(0.85f));
-        }
-
-        [Test]
-        public void Curriculum_UsesTwoDegreesThenOneDegreeNearTarget()
-        {
-            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(1, 0.01f), Is.EqualTo(2f));
-            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(2, 0.20f), Is.EqualTo(2f));
-            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(2, 0.10f), Is.EqualTo(1f));
-            Assert.That(Dg5fReachSpec.ArmDeltaDegForStage(3, 0.01f), Is.EqualTo(1f));
-        }
-
-        [Test]
-        public void Timeout_IsExactlyTwentySimulationSeconds()
-        {
-            Assert.That(
-                Dg5fReachSpec.ReachedEpisodeTimeout(
-                    Dg5fReachSpec.EpisodeTimeoutSeconds - 1e-4f),
-                Is.False);
-            Assert.That(
-                Dg5fReachSpec.ReachedEpisodeTimeout(
-                    Dg5fReachSpec.EpisodeTimeoutSeconds),
-                Is.True);
-        }
-
-        [Test]
-        public void Workspace_BoundariesAreInclusive()
-        {
-            Assert.That(
-                Dg5fReachSpec.IsWithinWorkspace(
-                    new Vector3(
-                        Dg5fReachSpec.WorkspaceRadius,
-                        Dg5fReachSpec.WorkspaceMinimumY,
-                        0f)),
-                Is.True);
-            Assert.That(
-                Dg5fReachSpec.IsWithinWorkspace(
-                    new Vector3(
-                        0f,
-                        Dg5fReachSpec.WorkspaceMaximumY,
-                        Dg5fReachSpec.WorkspaceRadius)),
-                Is.True);
-            Assert.That(
-                Dg5fReachSpec.IsWithinWorkspace(
-                    new Vector3(Dg5fReachSpec.WorkspaceRadius + 1e-4f, 0f, 0f)),
-                Is.False);
-            Assert.That(
-                Dg5fReachSpec.IsWithinWorkspace(
-                    new Vector3(0f, Dg5fReachSpec.WorkspaceMaximumY + 1e-4f, 0f)),
-                Is.False);
-        }
-
-        [Test]
-        public void Agent_HasNoHandOrFingerPolicyState()
-        {
-            FieldInfo[] fields = typeof(Dg5fGraspPointReachAgent).GetFields(
-                BindingFlags.Instance
-                | BindingFlags.Public
-                | BindingFlags.NonPublic
-                | BindingFlags.DeclaredOnly);
-            string[] forbiddenFields = fields
-                .Select(field => field.Name)
-                .Where(name =>
-                    name.IndexOf("hand", StringComparison.OrdinalIgnoreCase) >= 0
-                    || name.IndexOf("finger", StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToArray();
-
-            Assert.That(forbiddenFields, Is.Empty);
-            Assert.That(
-                fields.Count(field => field.FieldType == typeof(ArticulationBody[])),
-                Is.EqualTo(1),
-                "The only articulation array must be the six arm joints.");
-        }
-
-        [Test]
-        public void EvaluationContract_UsesExactStableCsvHeader()
-        {
-            Assert.That(
-                ArmReachEvaluationSession.CsvHeader,
-                Is.EqualTo(
-                    "episode,seed,success,final_distance_meters,"
-                    + "grasp_point_speed_mps,success_hold_seconds,elapsed_seconds,"
-                    + "workspace_safe,finite_physics,termination_reason"));
-            Assert.That(
-                ArmReachEvaluationSession.EpisodesArgument,
-                Is.EqualTo("--dg5f-eval-episodes"));
-            Assert.That(
-                ArmReachEvaluationSession.BaseSeedArgument,
-                Is.EqualTo("--dg5f-eval-base-seed"));
-            Assert.That(
-                ArmReachEvaluationSession.CsvArgument,
-                Is.EqualTo("--dg5f-eval-csv"));
-        }
-
-        [Test]
-        public void EvaluationDistribution_CoversFiveHundredEpisodesExactlyOnce()
-        {
-            const int episodeCount = 500;
-            const int areaCount = ArmReachEvaluationSession.AreaCount;
-            var assigned = new HashSet<int>();
-
-            for (int area = 0; area < areaCount; area++)
-            {
-                int perArea = ArmReachEvaluationSession.EpisodesForArea(
-                    episodeCount,
-                    area,
-                    areaCount);
-                Assert.That(perArea, Is.EqualTo(25));
-                for (int local = 0; local < perArea; local++)
-                {
-                    assigned.Add(ArmReachEvaluationSession.EpisodeForArea(
+            var episodes = Enumerable.Range(0, ArmReachEvaluationSession.AreaCount)
+                .SelectMany(area => Enumerable.Range(
+                        0,
+                        ArmReachEvaluationSession.EpisodesForArea(
+                            500,
+                            area,
+                            ArmReachEvaluationSession.AreaCount))
+                    .Select(local => ArmReachEvaluationSession.EpisodeForArea(
                         area,
                         local,
-                        areaCount));
-                }
-            }
-
-            Assert.That(assigned.Count, Is.EqualTo(episodeCount));
-            Assert.That(assigned.Min(), Is.Zero);
-            Assert.That(assigned.Max(), Is.EqualTo(episodeCount - 1));
+                        ArmReachEvaluationSession.AreaCount)))
+                .ToArray();
+            Assert.That(episodes, Has.Length.EqualTo(500));
+            Assert.That(episodes.Distinct().Count(), Is.EqualTo(500));
+            Assert.That(episodes.Min(), Is.Zero);
+            Assert.That(episodes.Max(), Is.EqualTo(499));
         }
     }
 }

@@ -1,5 +1,5 @@
 behaviors:
-  DG5FGraspPointReach:
+  DG5FGraspReadyReach:
     trainer_type: ppo
     hyperparameters:
       batch_size: 256

@@ -18,8 +18,13 @@ REQUIRED_COLUMNS = (
     "success",
     "final_distance_meters",
     "grasp_point_speed_mps",
+    "palm_alignment",
+    "upper_cone_alignment",
     "success_hold_seconds",
     "elapsed_seconds",
+    "minimum_transit_clearance_meters",
+    "unsafe_surface_contact",
+    "premature_descent",
     "workspace_safe",
     "finite_physics",
     "termination_reason",
@@ -30,6 +35,9 @@ MINIMUM_SUCCESS_RATE = 0.90
 MAXIMUM_DISTANCE_METERS = 0.01
 MAXIMUM_SPEED_MPS = 0.05
 MINIMUM_HOLD_SECONDS = 0.25
+MINIMUM_PALM_ALIGNMENT = 0.965925826
+MINIMUM_UPPER_CONE_ALIGNMENT = 0.707106781
+MINIMUM_TRANSIT_CLEARANCE_METERS = 0.10
 MAXIMUM_EPISODE_SECONDS = 20.0
 EPSILON = 1e-9
 
@@ -119,10 +127,21 @@ def validate(
         success = _parse_binary(row, "success", row_number)
         workspace_safe = _parse_binary(row, "workspace_safe", row_number)
         finite_physics = _parse_binary(row, "finite_physics", row_number)
+        unsafe_contact = _parse_binary(
+            row, "unsafe_surface_contact", row_number
+        )
+        premature_descent = _parse_binary(row, "premature_descent", row_number)
         distance = _parse_finite(row, "final_distance_meters", row_number)
         speed = _parse_finite(row, "grasp_point_speed_mps", row_number)
+        palm_alignment = _parse_finite(row, "palm_alignment", row_number)
+        upper_cone_alignment = _parse_finite(
+            row, "upper_cone_alignment", row_number
+        )
         hold = _parse_finite(row, "success_hold_seconds", row_number)
         elapsed = _parse_finite(row, "elapsed_seconds", row_number)
+        minimum_clearance = _parse_finite(
+            row, "minimum_transit_clearance_meters", row_number
+        )
         reason = row["termination_reason"].strip()
 
         if min(distance, speed, hold, elapsed) < 0:
@@ -142,6 +161,15 @@ def validate(
             raise ValueError(f"row {row_number}: workspace safety failure")
         if not finite_physics:
             raise ValueError(f"row {row_number}: non-finite physics")
+        if unsafe_contact:
+            raise ValueError(f"row {row_number}: unsafe surface contact")
+        if premature_descent:
+            raise ValueError(f"row {row_number}: premature descent")
+        if minimum_clearance + EPSILON < MINIMUM_TRANSIT_CLEARANCE_METERS:
+            raise ValueError(
+                f"row {row_number}: minimum transit clearance below "
+                f"{MINIMUM_TRANSIT_CLEARANCE_METERS:g}m"
+            )
         if not reason:
             raise ValueError(f"row {row_number}: termination_reason is empty")
 
@@ -154,6 +182,11 @@ def validate(
                     speed <= MAXIMUM_SPEED_MPS + EPSILON,
                 f"success_hold_seconds >= {MINIMUM_HOLD_SECONDS:g}":
                     hold + EPSILON >= MINIMUM_HOLD_SECONDS,
+                f"palm_alignment >= {MINIMUM_PALM_ALIGNMENT:g}":
+                    palm_alignment + EPSILON >= MINIMUM_PALM_ALIGNMENT,
+                f"upper_cone_alignment >= {MINIMUM_UPPER_CONE_ALIGNMENT:g}":
+                    upper_cone_alignment + EPSILON
+                    >= MINIMUM_UPPER_CONE_ALIGNMENT,
                 "termination_reason == Success": reason == "Success",
             }
             failed = [name for name, passed in checks.items() if not passed]

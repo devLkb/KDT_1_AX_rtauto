@@ -33,8 +33,13 @@ class EvaluateGraspPointReachTests(unittest.TestCase):
                     "success": int(success),
                     "final_distance_meters": 0.01 if success else 0.02,
                     "grasp_point_speed_mps": 0.05 if success else 0.10,
+                    "palm_alignment": 0.965925826 if success else 0.0,
+                    "upper_cone_alignment": 0.707106781 if success else 0.0,
                     "success_hold_seconds": 0.25 if success else 0.0,
                     "elapsed_seconds": 1.0 if success else 20.0,
+                    "minimum_transit_clearance_meters": 0.10,
+                    "unsafe_surface_contact": 0,
+                    "premature_descent": 0,
                     "workspace_safe": 1,
                     "finite_physics": 1,
                     "termination_reason": "Success" if success else "Timeout",
@@ -86,6 +91,8 @@ class EvaluateGraspPointReachTests(unittest.TestCase):
             ("final_distance_meters", 0.01001),
             ("grasp_point_speed_mps", 0.05001),
             ("success_hold_seconds", 0.24999),
+            ("palm_alignment", 0.965),
+            ("upper_cone_alignment", 0.707),
         )
         for column, value in cases:
             with self.subTest(column=column):
@@ -107,6 +114,26 @@ class EvaluateGraspPointReachTests(unittest.TestCase):
             with self.subTest(column=column):
                 path = self.write_ledger(
                     lambda rows, column=column, value=value: rows[499].update(
+                        {column: value}
+                    )
+                )
+                with self.assertRaisesRegex(ValueError, message):
+                    EVALUATOR.validate(path)
+
+    def test_rejects_surface_contact_premature_descent_and_low_clearance(self):
+        cases = (
+            ("unsafe_surface_contact", 1, "unsafe surface contact"),
+            ("premature_descent", 1, "premature descent"),
+            (
+                "minimum_transit_clearance_meters",
+                0.099,
+                "minimum transit clearance",
+            ),
+        )
+        for column, value, message in cases:
+            with self.subTest(column=column):
+                path = self.write_ledger(
+                    lambda rows, column=column, value=value: rows[0].update(
                         {column: value}
                     )
                 )

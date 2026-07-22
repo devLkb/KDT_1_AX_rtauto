@@ -8,10 +8,10 @@ namespace KDT.ReachTraining.Editor
 {
     public static class ArmReachTrainingBuild
     {
-        const string BuildDirectoryName = "DG5FGraspPointReachCurriculum";
-        const string PlayerName = "DG5FGraspPointReach.x86_64";
+        const string BuildDirectoryName = "DG5FGraspReadyReach";
+        const string PlayerName = "DG5FGraspReadyReach.x86_64";
 
-        [MenuItem("Tools/ML-Agents/Build DG5F GraspPoint Reach Linux Player")]
+        [MenuItem("Tools/ML-Agents/Build DG5F Grasp Ready Reach Linux Player")]
         public static void BuildLinux()
         {
             ArmReachTrainingSceneBuilder.Build();
@@ -46,14 +46,14 @@ namespace KDT.ReachTraining.Editor
             BuildReport report = BuildPipeline.BuildPlayer(options);
             if (report.summary.result != BuildResult.Succeeded)
                 throw new InvalidOperationException(
-                    "DG5F GraspPoint reach Linux build failed: "
+                    "DG5F grasp-ready reach Linux build failed: "
                     + report.summary.result);
 
             RemoveUnusedRuntimeAssimp(directory);
             InstallLinuxLibDlProbeShim(directory);
             Directory.CreateDirectory(Path.Combine(
                 directory,
-                "DG5FGraspPointReach_Data",
+                "DG5FGraspReadyReach_Data",
                 "ML-Agents",
                 "Timers"));
             Debug.Log($"[ArmReachTrainingBuild] Built {output}");
@@ -63,7 +63,7 @@ namespace KDT.ReachTraining.Editor
         {
             string plugin = Path.Combine(
                 outputDirectory,
-                "DG5FGraspPointReach_Data",
+                "DG5FGraspReadyReach_Data",
                 "Plugins",
                 "libassimp.so");
             if (File.Exists(plugin)) File.Delete(plugin);
@@ -82,7 +82,7 @@ namespace KDT.ReachTraining.Editor
                     "Linux libdl.so.2 is required for the URDF importer probe.");
             string plugins = Path.Combine(
                 outputDirectory,
-                "DG5FGraspPointReach_Data",
+                "DG5FGraspReadyReach_Data",
                 "Plugins");
             Directory.CreateDirectory(plugins);
             File.Copy(source, Path.Combine(plugins, "libdl.so"), true);

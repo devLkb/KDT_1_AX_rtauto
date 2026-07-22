@@ -19,8 +19,10 @@ namespace KDT.ReachTraining
         public const string CsvArgument = "--dg5f-eval-csv";
         public const string CsvHeader =
             "episode,seed,success,final_distance_meters,grasp_point_speed_mps,"
-            + "success_hold_seconds,elapsed_seconds,workspace_safe,finite_physics,"
-            + "termination_reason";
+            + "palm_alignment,upper_cone_alignment,success_hold_seconds,"
+            + "elapsed_seconds,minimum_transit_clearance_meters,"
+            + "unsafe_surface_contact,premature_descent,workspace_safe,"
+            + "finite_physics,termination_reason";
 
         static readonly object Gate = new object();
         static readonly Dictionary<Dg5fGraspPointReachAgent, int> AreaByAgent =
@@ -102,8 +104,13 @@ namespace KDT.ReachTraining
             bool success,
             float finalDistanceMeters,
             float graspPointSpeedMetersPerSecond,
+            float palmAlignment,
+            float upperConeAlignment,
             float successHoldSeconds,
             float elapsedSeconds,
+            float minimumTransitClearanceMeters,
+            bool unsafeSurfaceContact,
+            bool prematureDescent,
             bool workspaceSafe,
             bool finitePhysics,
             string terminationReason)
@@ -133,8 +140,13 @@ namespace KDT.ReachTraining
                     success ? "1" : "0",
                     FormatFloat(finalDistanceMeters),
                     FormatFloat(graspPointSpeedMetersPerSecond),
+                    FormatFloat(palmAlignment),
+                    FormatFloat(upperConeAlignment),
                     FormatFloat(successHoldSeconds),
                     FormatFloat(elapsedSeconds),
+                    FormatFloat(minimumTransitClearanceMeters),
+                    unsafeSurfaceContact ? "1" : "0",
+                    prematureDescent ? "1" : "0",
                     workspaceSafe ? "1" : "0",
                     finitePhysics ? "1" : "0",
                     EscapeCsv(terminationReason));
