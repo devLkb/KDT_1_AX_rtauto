@@ -28,6 +28,7 @@ namespace KDT.GraspTraining.Editor
         {
             "Dg5fReceiver",
             "Dg5fHandDriver",
+            "Dg5fFingerIK",
             "Dg5fThumbIK",
             "Dg5fJointLogger",
             "HandSliderUI",
@@ -84,7 +85,24 @@ namespace KDT.GraspTraining.Editor
             agent.graspPoint = graspPoint;
             agent.fingerTips = tips;
             agent.contactSensors = sensors;
+            agent.enablePolicyClosure = false;
+            agent.endEpisodeOnReach = true;
+            agent.safetySensors = ConfigureSafetySensors(
+                robot,
+                agent.pedestalCollider,
+                agent);
             agent.MaxStep = 0;
+
+            var handoff = robot.GetComponent<GraspTeleoperationHandoff>();
+            if (handoff == null)
+                handoff = robot.AddComponent<GraspTeleoperationHandoff>();
+            handoff.agent = agent;
+            handoff.teleoperationDrivers = robot.GetComponents<MonoBehaviour>()
+                .Where(component => component != null
+                    && (component.GetType().Name == "Dg5fReceiver"
+                        || component.GetType().Name == "Dg5fHandDriver"
+                        || component.GetType().Name == "Dg5fFingerIK"))
+                .ToArray();
 
             var behavior = robot.GetComponent<BehaviorParameters>();
             if (behavior == null) behavior = robot.AddComponent<BehaviorParameters>();
@@ -96,7 +114,8 @@ namespace KDT.GraspTraining.Editor
             behavior.BrainParameters.VectorActionDescriptions = new[]
             {
                 "shoulder_pan_delta", "shoulder_lift_delta", "elbow_delta",
-                "wrist_1_delta", "wrist_2_delta", "wrist_3_delta", "grip_delta"
+                "wrist_1_delta", "wrist_2_delta", "wrist_3_delta",
+                "grip_delta_compatibility_ignored"
             };
 
             var requester = robot.GetComponent<DecisionRequester>();
@@ -182,6 +201,35 @@ namespace KDT.GraspTraining.Editor
                 body.xDrive = drive;
                 body.useGravity = false;
             }
+        }
+
+        static GraspSurfaceContactSensor[] ConfigureSafetySensors(
+            GameObject robot,
+            Collider panel,
+            Dg5fGraspAgent agent)
+        {
+            var sensors = new List<GraspSurfaceContactSensor>();
+            foreach (Collider collider in
+                     robot.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || !collider.enabled || collider.isTrigger)
+                    continue;
+                ArticulationBody body =
+                    collider.GetComponentInParent<ArticulationBody>();
+                if (body == null || body.isRoot) continue;
+
+                GraspSurfaceContactSensor sensor =
+                    collider.GetComponent<GraspSurfaceContactSensor>();
+                if (sensor == null)
+                    sensor = collider.gameObject.AddComponent<GraspSurfaceContactSensor>();
+                sensor.agent = agent;
+                sensor.unsafeSurface = panel;
+                sensors.Add(sensor);
+            }
+            if (sensors.Count == 0)
+                throw new InvalidOperationException(
+                    "No moving robot colliders were available for panel safety.");
+            return sensors.ToArray();
         }
 
         static GameObject CreatePedestal(Transform parent, PhysicsMaterial material)

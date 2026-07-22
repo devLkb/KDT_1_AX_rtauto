@@ -9,7 +9,7 @@ namespace KDT.GraspTraining
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "1.2.0";
+        public const string SpecVersion = "1.3.0";
         public const string BehaviorName = "DG5FGrasp";
         public const int ObservationSize = 57;
         public const int ActionSize = 7;
@@ -31,6 +31,9 @@ namespace KDT.GraspTraining
         public const float PanelThickness = 0.25f;
         public const float MaximumSpawnBallDistance = 0.80f;
         public const float MaximumBallDistance = 0.85f;
+        public const float MinimumTransitClearance = 0.10f;
+        public const float MaximumLowClearancePlanarDistance = 0.05f;
+        public const float SafetyPenalty = -2f;
 
         // Palm-local center of the full-hand grasp volume. The palm surface ends
         // near +Z 0.03 m, so this leaves the requested 0.01 m outward clearance.
@@ -176,6 +179,30 @@ namespace KDT.GraspTraining
             return !IsFinite(ballLocalPosition)
                 || ballLocalPosition.magnitude > MaximumBallDistance
                 || ballLocalPosition.y < pedestalTopHeight;
+        }
+
+        public static float PlanarDistance(Vector3 first, Vector3 second)
+        {
+            if (!IsFinite(first) || !IsFinite(second))
+                return float.PositiveInfinity;
+            return new Vector2(first.x - second.x, first.z - second.z).magnitude;
+        }
+
+        public static bool IsUnsafeLowClearanceMotion(
+            float planarDistance,
+            float floorClearance)
+        {
+            if (!IsFinite(planarDistance) || !IsFinite(floorClearance)) return true;
+            return floorClearance < MinimumTransitClearance
+                && planarDistance > MaximumLowClearancePlanarDistance;
+        }
+
+        public static float FailurePenalty(string reason)
+        {
+            return string.Equals(reason, "UnsafeSurfaceContact", StringComparison.Ordinal)
+                || string.Equals(reason, "PrematureDescent", StringComparison.Ordinal)
+                ? SafetyPenalty
+                : 0f;
         }
 
         public static bool IsFinite(float value)

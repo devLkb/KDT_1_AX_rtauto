@@ -8,7 +8,7 @@ namespace KDT.GraspTraining.Tests
         [Test]
         public void V1KeepsTheForwardCompatiblePolicyShape()
         {
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.3.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
             Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
@@ -143,6 +143,37 @@ namespace KDT.GraspTraining.Tests
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(0.85f, 0f, 0f), -1f), Is.False);
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(0.851f, 0f, 0f), -1f), Is.True);
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(float.NaN, 0f, 0f), -1f), Is.True);
+        }
+
+        [Test]
+        public void LowClearanceSafetyBlocksFloorSweepsWithoutChangingPolicyShape()
+        {
+            Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
+            Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
+            Assert.That(Dg5fGraspSpec.MinimumTransitClearance, Is.EqualTo(0.10f));
+            Assert.That(Dg5fGraspSpec.MaximumLowClearancePlanarDistance,
+                Is.EqualTo(0.05f));
+
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(0.051f, 0.099f),
+                Is.True);
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(0.05f, 0.099f),
+                Is.False);
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(0.051f, 0.10f),
+                Is.False);
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(float.NaN, 0.10f),
+                Is.True);
+        }
+
+        [Test]
+        public void OnlyPanelSafetyFailuresReceiveTheDemoPenalty()
+        {
+            Assert.That(Dg5fGraspSpec.SafetyPenalty, Is.EqualTo(-2f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("UnsafeSurfaceContact"),
+                Is.EqualTo(-2f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("PrematureDescent"),
+                Is.EqualTo(-2f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("Timeout"), Is.Zero);
+            Assert.That(Dg5fGraspSpec.FailurePenalty("BallOutOfBounds"), Is.Zero);
         }
 
         static float Azimuth(Vector3 position)

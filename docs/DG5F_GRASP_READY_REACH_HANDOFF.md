@@ -1,5 +1,9 @@
 # DG5FGraspReadyReach 인수인계 (2026-07-21)
 
+> **빠른 시연 경로:** 새 `37/6` 정책 대신 기존 `DG5FGrasp` `57/7` 모델을
+> 유지하면서 바닥 안전 제한과 closure 무시 handoff를 적용하는 절차는
+> [DG5F_GRASP_57X7_FLOOR_SAFE_DEMO.md](DG5F_GRASP_57X7_FLOOR_SAFE_DEMO.md)를 따른다.
+
 ## 구현 완료
 
 - Behavior/spec `DG5FGraspReadyReach` / `2.0.0`, observation/action `37/6`

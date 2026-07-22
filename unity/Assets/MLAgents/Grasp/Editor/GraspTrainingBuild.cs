@@ -13,6 +13,8 @@ namespace KDT.GraspTraining.Editor
         [MenuItem("Tools/ML-Agents/Build Linux Headless Training Environment")]
         public static void BuildLinuxHeadless()
         {
+            GraspTrainingSceneBuilder.Build();
+
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName
                 ?? throw new InvalidOperationException("Cannot resolve Unity project root.");
             string repositoryRoot = Directory.GetParent(projectRoot)?.FullName
@@ -26,7 +28,7 @@ namespace KDT.GraspTraining.Editor
                 locationPathName = Path.Combine(outputDirectory, "DG5FGrasp.x86_64"),
                 target = BuildTarget.StandaloneLinux64,
                 // Build a regular Linux player so the optional Dedicated Server module
-                // is not required. ML-Agents launches it headlessly with -nographics.
+                // is not required. The launcher uses Xvfb on display-less hosts.
                 subtarget = (int)StandaloneBuildSubtarget.Player,
                 options = BuildOptions.None
             };
@@ -36,7 +38,44 @@ namespace KDT.GraspTraining.Editor
                 throw new InvalidOperationException(
                     $"Headless build failed: {report.summary.result}, errors={report.summary.totalErrors}");
 
+            RemoveUnusedRuntimeAssimp(outputDirectory);
+            InstallLinuxLibDlProbeShim(outputDirectory);
+            Directory.CreateDirectory(Path.Combine(
+                outputDirectory,
+                "DG5FGrasp_Data",
+                "ML-Agents",
+                "Timers"));
+
             Debug.Log($"[GraspTrainingBuild] Built {options.locationPathName}");
+        }
+
+        static void RemoveUnusedRuntimeAssimp(string outputDirectory)
+        {
+            string plugin = Path.Combine(
+                outputDirectory,
+                "DG5FGrasp_Data",
+                "Plugins",
+                "libassimp.so");
+            if (File.Exists(plugin)) File.Delete(plugin);
+        }
+
+        static void InstallLinuxLibDlProbeShim(string outputDirectory)
+        {
+            string[] candidates =
+            {
+                "/lib/x86_64-linux-gnu/libdl.so.2",
+                "/usr/lib/x86_64-linux-gnu/libdl.so.2"
+            };
+            string source = Array.Find(candidates, File.Exists);
+            if (source == null)
+                throw new InvalidOperationException(
+                    "Linux libdl.so.2 is required for the URDF importer probe.");
+            string plugins = Path.Combine(
+                outputDirectory,
+                "DG5FGrasp_Data",
+                "Plugins");
+            Directory.CreateDirectory(plugins);
+            File.Copy(source, Path.Combine(plugins, "libdl.so"), true);
         }
     }
 }
