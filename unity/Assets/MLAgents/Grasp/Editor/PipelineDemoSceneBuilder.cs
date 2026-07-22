@@ -169,6 +169,7 @@ namespace KDT.GraspTraining.Editor
             receiver.clampToWorkspace = true;
             receiver.minRadius = Dg5fGraspSpec.V1MinimumSpawnRadius;
             receiver.maxRadius = Dg5fGraspSpec.V1MaximumSpawnRadius;
+            receiver.logToConsole = true;
             return receiver;
         }
 

@@ -70,7 +70,7 @@ def main():
 
     init_params = sl.InitParameters()
     init_params.camera_resolution = sl.RESOLUTION.HD720
-    init_params.depth_mode = sl.DEPTH_MODE.NEURAL
+    init_params.depth_mode = sl.DEPTH_MODE.PERFORMANCE
     init_params.coordinate_units = sl.UNIT.METER
     # Unity(왼손 좌표계, Y-up)와 동일한 좌표계로 바로 받기
     init_params.coordinate_system = sl.COORDINATE_SYSTEM.LEFT_HANDED_Y_UP

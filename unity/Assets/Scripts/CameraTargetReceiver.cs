@@ -54,6 +54,13 @@ public class CameraTargetReceiver : MonoBehaviour
     [Tooltip("마지막 패킷 수신 후 경과(초). 0.5 이상이면 카메라 신호 끊김.")]
     public float secondsSinceLastPacket = float.PositiveInfinity;
 
+    [Tooltip("true: 수신값을 Unity 콘솔에 로그로 찍음(raw 좌표 + robotBase 로컬 변환 결과). " +
+             "디버그/카메라 확인용 — 기본은 꺼둠(20Hz 수신이라 매 프레임 찍으면 콘솔이 넘침).")]
+    public bool logToConsole = false;
+    [Tooltip("logToConsole=true일 때 로그 최소 간격(초)")]
+    public float logIntervalSeconds = 0.5f;
+    float _lastLogTime = float.NegativeInfinity;
+
     const int ChannelCount = 3;
     readonly float[] _latest = new float[ChannelCount];
     volatile bool _hasData;
@@ -93,6 +100,8 @@ public class CameraTargetReceiver : MonoBehaviour
             ? (float)(DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc)).TotalSeconds
             : float.PositiveInfinity;
 
+        if (logToConsole) LogLatestIfDue();
+
         if (!continuousApply) return;
         if (!TryGetRobotLocalPosition(out Vector3 robotLocal)) return;
         target.position = robotBase.TransformPoint(robotLocal);
@@ -114,6 +123,24 @@ public class CameraTargetReceiver : MonoBehaviour
 
         if (clampToWorkspace) robotLocal = ClampToWorkspace(robotLocal);
         return true;
+    }
+
+    void LogLatestIfDue()
+    {
+        if (Time.unscaledTime - _lastLogTime < logIntervalSeconds) return;
+        if (!TryGetLocalPosition(out Vector3 raw)) return;
+        _lastLogTime = Time.unscaledTime;
+
+        if (TryGetRobotLocalPosition(out Vector3 robotLocal))
+        {
+            Debug.Log(
+                $"[CameraTargetReceiver] raw={raw} -> robotLocal={robotLocal} "
+                + $"world={robotBase.TransformPoint(robotLocal)}");
+        }
+        else
+        {
+            Debug.Log($"[CameraTargetReceiver] raw={raw} (robotBase 미설정 등으로 변환 불가)");
+        }
     }
 
     void ReceiveLoop()
