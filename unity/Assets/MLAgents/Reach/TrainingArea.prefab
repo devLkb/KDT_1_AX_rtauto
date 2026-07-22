@@ -1194,7 +1194,7 @@ MonoBehaviour:
     - wrist_3_delta
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 936cb119204053047aef0e6e1e5c320f, type: 3}
+  m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 0
   m_BehaviorName: DG5FGraspPointReach

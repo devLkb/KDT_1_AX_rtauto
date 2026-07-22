@@ -33,6 +33,22 @@ namespace KDT.ReachTraining.Editor
             "Dg5fJointLogger"
         };
 
+        // Must stay disabled: HandSliderUI re-applies its armJoints every
+        // FixedUpdate and would fight the RL agent's direct arm xDrive writes.
+        // ArmTargetIK/Dg5fFingerIK/Dg5fThumbIK are the pre-RL/pre-Dg5fHandDriver
+        // manual-IK control path and would fight Dg5fHandDriver on the same
+        // finger joints. Some of these were found already enabled on individual
+        // finger sub-objects in the checked-in training area, so this is forced
+        // rather than assumed.
+        static readonly string[] ForceDisabledTypeNames =
+        {
+            "ArmTargetIK",
+            "HandSliderUI",
+            "Dg5fFingerIK",
+            "Dg5fThumbIK",
+            "RobotInitialPoseSync"
+        };
+
         [MenuItem("Tools/ML-Agents/Build Pipeline Demo Scene")]
         public static void Build()
         {
@@ -52,13 +68,18 @@ namespace KDT.ReachTraining.Editor
             GameObject areaCopy = UnityEngine.Object.Instantiate(sourceArea);
             areaCopy.name = SourceAreaName;
 
-            EditorSceneManager.CloseScene(sourceScene, true);
-
+            // Create the demo scene additively (NOT Single) so sourceScene stays
+            // loaded until after the copy has been moved out of it — closing
+            // sourceScene first (or via NewSceneMode.Single, which tears down
+            // every loaded scene) destroys areaCopy along with it.
             Scene demoScene = EditorSceneManager.NewScene(
                 NewSceneSetup.DefaultGameObjects,
-                NewSceneMode.Single);
+                NewSceneMode.Additive);
             demoScene.name = "Pipeline_Demo";
             SceneManager.MoveGameObjectToScene(areaCopy, demoScene);
+
+            EditorSceneManager.CloseScene(sourceScene, true);
+            EditorSceneManager.SetActiveScene(demoScene);
 
             ReEnableHandTeleop(areaCopy);
             SetInferenceOnly(areaCopy);
@@ -79,11 +100,12 @@ namespace KDT.ReachTraining.Editor
             foreach (MonoBehaviour behaviour in
                      area.GetComponentsInChildren<MonoBehaviour>(true))
             {
-                if (behaviour != null
-                    && Array.IndexOf(HandTeleopTypeNames, behaviour.GetType().Name) >= 0)
-                {
+                if (behaviour == null) continue;
+                string typeName = behaviour.GetType().Name;
+                if (Array.IndexOf(HandTeleopTypeNames, typeName) >= 0)
                     behaviour.enabled = true;
-                }
+                else if (Array.IndexOf(ForceDisabledTypeNames, typeName) >= 0)
+                    behaviour.enabled = false;
             }
 
             Transform handRoot = area.GetComponentsInChildren<Transform>(true)
@@ -108,8 +130,14 @@ namespace KDT.ReachTraining.Editor
         {
             BehaviorParameters behavior =
                 area.GetComponentInChildren<BehaviorParameters>(true);
-            if (behavior != null)
-                behavior.BehaviorType = BehaviorType.InferenceOnly;
+            if (behavior == null) return;
+
+            // Only force InferenceOnly (which requires a Model) once a matching
+            // trained model is actually assigned. With no Model, Default falls
+            // back to Heuristic (idle) instead of throwing at Play time.
+            behavior.BehaviorType = behavior.Model != null
+                ? BehaviorType.InferenceOnly
+                : BehaviorType.Default;
         }
 
         static void EnsureFolder(string path)

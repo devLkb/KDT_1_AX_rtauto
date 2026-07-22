@@ -3,7 +3,8 @@
   "rootNamespace": "KDT.ReachTraining.Editor",
   "references": [
     "KDT.ReachTraining",
-    "Unity.ML-Agents"
+    "Unity.ML-Agents",
+    "Unity.InferenceEngine"
   ],
   "includePlatforms": [
     "Editor"
