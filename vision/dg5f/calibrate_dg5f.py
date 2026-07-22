@@ -86,7 +86,7 @@ def main():
     # 실측치)을 p95로 저장 (max는 스파이크 취약, median은 굽힌 프레임 섞여 과소).
     straight_samples = []
 
-    os.makedirs(LOG_DIR, exist_ok=True)
+    # 디렉터리 생성·파일 선점은 unique_log_path()가 이미 처리(CSV_PATH 계산 시점)
     csv_file = open(CSV_PATH, "w", newline="")
     writer = csv.writer(csv_file)
     writer.writerow(["timestamp"] + CHANNEL_NAMES)

@@ -51,8 +51,23 @@ public class Dg5fFingerIK : MonoBehaviour
     [Tooltip("끄면 이 손가락도 관절각 채널(레거시)로 구동 — 각도 방식은 항상 패킷에 흐르므로 즉시 폴백된다")]
     public bool enableIK = true;
 
-    [Tooltip("관절당 스텝 제한(도/FixedUpdate). §25-4 리플레이 A/B(2026-07-15): 1.5×2iter(150°/s)는 비전 노이즈를 ×21 증폭(추격·오버슈트) — 0.8×1iter(40°/s)로 떨림 1/10 + 오차 절반(1.50→0.70cm). 엄지가 굼뜨면 1.0~1.2로 (iterations는 1 유지)")]
-    public float maxStepDeg = 0.8f;
+    public enum FingerIKMode
+    {
+        AnatomicalReach,     // §26 방식: 손바닥 해부학 좌표 방향 × 펴짐비율 × 방향별 최대도달 테이블(FK 스윕)
+        RobotRootTipVector,  // 손목 기준: 사람 손목→끝 벡터(v5) × 로봇 손길이 — 손 전체 비율만 반영
+        ChainRatioReach,     // 마디합 비율(2026-07-17): 사람 뿌리관절→끝 벡터(÷사람 3마디합, v2/v4 리치벡터 그대로)
+                             //   × 로봇 3마디합(n_2→tip), 앵커 n_2 — 사람:로봇 마디 3:3 대응 스케일
+    }
+
+    [Tooltip("IK 목표 계산 방식 스위치. AnatomicalReach=§26 방식(해부학 프레임 방향×방향별 FK 도달테이블). "
+             + "RobotRootTipVector=손목 기준(사람 손목→끝 벡터 v5 × 로봇 손길이). "
+             + "ChainRatioReach=마디합 비율(사람 MCP/CMC→끝 ÷ 사람 3마디합 × 로봇 3마디합 |n_2→n_3→n_4→tip| — "
+             + "앵커는 n_2 피벗, 마디 3:3 대응). 세 방식 모두 목표 계산 뒤 공통 파이프라인(핀치→스무딩→CCD→정체감쇠→softZone)을 "
+             + "타므로 '도달불가→최근접 이동 후 정지(무진동)'는 자동 적용된다. 런타임에 바꿔 A/B 비교 가능")]
+    public FingerIKMode ikMode = FingerIKMode.AnatomicalReach;
+
+    [Tooltip("관절당 스텝 제한(도/FixedUpdate). §25-4 리플레이 A/B(2026-07-15): 1.5×2iter(150°/s)는 비전 노이즈를 ×21 증폭(추격·오버슈트) — 0.8×1iter(40°/s)로 떨림 1/10. 2026-07-16 5손가락 IK 전환 후 '굼뜸' 피드백으로 1.5×1iter(≈75°/s)로 완화 — iterations는 1 유지(2 이상은 노이즈 증폭 가담). 2026-07-17 1.5로 풀었더니 떨림 재발 → 1.0(≈50°/s)로 복귀. 떨리면 더 낮추고, 더 빠르게는 2.0까지(iter 1)")]
+    public float maxStepDeg = 1.0f;
 
     [Tooltip("CCD 반복 횟수/FixedUpdate — §25-4: 1 초과는 노이즈 증폭에 가담(실효 슬루가 배수로 늘어남)")]
     public int iterations = 1;
@@ -99,15 +114,17 @@ public class Dg5fFingerIK : MonoBehaviour
     bool _priorSmoothedInit;
 
     // ---- 앞뒤(깊이) 피드포워드 (2단계에서 비활성, §25 2026-07-15) ----
-    // 구정책(§20-5/20-7): 1_2를 elevation ff 전담, CCD 제외(권한=_pinchW). 당시 근거였던
-    // "위치만으로 깊이 재현 불가"는 가상 앵커 정합(reachOffset)으로 소멸 — 오히려 ff 전담이
-    // 작업공간을 x≥0.24로 묶어 명령 82%가 도달 불가(잔차 1.4~2.5cm+정지 떨림 연료)였음.
-    // 2단계 = cmcFeedforward 0(CCD가 1_2 포함 4관절 전담) + elevation은 priorWeights[1]로만.
-    // ⚠️원복 = cmcFeedforward 8 + priorWeights[1] 0 (이중 제어 금지 규칙 §20-4).
-    [Tooltip("피드포워드 수렴 속도(/s). 0=비활성(2단계 기본): CCD가 1_2 포함 전담, elevation은 prior로만. >0=구정책(1_2를 ff 전담, CCD 제외 — 반드시 priorWeights[1]=0과 함께)")]
+    // 이력: §20-5/20-7은 1_2를 elevation ff 전담(구정책, 도달 82% 불가로 폐기 — 상세는 git 이력).
+    // 2026-07-17 신정책(엄지만, 프리팹 f1: ff=8/joint=0/priorWeights[0]=0): **1_1을 사람 스윕
+    // 채널(패킷 [0]) 직결 전담, CCD 제외** — URDF 실측 근거: 1_1 축=손바닥 법선(스윕 관절),
+    // 1_2 피벗이 1_1 축 위라 1_1 회전에도 앵커 불변, 남은 1_2(롤)+1_3+1_4(굽힘)가 비평면
+    // 3관절 = 3DOF 목표와 여유자유도 0 → CCD가 비해부학 자세(벌림 휘두름)를 고를 여지 소멸.
+    // 핀치 시엔 CCD로 권한 이양(ang×_pinchW — 접촉 정밀이 자세 충실보다 우선).
+    // ⚠️이중 제어 금지(§20-4): ff 전담 관절은 반드시 priorWeights[그 관절]=0.
+    [Tooltip("피드포워드 수렴 속도(/s). 0=비활성: CCD가 4관절 전담. >0=feedforwardJoint를 사람 각도 채널 직결 전담(CCD 제외, 핀치 시 CCD로 이양). 2026-07-17 엄지 1_1 스윕 직결에 사용(f1: 8) — 반드시 priorWeights[해당 관절]=0과 함께")]
     public float cmcFeedforward = 0f;
 
-    [Tooltip("(구정책용) 피드포워드가 전담할 엄지 관절 인덱스(0=1_1 .. 3=1_4). cmcFeedforward=0이면 미사용")]
+    [Tooltip("피드포워드가 전담할 관절 인덱스(0=n_1 .. 3=n_4). 엄지 신정책(2026-07-17)=0(1_1 스윕). cmcFeedforward=0이면 미사용")]
     public int feedforwardJoint = 1;
 
     // ---- 핀치 연속 블렌딩: v3 끝거리비로 해부학 목표↔검지끝 스냅을 연속 전환 ----
@@ -139,6 +156,13 @@ public class Dg5fFingerIK : MonoBehaviour
     /// 이번 틱 CCD가 쫓는 목표(월드, 스무딩 후). 핀치 상대가 참조한다 — Active일 때만 유효.
     public Vector3 CurrentTarget { get; private set; }
 
+    /// 디버그 시각화용(Dg5fIKVectorDebug가 읽음) — Active일 때만 유효.
+    /// DebugAnchor = 이번 틱 활성 방식의 벡터 시작점(Anatomical=가상앵커 / RootTipVector=손목 / ChainRatio=n_2).
+    /// 각 ComputeTarget*가 직접 세팅하므로 폴백까지 포함해 실제 계산과 항상 일치 — 시각화 쪽에 산식 복제 금지.
+    public Vector3 DebugAnchor { get; private set; }
+    /// DebugBaseTarget = base 목표(핀치 블렌딩·스무딩 전) — 노랑 마커와 같은 점.
+    public Vector3 DebugBaseTarget { get; private set; }
+
     Vector3 _smoothedTarget;
     bool _hasSmoothed;
     float _pinchW; // 이번 틱 핀치 블렌딩 가중(0~1) — prior 약화에 사용
@@ -166,6 +190,12 @@ public class Dg5fFingerIK : MonoBehaviour
     Transform _thumbTip, _indexTip, _palm;
     Vector3 _thumbBaseL, _exL, _eyL, _ezL; // palm 로컬: 엄지 베이스(1_1 피벗) + 해부학 축 (Start에서 캐시)
     float _robotChainLen;                   // 로봇 엄지 체인 길이 |1_1→1_2→1_3→1_4→tip| (강체 마디합 — 포즈 불변)
+    float _chainLen3;      // 로봇 3마디 합 |n_2→n_3→n_4→tip| — n_1→n_2(너클 오프셋/메타카팔/측면 오프셋)는 제외.
+                           // URDF상 rest에서 세 마디가 일직선이라 ext=1 목표가 정확히 도달 가능(체인합 과대 문제 해소).
+                           // 앵커는 캐시하지 않고 매 틱 라이브 n_2 피벗 사용 — 검지~약지는 n_2 피벗이 n_1 축에서
+                           // 2.65cm 떨어져 있어 벌림 풀레인지에 최대 2.3cm 흔들린다(rest 캐시는 그만큼 목표 오차).
+                           // n_1이 사람 각도 직결(ff)이라 라이브 피벗을 읽어도 IK 피드백 루프가 안 생긴다.
+    float _robotHandLen;                    // 로봇 손길이 |손목(palm)→중지MCP(3_2)| — 새 방식(v5) 손목→끝 벡터 스케일
 
     // ---- 방향별 최대도달 테이블 (§26, 2026-07-15) ----
     // Start에서 엄지 4관절 리밋 박스를 FK 스윕(13^4≈2.9만 포즈)해 가상 앵커 기준
@@ -221,6 +251,7 @@ public class Dg5fFingerIK : MonoBehaviour
 
         // 로봇 해부학 좌표계 (0° 포즈 기준, palm 로컬로 캐시 — palm은 강체라 불변)
         Vector3 wrist = _palm.position;
+        _robotHandLen = (midMcp.position - wrist).magnitude;  // 새 방식(v5) 손목→끝 벡터 스케일
         Vector3 ez = (midMcp.position - wrist).normalized;
         Vector3 ex = Vector3.Cross(idxMcp.position - pinkyMcp.position, ez).normalized;
         Vector3 ey = Vector3.Cross(ez, ex);
@@ -238,6 +269,12 @@ public class Dg5fFingerIK : MonoBehaviour
             prev = _thumb[i].transform.position;
         }
         _robotChainLen += (_thumbTip.position - prev).magnitude;
+        // ChainRatioReach용 3마디 스케일 — 사람 마디(1~2·2~3·3~4 landmark)와 3:3 대응(2026-07-17).
+        // n_1→n_2 구간(검지~약지 너클 오프셋 3.2cm / 새끼 메타카팔 4.7cm / 엄지 측면 4.2cm)은 사람 쪽
+        // 분모(3마디 합)에 없는 길이라 스케일에서 제외하고 앵커 위치(라이브 n_2 피벗)로 흡수한다.
+        _chainLen3 = (_thumb[2].transform.position - _thumb[1].transform.position).magnitude
+                   + (_thumb[3].transform.position - _thumb[2].transform.position).magnitude
+                   + (_thumbTip.position - _thumb[3].transform.position).magnitude;
 
         _virtualBaseL = _thumbBaseL
             + (_exL * reachOffset.x + _eyL * reachOffset.y + _ezL * reachOffset.z) * robotThumbMaxReach;
@@ -358,6 +395,88 @@ public class Dg5fFingerIK : MonoBehaviour
         return Mathf.Lerp(r0, r1, te);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  IK 목표 계산 — 방식(ikMode)별로 여기서 분기. 반환한 base 목표(월드)는
+    //  FixedUpdate의 공통 파이프라인(핀치 블렌딩 → 스무딩 → CCD → 정체감쇠 → prior)을
+    //  그대로 탄다. 즉 목표를 어떻게 만들든 "도달불가 목표 → 최근접에서 정지(무진동)"는
+    //  공통 처리라 방식별로 다시 구현할 필요 없음.
+    // ══════════════════════════════════════════════════════════════════════
+
+    /// 지금 방식(§26, 2026-07-15): 가상 앵커 + 방향 × 펴짐비율 × 그 방향 로봇 최대도달(FK 테이블).
+    /// tipN = 패킷의 해부학 프레임 리치벡터(방향 단위벡터 × 펴짐비율 0~1). Python이 크기 1.0으로
+    /// 클램프하지만 구버전/오보정 패킷 대비 여기서도 1.0 재클램프 — 목표가 그 방향 작업공간
+    /// 경계를 절대 못 넘게(=구조적으로 항상 도달 가능한 목표를 생성).
+    Vector3 ComputeTargetAnatomical(Vector3 tipN)
+    {
+        Vector3 exW = _palm.TransformDirection(_exL);
+        Vector3 eyW = _palm.TransformDirection(_eyL);
+        Vector3 ezW = _palm.TransformDirection(_ezL);
+        // 가상 앵커: n_1 피벗 + reachOffset — 사람/로봇 작업공간 정합용 평행이동(1단계, §25)
+        Vector3 virtualBase = _palm.TransformPoint(_virtualBaseL);
+        DebugAnchor = virtualBase;   // RobotRootTipVector의 v5 폴백 시에도 여기가 실제 앵커
+        Vector3 anatomical = virtualBase;
+        float ext = tipN.magnitude;                    // 사람 펴짐 비율(직진도)
+        if (ext > 1e-5f)
+        {
+            Vector3 dirA = tipN / ext;                 // 해부학 축 성분 단위 방향
+            if (ext > 1f) ext = 1f;
+            Vector3 dirW = exW * dirA.x + eyW * dirA.y + ezW * dirA.z;
+            anatomical = virtualBase + dirW * (ext * ReachIn(dirA));
+        }
+        return anatomical;
+    }
+
+    /// 새 방식(2026-07-16, 1차): 사람 손목→끝 벡터(해부학 프레임·손길이 정규화, v5 패킷)를
+    /// 로봇 손목 기준으로 복원해 목표를 찍는다 = "로봇 관점 IK".
+    ///   target = 로봇 손목(palm 원점) + (사람 벡터를 로봇 해부학 프레임으로 회전) × 로봇 손길이
+    /// 로봇 손길이(손목→중지MCP)로 스케일 → 손 크기 비율 정합(사람/로봇 손 스케일 차 흡수).
+    /// 해부학 프레임 성분이라 좌/우·손 방향 불변. 지금 방식(§26)과 달리 방향별 도달 테이블로
+    /// 클램프하지 않으므로 로봇 구조상 도달 불가한 목표가 나올 수 있는데 — 별도 처리 없이
+    /// 공통 CCD+정체감쇠(stall damper)+softZone이 최근접에서 멈춰 떨림을 막는다(사용자 요구).
+    /// v5 미수신(구 송신기)이면 지금 방식으로 폴백.
+    /// ⚠️ 1차 구현은 손 전체 손길이 비율만 반영 — 손가락별/마디별 비율 개별 처리는 후속 단계.
+    Vector3 ComputeTargetRobotVector(Vector3 tipN)
+    {
+        if (!_rx.GetWristTipVector(fingerIndex, out Vector3 vN))
+            return ComputeTargetAnatomical(tipN);
+        Vector3 exW = _palm.TransformDirection(_exL);
+        Vector3 eyW = _palm.TransformDirection(_eyL);
+        Vector3 ezW = _palm.TransformDirection(_ezL);
+        Vector3 dirW = exW * vN.x + eyW * vN.y + ezW * vN.z;   // 로봇 프레임의 손목→끝 벡터(손길이 단위)
+        DebugAnchor = _palm.position;
+        return _palm.position + dirW * _robotHandLen;
+    }
+
+    /// 마디합 비율 방식(2026-07-17, 같은 날 2차 수정): 사람 뿌리관절→끝 벡터를 **3:3 마디 대응**으로 스케일.
+    ///   target = 로봇 n_2 피벗 + (사람 방향을 로봇 해부학 프레임으로 회전) × (펴짐비율 × 로봇 3마디합)
+    /// 입력은 기존 v2/v4 리치벡터(tipN) 그대로 — Python이 (끝 − 뿌리관절) ÷ (사람 마디 1~2·2~3·3~4
+    /// 길이합 × 직진도 상한)으로 보낸다(§26 _reach_vector). 로봇 쪽도 같은 마디수로 맞춘다:
+    ///   사람 MCP(엄지 CMC) ↔ 로봇 n_2 피벗 / 사람 3마디 ↔ 로봇 |n_2→n_3→n_4→tip|(_chainLen3)
+    /// 1차 구현(n_1 앵커 + 4마디합 _robotChainLen)의 실패 원인(2026-07-17 라이브):
+    ///   사람 분모는 3마디인데 로봇 곱은 4마디 — n_1→n_2 구간(엄지 측면 4.2cm는 마디와 수직이라
+    ///   일직선 불가 → 폄에서 상시 도달불가, 새끼 메타카팔 4.7cm는 앵커가 손목 근처 → 굽히면
+    ///   손목 관통)이 과대 스케일로 들어갔다. 3마디는 URDF상 rest에서 일직선이라 ext=1이 정확히
+    ///   도달 가능 — 도달테이블 없이도 폄 목표가 포락선 안. AnatomicalReach와의 차이:
+    ///   ① 스케일: 방향별 FK 도달테이블(ReachIn) 대신 등방 3마디합 — 굽힘 방향 과대는
+    ///      공통 정체감쇠+softZone이 최근접에서 멈춰 흡수(떨림 방지)
+    ///   ② 앵커: reachOffset 평행이동 없는 실제 n_2 피벗(사람 앵커가 실제 MCP/CMC인 것과 대응)
+    Vector3 ComputeTargetChainRatio(Vector3 tipN)
+    {
+        // 라이브 n_2 피벗 — rest 캐시 금지: 검지~약지는 n_1 벌림에 피벗이 최대 2.3cm 흔들린다(2026-07-17).
+        // n_1은 사람 각도 직결(ff)이라 IK 출력이 앵커로 되먹임되지 않음. 엄지는 1_2가 1_1 축 위라 어차피 불변.
+        Vector3 basePos = _thumb[1].transform.position;
+        DebugAnchor = basePos;   // 사람 앵커(MCP/CMC = landmark 1·5·9·13·17)의 로봇 대응점
+        float ext = tipN.magnitude;                    // 사람 펴짐 비율(직진도)
+        if (ext <= 1e-5f) return basePos;
+        Vector3 dirA = tipN / ext;                     // 해부학 축 성분 단위 방향
+        if (ext > 1f) ext = 1f;                        // 구버전/오보정 패킷 대비 재클램프(§26과 동일)
+        Vector3 exW = _palm.TransformDirection(_exL);
+        Vector3 eyW = _palm.TransformDirection(_eyL);
+        Vector3 ezW = _palm.TransformDirection(_ezL);
+        Vector3 dirW = exW * dirA.x + eyW * dirA.y + ezW * dirA.z;
+        return basePos + dirW * (ext * _chainLen3);
+    }
+
     void FixedUpdate()
     {
         Active = false;
@@ -369,23 +488,14 @@ public class Dg5fFingerIK : MonoBehaviour
         bool pinch = false;
         if (_indexTip != null) _rx.GetThumbTip(out _, out pinch);   // v2 이진 핀치 폴백 플래그(엄지만)
 
-        // 리치 복원(§26): 가상 앵커 + 방향 × 펴짐비율 × 그 방향 로봇 최대도달(FK 테이블).
-        // Python이 크기 1.0으로 클램프하지만 구버전 송신기/오보정 패킷 대비 여기서도
-        // 비율을 1.0으로 재클램프 — 목표가 그 방향 작업공간 경계를 절대 못 넘게.
-        Vector3 exW = _palm.TransformDirection(_exL);
-        Vector3 eyW = _palm.TransformDirection(_eyL);
-        Vector3 ezW = _palm.TransformDirection(_ezL);
-        // 가상 앵커: 1_1 피벗 + reachOffset — 사람/로봇 엄지 작업공간 정합용 평행이동(1단계, §25)
-        Vector3 virtualBase = _palm.TransformPoint(_virtualBaseL);
-        Vector3 anatomical = virtualBase;
-        float ext = tipN.magnitude;                    // 사람 엄지 펴짐 비율(직진도)
-        if (ext > 1e-5f)
-        {
-            Vector3 dirA = tipN / ext;                 // 해부학 축 성분 단위 방향
-            if (ext > 1f) ext = 1f;
-            Vector3 dirW = exW * dirA.x + eyW * dirA.y + ezW * dirA.z;
-            anatomical = virtualBase + dirW * (ext * ReachIn(dirA));
-        }
+        // ── IK 목표 계산: 방식 스위치(ikMode) ── 계산된 base 목표는 아래 공통 파이프라인
+        //    (핀치 블렌딩 → 스무딩 → CCD → 정체감쇠 → prior)을 그대로 탄다.
+        //    변수명 anatomical은 "이 방식이 만든 base 목표"라는 뜻으로 유지(디버그 노랑 마커·CSV 계약).
+        Vector3 anatomical =
+            ikMode == FingerIKMode.RobotRootTipVector ? ComputeTargetRobotVector(tipN)
+            : ikMode == FingerIKMode.ChainRatioReach ? ComputeTargetChainRatio(tipN)
+            : ComputeTargetAnatomical(tipN);
+        DebugBaseTarget = anatomical;   // 디버그 선의 끝점 = 노랑 마커와 같은 base 목표
         Vector3 raw = anatomical;
         _pinchW = 0f;
         float pinchD = float.NaN; // v2 폴백이면 NaN 유지 (CSV 기록용)
@@ -561,7 +671,7 @@ public class Dg5fFingerIK : MonoBehaviour
             for (int i = 1; i <= 4; i++) jc += ",act_" + fingerIndex + "_" + i;
             _logW.WriteLine("t_unix,n_x,n_y,n_z,pinch_d,pinch_w,"
                 + "yel_x,yel_y,yel_z,red_x,red_y,red_z,grn_x,grn_y,grn_z,"
-                + "ach_x,ach_y,ach_z,err_red,err_yel,stall_scale,step_cap" + jc);
+                + "ach_x,ach_y,ach_z,err_red,err_yel,stall_scale,step_cap" + jc + ",mode");
             Debug.Log("[Dg5fFingerIK f" + fingerIndex + "] 디버그 CSV 기록 시작: " + path);
         }
         Vector3 grn = _thumbTip.position;
@@ -590,6 +700,7 @@ public class Dg5fFingerIK : MonoBehaviour
         A(err); A(Vector3.Distance(yellow, grn)); A(_stallScale); A(stepCap);
         for (int i = 0; i < 4; i++) A(_thumb[i].xDrive.target);
         for (int i = 0; i < 4; i++) A(_thumb[i].jointPosition[0] * Mathf.Rad2Deg);
+        sb.Append(',').Append(ikMode);   // 활성 IK 방식(AnatomicalReach/RobotRootTipVector) — 매 행 기록해 런타임 전환 시점까지 추적
         _logW.WriteLine(sb.ToString());
         if (++_logCount % Mathf.Max(1, debugLogFlushEvery) == 0) _logW.Flush();
     }

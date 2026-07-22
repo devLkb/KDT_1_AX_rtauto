@@ -11,6 +11,9 @@
 // 로봇 루트에 부착 (Dg5fReceiver와 같은 GameObject).
 
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text;
 using UnityEngine;
 
 [RequireComponent(typeof(Dg5fReceiver))]
@@ -34,6 +37,45 @@ public class Dg5fHandDriver : MonoBehaviour
     readonly float[] _angles = new float[Dg5fReceiver.ChannelCount];
     readonly float[] _smoothed = new float[Dg5fReceiver.ChannelCount];
     bool _initialized;
+
+    [Tooltip("켜면 20관절 전체의 [비전 라디안 vs 로봇 관절 라디안] + 수신→클램프→적용→실제 각도를 "
+             + "0.5초마다 Console에 찍음(파이썬 로그와 대조용). IK 구동 중인 손가락은 제외. "
+             + "디버깅용 임시 기본 ON — 다 쓰면 끌 것")]
+    public bool debugThumbLog = true;   // 디버그 임시 기본 ON
+    float _lastDbgLog;
+
+    // 20채널 사람-관절 대응 이름(파이썬 dg5f_angles.CHANNEL_NAMES와 동일 순서) — 디버그 로그 라벨.
+    static readonly string[] JointLabels = {
+        "1_1 thumb_cmc(평면)", "1_2 thumb_opp(깊이)", "1_3 thumb_mcp", "1_4 thumb_ip",
+        "2_1 index_abd", "2_2 index_mcp", "2_3 index_pip", "2_4 index_dip",
+        "3_1 middle_abd", "3_2 middle_mcp", "3_3 middle_pip", "3_4 middle_dip",
+        "4_1 ring_abd", "4_2 ring_mcp", "4_3 ring_pip", "4_4 ring_dip",
+        "5_1 pinky_cmc", "5_2 pinky_lat", "5_3 pinky_mcp", "5_4 pinky_pip",
+    };
+
+    // --- 관절 격리 디버그(드롭다운) ---
+    //   미디어파이프는 전 채널 정상 송신하고, 여기서 관절 1개를 골라 '그 관절만' 수신값으로 움직이고
+    //   나머지 19개는 0(중립)으로 얼린다. 관절 하나씩 사람처럼 잘 동작하는지 확인용.
+    //   격리 중엔 IK도 무시하고 20관절 전부 여기서 구동(IK 손가락도 얼려짐).
+    public enum IsolatedJoint
+    {
+        None_전체동작,
+        j1_1_thumb_cmc, j1_2_thumb_opp, j1_3_thumb_mcp, j1_4_thumb_ip,
+        j2_1_index_abd, j2_2_index_mcp, j2_3_index_pip, j2_4_index_dip,
+        j3_1_middle_abd, j3_2_middle_mcp, j3_3_middle_pip, j3_4_middle_dip,
+        j4_1_ring_abd, j4_2_ring_mcp, j4_3_ring_pip, j4_4_ring_dip,
+        j5_1_pinky_cmc, j5_2_pinky_lat, j5_3_pinky_mcp, j5_4_pinky_pip,
+    }
+    [Tooltip("한 관절만 수신값으로 움직이고 나머지는 0(중립)으로 얼려 격리 테스트. "
+             + "'None_전체동작'이면 정상 구동. 격리 중엔 IK도 무시하고 20관절 전부 여기서 구동.")]
+    public IsolatedJoint isolateJoint = IsolatedJoint.None_전체동작;
+
+    [Tooltip("켜면 매 FixedUpdate(50Hz)에 20관절의 [비전 라디안(v6 수신) / 로봇 관절 실제 라디안]을 "
+             + "별도 CSV(Logs/rad_dg5f_*.csv)에 저장. 비전↔로봇 라디안 비교용")]
+    public bool logRadiansToFile = true;
+    readonly float[] _rawRadBuf = new float[Dg5fReceiver.RawRadCount];  // v6 비전 라디안 수신 버퍼
+    StreamWriter _radW;
+    int _radCount;
 
     void Start()
     {
@@ -64,6 +106,17 @@ public class Dg5fHandDriver : MonoBehaviour
                     Debug.LogError($"[Dg5fHandDriver] 관절 못 찾음: _dg_{f}_{j}");
             }
         Debug.Log($"[Dg5fHandDriver] 관절 매핑 {found}/20, 포트 {_receiver.port} 수신 대기");
+
+        if (logRadiansToFile)
+        {
+            _radW = Dg5fLogFile.Create("rad_dg5f", out string radPath);
+            var sb = new StringBuilder("t_unix");
+            for (int f = 1; f <= 5; f++)
+                for (int j = 1; j <= 4; j++)
+                    sb.Append($",vis_rad_{f}_{j},joint_rad_{f}_{j}");
+            _radW.WriteLine(sb.ToString());
+            Debug.Log($"[Dg5fHandDriver] 라디안 로그 시작: {radPath}");
+        }
     }
 
     void FixedUpdate()
@@ -88,16 +141,59 @@ public class Dg5fHandDriver : MonoBehaviour
             foreach (var ik in _fingerIKs)
                 if (ik != null && ik.Active && ik.fingerIndex >= 1 && ik.fingerIndex <= _ikOwned.Length)
                     _ikOwned[ik.fingerIndex - 1] = true;
+        // v6 비전 라디안 원값(매핑·필터 전 프록시 출력) — 있으면 로봇 관절 라디안과 비교/로깅
+        bool hasRad = _receiver.GetRawRadians(_rawRadBuf);
+        bool doDbg = debugThumbLog && (Time.time - _lastDbgLog >= 0.5f);
+        int isoIdx = (int)isolateJoint - 1;   // -1 = 전체동작. 0..19 = 그 관절만 라이브.
+        bool isoActive = isoIdx >= 0;
         for (int i = 0; i < _joints.Length; i++)
         {
-            if (_ikOwned[i / 4]) continue; // 이 손가락 4채널은 Dg5fFingerIK가 구동
+            if (!isoActive && _ikOwned[i / 4]) continue; // 정상시 IK 손가락은 IK가 구동(격리시엔 여기서 전부 구동)
             var ab = _joints[i];
             if (ab == null) continue;
             var d = ab.xDrive;
-            float target = Mathf.Clamp(_angles[i], d.lowerLimit, d.upperLimit);
+            // 격리 중이면 선택 관절만 수신값, 나머지는 0(중립)으로 고정
+            float want = (!isoActive || i == isoIdx) ? _angles[i] : 0f;
+            float target = Mathf.Clamp(want, d.lowerLimit, d.upperLimit);
             _smoothed[i] = Mathf.Lerp(_smoothed[i], target, k);
             d.target = _smoothed[i];
             ab.xDrive = d;
+
+            if (doDbg)
+            {
+                // 20관절 전 구간 추적(IK 미구동 관절만 — IK 손가락은 위에서 continue):
+                //   비전 라디안 = 파이썬 프록시 원값(사람 각) / 관절 라디안 = 로봇 실제 관절각
+                //   수신 rx = 파이썬이 보낸 deg / clamp → 적용(스무딩) → 실제(관절 현재각)
+                string jn = JointLabels[i];
+                float jointRad = (ab.dofCount > 0) ? ab.jointPosition[0] : 0f;
+                string visRad = hasRad ? _rawRadBuf[i].ToString("F4") : "N/A";
+                Debug.Log($"[HandDriver {jn}] 비전 라디안={visRad} vs 관절 라디안={jointRad:F4}  |  "
+                          + $"수신 rx={_angles[i]:F1} → clamp[{d.lowerLimit:F0},{d.upperLimit:F0}]={target:F1} → "
+                          + $"적용={d.target:F1} → 실제={jointRad * Mathf.Rad2Deg:F1} (deg)");
+            }
         }
+        if (doDbg) _lastDbgLog = Time.time;
+
+        // 라디안 로그파일: 20관절 [비전 라디안(v6 수신) / 로봇 관절 실제 라디안] 매 틱 기록
+        if (_radW != null)
+        {
+            double t = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+            var sb = new StringBuilder(t.ToString("F3", CultureInfo.InvariantCulture));
+            for (int i = 0; i < _joints.Length; i++)
+            {
+                float visRad = hasRad ? _rawRadBuf[i] : float.NaN;
+                var ab = _joints[i];
+                float jointRad = (ab != null && ab.dofCount > 0) ? ab.jointPosition[0] : float.NaN;
+                sb.Append(',').Append(visRad.ToString("F5", CultureInfo.InvariantCulture));
+                sb.Append(',').Append(jointRad.ToString("F5", CultureInfo.InvariantCulture));
+            }
+            _radW.WriteLine(sb.ToString());
+            if (++_radCount % 100 == 0) _radW.Flush();
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (_radW != null) { _radW.Flush(); _radW.Dispose(); _radW = null; }
     }
 }
