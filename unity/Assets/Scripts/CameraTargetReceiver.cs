@@ -14,6 +14,8 @@
 // 포트 5007 — SVH(5005)·DG5F 손(5006)과 공존.
 
 using System;
+using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -61,6 +63,12 @@ public class CameraTargetReceiver : MonoBehaviour
     public float logIntervalSeconds = 0.5f;
     float _lastLogTime = float.NegativeInfinity;
 
+    [Tooltip("true: 수신 패킷마다(스로틀 없이) Logs/camera_target_received_*.csv에 1행씩 기록. " +
+             "t_unix가 zed_sender.py의 로그와 같은 단위(unix 초)라 값·시간으로 직접 대조 가능.")]
+    public bool logToFile = false;
+    StreamWriter _fileWriter;
+    long _lastLoggedPacketTicks = -1;
+
     const int ChannelCount = 3;
     readonly float[] _latest = new float[ChannelCount];
     volatile bool _hasData;
@@ -87,6 +95,14 @@ public class CameraTargetReceiver : MonoBehaviour
             enabled = false;
             return;
         }
+        if (logToFile)
+        {
+            _fileWriter = Dg5fLogFile.Create("camera_target_received", out string path);
+            _fileWriter.WriteLine(
+                "t_unix,raw_x,raw_y,raw_z,robotLocal_x,robotLocal_y,robotLocal_z,world_x,world_y,world_z");
+            Debug.Log($"[CameraTargetReceiver] 파일 기록 시작: {path}");
+        }
+
         _client = new UdpClient(port);
         _running = true;
         _thread = new Thread(ReceiveLoop) { IsBackground = true };
@@ -101,6 +117,7 @@ public class CameraTargetReceiver : MonoBehaviour
             : float.PositiveInfinity;
 
         if (logToConsole) LogLatestIfDue();
+        if (logToFile) LogToFileIfNewPacket();
 
         if (!continuousApply) return;
         if (!TryGetRobotLocalPosition(out Vector3 robotLocal)) return;
@@ -141,6 +158,42 @@ public class CameraTargetReceiver : MonoBehaviour
         {
             Debug.Log($"[CameraTargetReceiver] raw={raw} (robotBase 미설정 등으로 변환 불가)");
         }
+    }
+
+    /// 실제로 새 패킷이 온 경우에만(중복 프레임 방지) 1행 기록 — zed_sender.py 로그의
+    /// sent_x/y/z와 여기 raw_x/y/z가 값으로 정확히 일치해야 정상.
+    void LogToFileIfNewPacket()
+    {
+        long ticks = Interlocked.Read(ref _lastPacketUtcTicks);
+        if (ticks == _lastLoggedPacketTicks) return;
+        if (!TryGetLocalPosition(out Vector3 raw)) return;
+        _lastLoggedPacketTicks = ticks;
+
+        bool hasLocal = TryGetRobotLocalPosition(out Vector3 robotLocal);
+        double tUnix = new DateTimeOffset(new DateTime(ticks, DateTimeKind.Utc))
+            .ToUnixTimeMilliseconds() / 1000.0;
+
+        string F(float v) => v.ToString("F6", CultureInfo.InvariantCulture);
+        string robotLocalX = hasLocal ? F(robotLocal.x) : "";
+        string robotLocalY = hasLocal ? F(robotLocal.y) : "";
+        string robotLocalZ = hasLocal ? F(robotLocal.z) : "";
+        string worldX = "", worldY = "", worldZ = "";
+        if (hasLocal && robotBase != null)
+        {
+            Vector3 world = robotBase.TransformPoint(robotLocal);
+            worldX = F(world.x);
+            worldY = F(world.y);
+            worldZ = F(world.z);
+        }
+
+        _fileWriter.WriteLine(string.Join(",", new[]
+        {
+            tUnix.ToString("F3", CultureInfo.InvariantCulture),
+            F(raw.x), F(raw.y), F(raw.z),
+            robotLocalX, robotLocalY, robotLocalZ,
+            worldX, worldY, worldZ,
+        }));
+        _fileWriter.Flush();
     }
 
     void ReceiveLoop()
@@ -191,5 +244,6 @@ public class CameraTargetReceiver : MonoBehaviour
         _running = false;
         _client?.Close();
         _thread?.Join(200);
+        if (_fileWriter != null) { _fileWriter.Flush(); _fileWriter.Dispose(); _fileWriter = null; }
     }
 }
