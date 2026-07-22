@@ -42,10 +42,18 @@ python zed_sender.py
 
 ## UDP 포트
 
-- Unity 쪽 수신 스크립트: `unity/Assets/Scripts/ObjectCoordinateReceiver.cs` (이 저장소의 `unity/Assets/Scripts/`에 있음)
+- Unity 쪽 수신 스크립트: `unity/Assets/Scripts/CameraTargetReceiver.cs` (이 저장소의 `unity/Assets/Scripts/`에 있음).
+  이전에 있던 `ObjectCoordinateReceiver.cs`(로그만 찍는 미완성 스텁)는 삭제됐다 — CameraTargetReceiver가
+  그 역할(좌표를 실제로 오브젝트에 반영)까지 포함해서 대체한다.
 - 포트 **5007** 사용 — 5005(SVH 핸드), 5006(`Dg5fReceiver`, 손가락 관절 각도)과 겹치지 않게 고정한 값이니
   다른 용도로 바꾸지 말 것.
-- 전송 포맷: `{"objects": [{"id": int, "label": str, "x": float, "y": float, "z": float}, ...]}`
+- 전송 포맷: `struct.pack('<3f', x, y, z)` — float32 little-endian 3개(감지된 물체 중 신뢰도가 가장
+  높은 것 하나만). 예전엔 JSON으로 여러 물체를 보냈으나, `CameraTargetReceiver`가 애초에 단일 좌표
+  바이너리 패킷만 받도록 짜여 있어서 그쪽에 맞춰 변경했다.
+- **좌표계 캘리브레이션 아직 안 됨**: `CameraTargetReceiver.inputIsCameraSpace`가 현재 `false`라, ZED가
+  보낸 좌표를 그대로 로봇팔 베이스 기준 로컬 좌표로 취급한다. 카메라가 로봇 베이스 원점에 정확히
+  겹쳐 있지 않다면 실제 위치와 다르게 잡힌다. 실제 설치 위치/방향이 정해지면
+  `inputIsCameraSpace=true` + `cameraTransform`(실측 캘리브레이션 Transform)으로 전환해야 한다.
 
 ## 커스텀 학습 모델 (`weights/dg5f_target_objects_yolov8s.pt`)
 
