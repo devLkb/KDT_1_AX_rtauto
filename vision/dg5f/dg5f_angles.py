@@ -331,6 +331,11 @@ THUMB_OPP_GAIN = 1.5
 # 어느 부호의 raw 대향각을 '대향(fold-in)'으로 볼지. +1.0=기존(v>0을 대향으로). 라이브에서 대향
 #   방향이 반대면(격리 1_2 테스트로 확인) -1.0으로 뒤집을 것. LEFT_MIRROR(로봇 좌우)와는 별개 제어.
 THUMB_OPP_SIGN = 1.0
+# 비율(ratio) 모드 전용: 사람 대향각(양의 대향, rad)의 '완전대향' 상한. 이 값에서 t=1(로봇 최대 대향).
+#   보정값(0.013~0.428)은 옛 프록시(_thumb_elevation) 기준이라 새 _thumb_opposition(라이브 0~1.4rad)엔
+#   안 맞아 조기 포화 → 반응 소실. 라이브 실측 max≈1.42rad(rad_dg5f 로그)를 반영해 1.4로 고정.
+#   대향이 부족하면(끝까지 못 감) ↓, 너무 일찍 포화하면 ↑.
+THUMB_OPP_RATIO_HI = 1.4
 
 # 엄지 손바닥평면 벌림/접힘(thumb_cmc, 1_1): |abd| → 로봇 [접힘, 벌림] 양방향 선형매핑.
 #   ★왜 부호/미러가 아니라 크기 매핑인가(2026-07-21 실데이터 진단):
@@ -387,12 +392,138 @@ DG5F_CHANNELS = [
 
 CHANNEL_NAMES = [c[0] for c in DG5F_CHANNELS]
 
-def map_to_dg5f(raw, hand="right"):
-    """사람 관절 프록시(rad) → DG5F 로봇 관절각(deg). **전 채널 1:1 직접매핑**(2026-07-21).
-    사람 관절각을 그대로 로봇 관절각으로 보내고 로봇 가동범위[dmin,dmax]로만 clamp한다.
-    사람이 로봇 기구한계보다 크게 움직이면 그 관절만 한계각에서 포화(예 pip 109°>90°, pinky_lat 36°>15°).
-    옛 percentile 선형([hmin,hmax]→[dmin,dmax])이 만들던 증폭(예 index_mcp 4.8×)을 근본 제거.
-    → hmin/hmax(보정 human_range)는 더 이상 매핑에 쓰지 않음(스키마/기록용으로만 잔존)."""
+# ── 비율(0~1) 매핑 모드용 로봇 관절 URDF 기구 리밋[deg] ────────────────────────
+#   출처: joint_ranges.py SPEC의 URDF <limit> 열(이번 세션 왼손 미러 URDF 기준).
+#   ★2026-07-21 사용자 요청: map_to_dg5f(mode="ratio")가 이 범위를 로봇 [min,max]로 써서
+#     사람각을 [사람min,사람max]→[0,1]→[로봇min,로봇max]로 정규화 매핑한다(아래 _map_ratio).
+#   ⚠️ 기구 리밋은 실제 사용범위(DG5F_CHANNELS dg_min/dg_max)보다 넓다(pip/dip ±90 등).
+#     → 비율이 안 쓰는 극단 영역까지 분산돼 같은 사람동작에도 로봇 움직임이 작아진다(사용자 인지·선택).
+#     또 굽힘 관절 리밋 하한이 −90(과신전 여유)이라 사람 rest(≈사람min)가 로봇 −90 근처로 갈 수 있음.
+#     rest 포즈가 뒤로 젖혀 보이면 RATIO_ROBOT_RANGE를 "use"로 바꿔 재평가할 것(한 줄).
+URDF_LIMITS_DEG = {
+    "thumb_cmc": (-77.0,  22.0), "thumb_opp": (0.0, 155.0),
+    "thumb_mcp": (-90.0,  90.0), "thumb_ip":  (-90.0, 90.0),
+    "index_abd": (-20.0,  31.0), "index_mcp": (0.0, 115.0),
+    "index_pip": (-90.0,  90.0), "index_dip": (-90.0, 90.0),
+    "middle_abd": (-25.0, 25.0), "middle_mcp": (0.0, 115.0),
+    "middle_pip": (-90.0, 90.0), "middle_dip": (-90.0, 90.0),
+    "ring_abd": (-32.0,  15.0),  "ring_mcp":  (0.0, 110.0),
+    "ring_pip": (-90.0,  90.0),  "ring_dip":  (-90.0, 90.0),
+    "pinky_cmc": (-60.0,  0.0),  "pinky_lat": (-90.0, 15.0),
+    "pinky_mcp": (-90.0,  90.0), "pinky_pip": (-90.0, 90.0),
+}
+
+# 비율 모드가 로봇 [min,max]로 무엇을 쓸지: "urdf"=기구 리밋(사용자 선택) / "use"=DG5F_CHANNELS 사용범위.
+RATIO_ROBOT_RANGE = "urdf"
+
+# ── 비율 모드 채널별 로봇 출력 한계[deg] (URDF/use 대신 이 값을 최우선 사용) ─────────────
+#   2026-07-22 라이브 관절디버깅 피드백 반영. URDF 리밋(±90 등)이면 사람보다 과하게 움직이거나
+#   (특히 굽힘 관절) 사람이 못 하는 뒤꺾임(과신전, rmin=−90)까지 나온다. → 사람 실제 ROM으로 조인다.
+#   여기 '없는' 채널은 URDF 리밋(RATIO_ROBOT_RANGE)로 폴백 — 벌림(abduction) 채널은 URDF가 더
+#   사람같이 벌어진다는 피드백이라 일부러 뺐다(index_abd 등). (rmin,rmax) 의미는 채널별 주석 참조.
+#   ⚠️ 첫 튜닝값 — 라이브 보고 이 숫자만 조정하면 됨.
+RATIO_LIMIT = {
+    # ── 엄지 ──
+    # thumb_cmc(1_1): rmin=접힘(fold,−)/rmax=벌림(spread,+). 접힘 OK(−65 유지), 벌림 과함 +22→+10.
+    "thumb_cmc": (-65.0, 10.0),
+    # thumb_mcp(1_3)/thumb_ip(1_4): 안쪽 굽힘만 사람스러움 → URDF −90(과신전) 제거, 0(1자)..80.
+    "thumb_mcp": (0.0, 80.0),
+    "thumb_ip":  (0.0, 80.0),
+    # (thumb_opp 1_2는 단방향 특수분기 → THUMB_OPP_RATIO_MAX_DEG로 따로 제한)
+    # ── 손가락 굽힘(mcp/pip/dip): ★공통 — 사람은 뒤로 못 꺾음 → rmin=0(과신전 금지). rmax=사람 굽힘 한계 ──
+    # 검지: 2_2 굽힘 잘 되나 약간 과함 → rmax 110→95. 2_3/2_4는 URDF −90이라 손 펴면 뒤로 꺾이던 것 제거.
+    "index_mcp": (0.0, 95.0), "index_pip": (0.0, 85.0), "index_dip": (0.0, 80.0),
+    # 중지·약지·새끼도 동일한 뒤꺾임 문제라 예방적으로 rmin=0 적용(rmax=각 손가락 사람 굽힘 한계).
+    "middle_mcp": (0.0, 95.0),  "middle_pip": (0.0, 85.0), "middle_dip": (0.0, 80.0),
+    "ring_mcp":   (0.0, 105.0), "ring_pip":   (0.0, 85.0), "ring_dip":   (0.0, 80.0),
+    "pinky_mcp":  (0.0, 85.0),  "pinky_pip":  (0.0, 80.0),
+    # ── 벌림(abduction)은 일부러 없음 → URDF 폴백(index_abd 등 ratio-URDF가 더 사람같이 벌어짐, 피드백) ──
+}
+
+# thumb_opp(1_2) 비율 모드 손바닥쪽(대향) 최대각[deg]. 부호는 direct와 동일(−, left-mirror가 +로).
+#   URDF −155면 엄지가 새끼 손바닥에 닿을 만큼 과회전 → 사람 대향 한계로 축소(−95).
+#   더 깊게 대향하려면 크기↑(예 −110), 덜이면 크기↓(예 −80).
+#   ※ 손등쪽(음의 대향)은 MediaPipe z가 부실해 신뢰 불가 → rest(0)로 고정(로봇 관절도 대개 단방향).
+THUMB_OPP_RATIO_MAX_DEG = -95.0
+
+
+def _robot_range(name, dmin, dmax):
+    """비율 모드용 로봇 [min,max](deg). 채널별 한계(RATIO_LIMIT) 최우선 →
+    없으면 RATIO_ROBOT_RANGE에 따라 URDF 리밋 또는 DG5F 사용범위."""
+    if name in RATIO_LIMIT:
+        return RATIO_LIMIT[name]
+    if RATIO_ROBOT_RANGE == "urdf" and name in URDF_LIMITS_DEG:
+        return URDF_LIMITS_DEG[name]
+    return dmin, dmax
+
+
+def _map_ratio(raw, hand):
+    """사람 관절 프록시(rad) → DG5F 로봇 관절각(deg). **비율(0~1) 정규화 매핑**(2026-07-21 신규 모드).
+    채널마다 t = clamp01((v − 사람min)/(사람max − 사람min)) 로 사람각을 0~1 비율로 바꾸고,
+    로봇각 = 로봇min + t·(로봇max − 로봇min) 로 로봇 범위에 그대로 실어보낸다(사람비율=로봇비율).
+      • 사람 min/max = DG5F_CHANNELS의 hmin/hmax(= calibration.json human_ranges, 실행 시 로드).
+      • 로봇 min/max = _robot_range() (기본 URDF 기구 리밋, RATIO_ROBOT_RANGE로 전환).
+    ⚠️ 정규화라 보정 신선도에 민감: 보정 때 관절을 끝까지 안 움직였거나(폭 좁음) 프록시 정의가
+       보정 이후 바뀐 채널(2026-07-21 thumb_cmc/thumb_opp)은 t가 빗나갈 수 있음 → 재보정 권장.
+       폭 0(예 middle_abd)은 t=0(로봇min 고정)으로 처리(0나누기 방지)."""
+    out = []
+    for v, (name, hmin, hmax, dmin, dmax, gated) in zip(raw, DG5F_CHANNELS):
+        if gated:
+            out.append(GATED_NEUTRAL_DEG)
+            continue
+        if name == "thumb_cmc":
+            # ★thumb_cmc(1_1)는 부호가 아니라 |abd| '크기'로 접힘/벌림을 구분한다(direct 모드와
+            #   동일 원리 — _thumb_abduction 원값은 항상 음수, 작은|v|=접힘·큰|v|=벌림). 균일 비율식을
+            #   그대로 쓰면 v가 hmin(큰 음수)일수록 t=0→rmin이 돼 '벌림→접힘'으로 안/바깥이 뒤집힌다.
+            #   → |v|를 사람 [|min|,|max|] 비율로 바꿔 로봇 [접힘(rmin), 벌림(rmax)]에 실어 방향을 맞춘다.
+            rmin, rmax = _robot_range(name, dmin, dmax)   # URDF (-77접힘, +22벌림)
+            a_lo, a_hi = min(abs(hmin), abs(hmax)), max(abs(hmin), abs(hmax))
+            aspan = a_hi - a_lo
+            t = (abs(v) - a_lo) / aspan if aspan > 1e-9 else 0.0
+            t = min(1.0, max(0.0, t))
+            deg = rmin + t * (rmax - rmin)
+        elif name == "thumb_opp":
+            # ★thumb_opp(1_2)는 '깊이 방향(양의 대향)'만 유효한 단방향 동작이다(direct의 max(0,·)와
+            #   동일). 프록시 _thumb_opposition은 양·음(대향/후퇴) 양방향이라 균일 비율식을 쓰면 rest(v≈0)가
+            #   중간값으로 매핑돼 반쯤 대향된 채 시작하고, 게다가 보정값(0.013~0.428)이 옛 프록시 기준이라
+            #   조기 포화(→ 반응 소실)한다. → 양의 대향 성분만 [0, THUMB_OPP_RATIO_HI] 비율로 로봇 대향
+            #   범위(dmax=−155, URDF 방향·크기)에 실는다. 부호는 direct와 동일 → 아래 left-mirror가 좌수 URDF(+)로 맞춤.
+            opp = max(0.0, THUMB_OPP_SIGN * v)
+            t = min(1.0, opp / THUMB_OPP_RATIO_HI) if THUMB_OPP_RATIO_HI > 1e-9 else 0.0
+            deg = t * THUMB_OPP_RATIO_MAX_DEG            # 0(rest) .. MAX(−95, 사람 대향 한계)
+        elif name in ABDUCTION_CHANNELS:
+            # ★벌림은 0중심 양방향 신호(v=0=중립=손가락 평행). 균일 비율식은 중립을 0°로 안 보내
+            #   (예 pinky_lat v=0→+41.6°) rest에서 손가락이 옆으로 휘어버림 → 0을 중심으로 각 방향을
+            #   독립 선형매핑해 v=0→0°를 보장한다. 방향(부호)은 균일식과 동일 → 방향감 불변, 오프셋만 제거.
+            rmin, rmax = _robot_range(name, dmin, dmax)
+            if v >= 0:
+                t = v / hmax if hmax > 1e-9 else 0.0      # 0..1 (v: 0..사람 양(+)쪽 최대)
+                deg = min(1.0, t) * rmax
+            else:
+                t = v / hmin if hmin < -1e-9 else 0.0     # 0..1 (v: 0..사람 음(−)쪽 최대)
+                deg = min(1.0, t) * rmin
+        else:
+            rmin, rmax = _robot_range(name, dmin, dmax)
+            span = hmax - hmin
+            t = (v - hmin) / span if abs(span) > 1e-9 else 0.0
+            t = min(1.0, max(0.0, t))                     # 사람 비율 [0,1]
+            deg = rmin + t * (rmax - rmin)                # 로봇 비율 → 로봇각
+            deg = min(max(rmin, rmax), max(min(rmin, rmax), deg))  # 안전 clamp
+        if hand == "left" and name in LEFT_MIRROR_CHANNELS:
+            deg = -deg
+        out.append(deg)
+    return out
+
+
+def map_to_dg5f(raw, hand="right", mode="direct"):
+    """사람 관절 프록시(rad) → DG5F 로봇 관절각(deg).
+    mode="direct"(기본): **전 채널 1:1 직접매핑**(2026-07-21). 사람 관절각을 그대로 로봇각으로
+      보내고 로봇 가동범위[dmin,dmax]로만 clamp. 사람이 로봇 한계보다 크게 움직이면 포화.
+      옛 percentile 선형이 만들던 증폭(예 index_mcp 4.8×)을 근본 제거. hmin/hmax 미사용.
+    mode="ratio": **비율(0~1) 정규화 매핑**. [사람min,사람max]→[0,1]→[로봇min,로봇max](_map_ratio 참조).
+      사람/로봇 범위를 각각 0~1 비율로 바꿔 사람비율을 로봇비율로 그대로 옮긴다."""
+    if mode == "ratio":
+        return _map_ratio(raw, hand)
     out = []
     for v, (name, _hmin, _hmax, dmin, dmax, gated) in zip(raw, DG5F_CHANNELS):
         if gated:

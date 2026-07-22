@@ -9,8 +9,13 @@ svh/vision_node.py의 단일 카메라 경로를 DG5F 20채널용으로 개조.
   - 로그: 실행마다 새 CSV (logs/vision_dg5f_YYYYMMDD_HHMM.csv) — 덮어쓰기 함정 방지
   - occlusion 시 마지막 유효값 hold (SVH와 동일 정책)
 
-사용: python vision_node_dg5f.py [left|right] [--bridge]   (기본 right, 종료: 미리보기 창에서 q)
+사용: python vision_node_dg5f.py [left|right] [--map=direct|ratio] [--bridge]
+      (기본 right·direct, 종료: 미리보기 창에서 q)
       왼손 모델 구동 시 'left' — 미러 채널 부호 반전 적용. 웹캠에도 왼손을 보여줄 것.
+      --map=direct(기본): 사람 관절각을 로봇각으로 1:1 직접 전송(로봇 사용범위로 clamp).
+      --map=ratio       : 사람각을 [사람min,사람max]→0~1 비율로 바꿔 [로봇min,로봇max]에 실어 전송
+                          (로봇 범위=URDF 리밋, dg5f_angles.RATIO_ROBOT_RANGE로 전환). 정규화라
+                          보정 신선도 민감 — 관절을 끝까지 안 움직인 보정이면 재보정 권장.
       --bridge: 같은 패킷을 실물 SDK 브리지(dg5f_sdk_bridge.py, 포트 BRIDGE_PORT)에도 동시 송신
                 — Unity 트윈과 실물 그리퍼를 한 스트림으로 함께 구동.
 """
@@ -49,6 +54,17 @@ FILTER_FREQ, FILTER_MIN_CUTOFF, FILTER_BETA = 30.0, 0.6, 0.0005
 # 속도보상 무력. → min_cutoff 0.15(드리프트 차단) + beta 0.5(의도 동작 속도 1~3유닛/s에서
 # 컷오프를 0.6~1.7Hz로 열어 지연 방지). 떨리면 min_cutoff↓, 굼뜨면 beta↑ 순으로 튜닝.
 TIP_MIN_CUTOFF, TIP_BETA = 0.15, 0.5
+# 각도(관절 프록시) 계산에 쓸 랜드마크 선택 (2026-07-21 실험):
+#   True  = multi_hand_world_landmarks (미터단위 실제 3D, 깊이 정확) — MCP·엄지 대향의 깊이 오차 개선 목적
+#   False = multi_hand_landmarks (이미지 정규화, z 부실) — 기존 동작
+#   ⚠️ world 프레임은 이미지와 z/손대칭 방향이 다를 수 있어 벌림·엄지 들림의 '부호'가 뒤집힐 수 있음.
+#      라이브에서 방향 반대면 ANGLE_Z_FLIP=True로 z축만 뒤집어 맞춘다(핀치·리치·그리기는 이미지 유지).
+# 2026-07-22: True→False. 월드 landmark가 평평한 손가락을 z노이즈로 굽은 것처럼(15~27°) 잡아
+#   ① 손 펴도 로봇 손가락이 굽어 있고(rest 오프셋) ② pip/dip 뒤꺾임·앞굽힘 부실이 생겼음.
+#   보정(calibrate_dg5f.py)도 이미지 landmark 기준이라 False가 보정과 일치(재보정 불필요).
+#   ⚠️ 엄지 대향(1_2) 깊이가 얕아지면 THUMB_OPP_RATIO_HI↓ / 방향 반대면 THUMB_OPP_SIGN 뒤집기.
+USE_WORLD_LANDMARKS = False
+ANGLE_Z_FLIP = False
 # --------------------------------------------------------
 
 
@@ -62,11 +78,22 @@ def landmarks_to_xyz(hand_landmarks):
 def main():
     args = [a.lower() for a in sys.argv[1:]]
     to_bridge = "--bridge" in args
+    # --map direct|ratio : 관절 매핑 방식 선택(기본 direct=1:1 직접, ratio=0~1 비율 정규화).
+    #   ratio는 [사람min,사람max]→[0,1]→[로봇min,로봇max] 매핑(dg5f_angles.map_to_dg5f 참조).
+    map_mode = "direct"
+    for a in args:
+        if a.startswith("--map="):
+            map_mode = a.split("=", 1)[1]
+    if map_mode not in ("direct", "ratio"):
+        print(f"[오류] --map 은 direct/ratio 만 가능: {map_mode}")
+        return
     pos = [a for a in args if not a.startswith("--")]
     hand = pos[0] if pos else "right"
     if hand not in ("right", "left"):
         print(f"[오류] 인자는 left/right만 가능: {hand}")
         return
+    print(f"[vision_node] hand={hand}  map_mode={map_mode}"
+          + (f"  robot_range={__import__('dg5f_angles').RATIO_ROBOT_RANGE}" if map_mode == "ratio" else ""))
     # 동일 패킷을 여러 수신자에 송신 — Unity 트윈은 항상, 실물 브리지는 --bridge 시에만
     targets = [(UNITY_IP, UNITY_PORT)]
     if to_bridge:
@@ -132,8 +159,14 @@ def main():
                 frame, res.multi_hand_landmarks[0],
                 mp.solutions.hands.HAND_CONNECTIONS)
             xyz = landmarks_to_xyz(res.multi_hand_landmarks[0])
-            raw = compute_raw(xyz)                          # 라디안 원값(프록시 출력)
-            mapped = map_to_dg5f(raw, hand)                 # deg
+            # 각도 계산 전용 랜드마크: world면 깊이 정확(핀치·리치·그리기는 이미지 xyz 유지).
+            xyz_ang = xyz
+            if USE_WORLD_LANDMARKS and res.multi_hand_world_landmarks:
+                xyz_ang = landmarks_to_xyz(res.multi_hand_world_landmarks[0])
+                if ANGLE_Z_FLIP:
+                    xyz_ang = xyz_ang.copy(); xyz_ang[:, 2] *= -1.0
+            raw = compute_raw(xyz_ang)                      # 라디안 원값(프록시 출력)
+            mapped = map_to_dg5f(raw, hand, map_mode)       # deg (map_mode: direct 1:1 / ratio 0~1정규화)
             tip, pinch_d = compute_thumb_tip(xyz)           # v2: 엄지끝 위치(정규화)+끝거리
             if pinch_on:
                 pinch_on = pinch_d < PINCH_OFF   # 풀림은 더 멀어져야 (히스테리시스)
