@@ -150,9 +150,11 @@ public class CameraTargetReceiver : MonoBehaviour
 
         if (TryGetRobotLocalPosition(out Vector3 robotLocal))
         {
+            // raw.magnitude = 카메라 원점 기준 거리 — zed_sender.py의 nearest['distance']와
+            // 동일한 값(카메라-공간 변환 이전의 원본 좌표 크기이므로 inputIsCameraSpace 값과 무관).
             Debug.Log(
-                $"[CameraTargetReceiver] raw={raw} -> robotLocal={robotLocal} "
-                + $"world={robotBase.TransformPoint(robotLocal)}");
+                $"[CameraTargetReceiver] raw={raw} (dist={raw.magnitude:F3}) "
+                + $"-> robotLocal={robotLocal} world={robotBase.TransformPoint(robotLocal)}");
         }
         else
         {
