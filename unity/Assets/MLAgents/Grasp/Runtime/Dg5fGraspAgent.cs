@@ -52,6 +52,7 @@ namespace KDT.GraspTraining
         float _episodeSeconds;
         int _ballReleaseFixedSteps;
         bool _episodeActive;
+        bool _ballFloating;
         System.Random _random;
         StatsRecorder _stats;
 
@@ -226,13 +227,14 @@ namespace KDT.GraspTraining
             if (ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = ballCollider.bounds.extents.y;
-            Vector3 ballLocalPosition = TryGetCameraSpawnPosition(ballRadius, out Vector3 cameraPosition)
-                ? cameraPosition
+            Vector3 ballLocalPosition = TryGetModeAwareSpawnPosition(ballRadius, out Vector3 modeLocal, out bool floating)
+                ? modeLocal
                 : Dg5fGraspSpec.SpawnBallLocalPosition(Next01(), Next01(), ballRadius);
-            if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
+            if (!floating && !Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
                 throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
 
             _supportTopHeight = Dg5fGraspSpec.SupportTopHeight;
+            _ballFloating = floating;
 
             if (!ball.isKinematic)
             {
@@ -251,31 +253,45 @@ namespace KDT.GraspTraining
             _ballReleaseFixedSteps = 2;
         }
 
-        /// cameraReceiver의 최신 좌표를 v1 스폰 규칙(패널 상판 고정 높이, 수평 반경
-        /// [V1MinimumSpawnRadius, V1MaximumSpawnRadius] 클램프)에 맞춰 변환한다.
-        /// 카메라의 원시 Y값은 깊이 노이즈로 패널 표면과 어긋날 수 있어 신뢰하지 않고,
-        /// 항상 SupportTopHeight + ballRadius로 고정한다(랜덤 스폰과 동일한 방식).
-        bool TryGetCameraSpawnPosition(float ballRadius, out Vector3 ballLocalPosition)
+        /// cameraReceiver.mode에 따라 공 스폰 위치를 고른다.
+        ///   Camera: 기존 동작 그대로 — 카메라 좌표의 XZ 방향/반경만 쓰고 높이는 항상
+        ///           SupportTopHeight+ballRadius(테이블 위)로 고정(깊이 노이즈로 신뢰 못 함).
+        ///   Manual: cameraReceiver.manualLocalPosition을 XYZ 그대로 사용 — 높이도 자유
+        ///           (테이블 위로 띄워서 도달 테스트하는 용도). floating=true를 반환해
+        ///           ReleaseBall()이 중력을 켜지 않게 한다.
+        ///   Random: 매 에피소드 cameraReceiver.RandomizeTarget()으로 새 위치를 뽑고 Manual과
+        ///           동일하게 자유 높이로 취급한다.
+        bool TryGetModeAwareSpawnPosition(float ballRadius, out Vector3 ballLocalPosition, out bool floating)
         {
             ballLocalPosition = Vector3.zero;
-            if (cameraReceiver == null
-                || !cameraReceiver.TryGetRobotLocalPosition(out Vector3 cameraLocal))
+            floating = false;
+            if (cameraReceiver == null) return false;
+
+            if (cameraReceiver.mode == CameraTargetReceiver.TargetSourceMode.Camera)
             {
-                return false;
+                if (!cameraReceiver.TryGetRobotLocalPosition(out Vector3 cameraLocal)) return false;
+
+                float horizontalRadius = new Vector2(cameraLocal.x, cameraLocal.z).magnitude;
+                if (horizontalRadius < 1e-6f) return false;
+                horizontalRadius = Mathf.Clamp(
+                    horizontalRadius,
+                    Dg5fGraspSpec.V1MinimumSpawnRadius,
+                    Dg5fGraspSpec.V1MaximumSpawnRadius);
+                float azimuth = Mathf.Atan2(cameraLocal.z, cameraLocal.x);
+                ballLocalPosition = new Vector3(
+                    Mathf.Cos(azimuth) * horizontalRadius,
+                    Dg5fGraspSpec.SupportTopHeight + Mathf.Max(0f, ballRadius),
+                    Mathf.Sin(azimuth) * horizontalRadius);
+                return Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius);
             }
 
-            float horizontalRadius = new Vector2(cameraLocal.x, cameraLocal.z).magnitude;
-            if (horizontalRadius < 1e-6f) return false;
-            horizontalRadius = Mathf.Clamp(
-                horizontalRadius,
-                Dg5fGraspSpec.V1MinimumSpawnRadius,
-                Dg5fGraspSpec.V1MaximumSpawnRadius);
-            float azimuth = Mathf.Atan2(cameraLocal.z, cameraLocal.x);
-            ballLocalPosition = new Vector3(
-                Mathf.Cos(azimuth) * horizontalRadius,
-                Dg5fGraspSpec.SupportTopHeight + Mathf.Max(0f, ballRadius),
-                Mathf.Sin(azimuth) * horizontalRadius);
-            return Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius);
+            if (cameraReceiver.mode == CameraTargetReceiver.TargetSourceMode.Random)
+                cameraReceiver.RandomizeTarget();
+
+            // Manual, 또는 방금 새로 뽑은 Random 값 — robotBase 로컬 XYZ를 그대로 신뢰한다.
+            ballLocalPosition = cameraReceiver.manualLocalPosition;
+            floating = true;
+            return true;
         }
 
         float Next01()
@@ -458,7 +474,7 @@ namespace KDT.GraspTraining
         void ReleaseBall()
         {
             ball.isKinematic = false;
-            ball.useGravity = true;
+            ball.useGravity = !_ballFloating;
             ball.linearVelocity = Vector3.zero;
             ball.angularVelocity = Vector3.zero;
             _initialBallHeight = ball.position.y;

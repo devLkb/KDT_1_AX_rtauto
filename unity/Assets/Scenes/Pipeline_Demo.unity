@@ -621,7 +621,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.RobotScripts::CameraTargetReceiver
   port: 5007
   robotBase: {fileID: 43554921}
-  target: {fileID: 0}
+  target: {fileID: 819323939}
   continuousApply: 0
   inputIsCameraSpace: 0
   cameraTransform: {fileID: 0}

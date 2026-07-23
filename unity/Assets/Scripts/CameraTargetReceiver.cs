@@ -69,6 +69,24 @@ public class CameraTargetReceiver : MonoBehaviour
     StreamWriter _fileWriter;
     long _lastLoggedPacketTicks = -1;
 
+    public enum TargetSourceMode { Camera, Random, Manual }
+
+    [Header("타겟 소스 모드 (Play 중 우측 상단 UI 또는 여기서 전환 가능)")]
+    public TargetSourceMode mode = TargetSourceMode.Camera;
+
+    [Tooltip("Manual 모드에서 타겟을 놓을 robotBase 기준 로컬 좌표. Random 모드에서 뽑힌 값도 여기 반영된다.")]
+    public Vector3 manualLocalPosition = new Vector3(0.4f, 0.10f, 0f);
+    [Tooltip("Random 모드에서 뽑는 높이(로컬 Y) 최솟값")]
+    public float randomLocalYMin = 0.05f;
+    [Tooltip("Random 모드에서 뽑는 높이(로컬 Y) 최댓값")]
+    public float randomLocalYMax = 0.40f;
+
+    [Tooltip("Game 뷰에 모드 전환 UI(OnGUI)를 그릴지 여부")]
+    public bool showModeUI = true;
+
+    string _manualXText, _manualYText, _manualZText;
+    bool _manualTextDirty = true;
+
     const int ChannelCount = 3;
     readonly float[] _latest = new float[ChannelCount];
     volatile bool _hasData;
@@ -120,8 +138,52 @@ public class CameraTargetReceiver : MonoBehaviour
         if (logToFile) LogToFileIfNewPacket();
 
         if (!continuousApply) return;
-        if (!TryGetRobotLocalPosition(out Vector3 robotLocal)) return;
-        target.position = robotBase.TransformPoint(robotLocal);
+        ApplyModeTarget();
+    }
+
+    void ApplyModeTarget()
+    {
+        switch (mode)
+        {
+            case TargetSourceMode.Camera:
+                if (!TryGetRobotLocalPosition(out Vector3 robotLocal)) return;
+                target.position = robotBase.TransformPoint(robotLocal);
+                break;
+            case TargetSourceMode.Manual:
+                Vector3 local = clampToWorkspace ? ClampToWorkspace(manualLocalPosition) : manualLocalPosition;
+                target.position = robotBase.TransformPoint(local);
+                break;
+            case TargetSourceMode.Random:
+                // 매 프레임 재적용하지 않음 — RandomizeTarget()이 모드 전환/버튼 클릭 시 1회 텔레포트.
+                break;
+        }
+    }
+
+    /// UI(OnGUI)의 모드 버튼에서 호출. 같은 모드로 재클릭해도 부작용 없음.
+    public void SetMode(TargetSourceMode newMode)
+    {
+        if (mode == newMode)
+        {
+            if (newMode == TargetSourceMode.Random) RandomizeTarget();
+            return;
+        }
+        mode = newMode;
+        if (newMode == TargetSourceMode.Random) RandomizeTarget();
+        _manualTextDirty = true;
+    }
+
+    /// [minRadius, maxRadius] 환형(annulus) 안, [randomLocalYMin, randomLocalYMax] 높이에서
+    /// robotBase 로컬 좌표를 1개 뽑아 target을 즉시 그 위치로 옮긴다.
+    public void RandomizeTarget()
+    {
+        if (target == null || robotBase == null) return;
+        float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+        float radius = UnityEngine.Random.Range(minRadius, maxRadius);
+        float y = UnityEngine.Random.Range(randomLocalYMin, randomLocalYMax);
+        var local = new Vector3(Mathf.Cos(angle) * radius, y, Mathf.Sin(angle) * radius);
+        manualLocalPosition = local;
+        target.position = robotBase.TransformPoint(local);
+        _manualTextDirty = true;
     }
 
     /// robotBase 기준 로컬 좌표로 변환된 최신 카메라 좌표를 1회성으로 가져온다(카메라-공간
@@ -239,6 +301,53 @@ public class CameraTargetReceiver : MonoBehaviour
         float clampedRadius = Mathf.Clamp(planarRadius, minRadius, maxRadius);
         float scale = clampedRadius / planarRadius;
         return new Vector3(local.x * scale, local.y, local.z * scale);
+    }
+
+    void OnGUI()
+    {
+        if (!showModeUI) return;
+        if (_manualTextDirty)
+        {
+            _manualXText = manualLocalPosition.x.ToString("F3", CultureInfo.InvariantCulture);
+            _manualYText = manualLocalPosition.y.ToString("F3", CultureInfo.InvariantCulture);
+            _manualZText = manualLocalPosition.z.ToString("F3", CultureInfo.InvariantCulture);
+            _manualTextDirty = false;
+        }
+
+        GUILayout.BeginArea(new Rect(10, 10, 260, 190), GUI.skin.box);
+        GUILayout.Label("타겟 소스 모드");
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button(mode == TargetSourceMode.Camera ? "[Camera]" : "Camera")) SetMode(TargetSourceMode.Camera);
+        if (GUILayout.Button(mode == TargetSourceMode.Random ? "[Random]" : "Random")) SetMode(TargetSourceMode.Random);
+        if (GUILayout.Button(mode == TargetSourceMode.Manual ? "[Manual]" : "Manual")) SetMode(TargetSourceMode.Manual);
+        GUILayout.EndHorizontal();
+
+        if (mode == TargetSourceMode.Random)
+        {
+            if (GUILayout.Button("다시 뽑기")) RandomizeTarget();
+        }
+        else if (mode == TargetSourceMode.Manual)
+        {
+            GUILayout.Label("Local X"); _manualXText = GUILayout.TextField(_manualXText);
+            GUILayout.Label("Local Y"); _manualYText = GUILayout.TextField(_manualYText);
+            GUILayout.Label("Local Z"); _manualZText = GUILayout.TextField(_manualZText);
+            if (GUILayout.Button("적용") && target != null && robotBase != null)
+            {
+                if (float.TryParse(_manualXText, NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
+                    && float.TryParse(_manualYText, NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
+                    && float.TryParse(_manualZText, NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
+                {
+                    manualLocalPosition = new Vector3(x, y, z);
+                }
+            }
+        }
+
+        if (target != null && robotBase != null)
+        {
+            Vector3 shown = robotBase.InverseTransformPoint(target.position);
+            GUILayout.Label($"target local = ({shown.x:F3}, {shown.y:F3}, {shown.z:F3})");
+        }
+        GUILayout.EndArea();
     }
 
     void OnDestroy()
