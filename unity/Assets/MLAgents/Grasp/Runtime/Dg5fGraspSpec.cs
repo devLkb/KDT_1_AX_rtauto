@@ -134,7 +134,7 @@ namespace KDT.GraspTraining
         {
             SetHoldStage(Academy.Instance.EnvironmentParameters.GetWithDefault(
                 HoldStageParameterName,
-                FirstHoldStage));
+                FinalHoldStage));
         }
 
         public static void SetHoldStage(float stage)
