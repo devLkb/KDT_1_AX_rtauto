@@ -90,7 +90,7 @@ namespace KDT.GraspTraining.PlayModeTests
                 Is.EqualTo(Dg5fGraspSpec.PalmFacingAlignment(
                     agent.graspPoint.forward,
                     agent.ball.position - agent.palm.position)).Within(1e-6f));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.3.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.4.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(agent.MaxStep, Is.Zero, "v1 measures timeout in simulation time.");
             Assert.That(agent.enablePolicyClosure, Is.False);
@@ -308,7 +308,10 @@ namespace KDT.GraspTraining.PlayModeTests
             agent.ball.position = agent.graspPoint.position;
             agent.ball.rotation = Quaternion.identity;
             Physics.SyncTransforms();
-            yield return new WaitForFixedUpdate();
+            int holdSteps = Mathf.CeilToInt(
+                Dg5fGraspSpec.HoldDurationSeconds / Time.fixedDeltaTime) + 2;
+            for (int i = 0; i < holdSteps; i++)
+                yield return new WaitForFixedUpdate();
 
             Assert.That(agent.IsArmLocked, Is.True);
             Assert.That(agent.IsExternalHandControl, Is.True);

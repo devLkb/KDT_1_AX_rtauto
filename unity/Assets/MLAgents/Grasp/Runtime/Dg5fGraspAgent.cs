@@ -43,6 +43,7 @@ namespace KDT.GraspTraining
         ArticulationBody[] _allJoints;
         ArticulationBody[] _armJoints;
         ArticulationBody[] _handJoints;
+        Collider _ballCollider;
         float[] _armTargetDeg;
         float[] _lockedArmTargetDeg;
         float _closure;
@@ -51,8 +52,13 @@ namespace KDT.GraspTraining
         float _previousApproachPotential;
         float _bestGraspDistance;
         float _episodeSeconds;
+        float _holdSeconds;
+        float _previousHoldPotential;
+        Vector3 _holdAnchorPosition;
+        int _holdResetCount;
         int _ballReleaseFixedSteps;
         bool _episodeActive;
+        bool _holdActive;
         bool _armLocked;
         bool _externalHandControl;
         bool _unsafeSurfaceContact;
@@ -68,6 +74,9 @@ namespace KDT.GraspTraining
         public float CurrentPalmFacingAlignment => PalmFacingAlignment();
         public float CurrentFloorClearance => FloorClearance();
         public float CurrentPlanarDistance => PlanarDistance();
+        public float CurrentSurfaceClearance => SurfaceClearance();
+        public float CurrentHoldSeconds => _holdSeconds;
+        public int CurrentHoldResetCount => _holdResetCount;
         public bool IsArmLocked => _armLocked;
         public bool IsExternalHandControl => _externalHandControl;
         public bool IsEpisodeActive => _episodeActive;
@@ -82,6 +91,7 @@ namespace KDT.GraspTraining
         public override void Initialize()
         {
             ResolveReferences();
+            _ballCollider = ball != null ? ball.GetComponent<Collider>() : null;
             ResolveJoints();
             ResolveSafetySensors();
             ValidateConfiguration();
@@ -182,7 +192,8 @@ namespace KDT.GraspTraining
         void ValidateConfiguration()
         {
             if (ball == null || pedestal == null || pedestalCollider == null
-                || robotBase == null || palm == null || graspPoint == null)
+                || robotBase == null || palm == null || graspPoint == null
+                || _ballCollider == null)
             {
                 throw new InvalidOperationException(
                     "[Dg5fGraspAgent] Missing ball/pedestal/robotBase/palm/graspPoint reference.");
@@ -208,6 +219,11 @@ namespace KDT.GraspTraining
             _armLocked = false;
             _externalHandControl = false;
             _unsafeSurfaceContact = false;
+            _holdActive = false;
+            _holdSeconds = 0f;
+            _previousHoldPotential = 0f;
+            _holdAnchorPosition = Vector3.zero;
+            _holdResetCount = 0;
             ResetRobot();
             ResetBall();
             foreach (var sensor in contactSensors) sensor.ResetContacts();
@@ -248,10 +264,9 @@ namespace KDT.GraspTraining
 
         void ResetBall()
         {
-            Collider ballCollider = ball.GetComponent<Collider>();
-            if (ballCollider == null)
+            if (_ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
-            float ballRadius = ballCollider.bounds.extents.y;
+            float ballRadius = BallRadius();
             Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
                 Next01(),
                 Next01(),
@@ -510,16 +525,63 @@ namespace KDT.GraspTraining
             float distance = GraspDistance();
             float palmFacingAlignment = PalmFacingAlignment();
             _bestGraspDistance = Mathf.Min(_bestGraspDistance, distance);
-            if (Dg5fGraspSpec.HasReachedApproachTarget(distance, palmFacingAlignment))
+            if (Dg5fGraspSpec.IsWithinSurfaceApproachTarget(
+                    distance,
+                    BallRadius(),
+                    palmFacingAlignment))
             {
-                if (endEpisodeOnReach)
-                    FinishEpisode(true, "Success");
-                else
-                    LockArmForTeleoperation();
-                return;
+                UpdateHoldProgress();
+                if (Dg5fGraspSpec.HasCompletedHold(_holdSeconds))
+                {
+                    if (endEpisodeOnReach)
+                        FinishEpisode(true, "Success");
+                    else
+                        LockArmForTeleoperation();
+                    return;
+                }
             }
+            else
+                ResetHoldProgress(true);
             if (Dg5fGraspSpec.ReachedEpisodeTimeout(_episodeSeconds))
                 FinishEpisode(false, "Timeout");
+        }
+
+        void UpdateHoldProgress()
+        {
+            if (!_holdActive)
+            {
+                _holdActive = true;
+                _holdAnchorPosition = graspPoint.position;
+                _holdSeconds = 0f;
+                _previousHoldPotential = 0f;
+            }
+            else if (!Dg5fGraspSpec.IsStableHoldPosition(
+                         graspPoint.position,
+                         _holdAnchorPosition))
+            {
+                ResetHoldProgress(true);
+                return;
+            }
+
+            _holdSeconds = Mathf.Min(
+                Dg5fGraspSpec.HoldDurationSeconds,
+                _holdSeconds + Time.fixedDeltaTime);
+            float currentPotential = Dg5fGraspSpec.HoldPotential(_holdSeconds);
+            AddReward(Dg5fGraspSpec.PotentialDelta(
+                _previousHoldPotential,
+                currentPotential));
+            _previousHoldPotential = currentPotential;
+        }
+
+        void ResetHoldProgress(bool countReset)
+        {
+            if (!_holdActive && _holdSeconds <= 0f) return;
+            if (countReset && _holdSeconds > 0f) _holdResetCount++;
+            AddReward(Dg5fGraspSpec.PotentialDelta(_previousHoldPotential, 0f));
+            _holdActive = false;
+            _holdSeconds = 0f;
+            _previousHoldPotential = 0f;
+            _holdAnchorPosition = Vector3.zero;
         }
 
         void ReleaseBall()
@@ -616,6 +678,7 @@ namespace KDT.GraspTraining
             if (!_episodeActive) return;
             _episodeActive = false;
             ScoreApproachProgress();
+            if (!success) ResetHoldProgress(false);
             if (success)
                 AddReward(Dg5fGraspSpec.ApproachSuccessReward);
             else
@@ -634,8 +697,11 @@ namespace KDT.GraspTraining
             _stats.Add("Reach/Success", success ? 1f : 0f, StatAggregationMethod.Average);
             _stats.Add("Reach/CompletionSeconds", _episodeSeconds, StatAggregationMethod.Average);
             _stats.Add("Reach/FinalDistanceMeters", GraspDistance(), StatAggregationMethod.Average);
+            _stats.Add("Reach/FinalSurfaceClearanceMeters", SurfaceClearance(), StatAggregationMethod.Average);
             _stats.Add("Reach/BestDistanceMeters", _bestGraspDistance, StatAggregationMethod.Average);
             _stats.Add("Reach/FinalPalmFacingAlignment", PalmFacingAlignment(), StatAggregationMethod.Average);
+            _stats.Add("Reach/HoldSeconds", _holdSeconds, StatAggregationMethod.Average);
+            _stats.Add("Reach/HoldResets", _holdResetCount, StatAggregationMethod.Average);
             if (!success)
                 _stats.Add($"Failure/{reason}", 1f, StatAggregationMethod.Sum);
         }
@@ -656,6 +722,16 @@ namespace KDT.GraspTraining
         float GraspDistance()
         {
             return Vector3.Distance(graspPoint.position, ball.position);
+        }
+
+        float BallRadius()
+        {
+            return _ballCollider != null ? _ballCollider.bounds.extents.y : 0f;
+        }
+
+        float SurfaceClearance()
+        {
+            return Dg5fGraspSpec.SurfaceClearance(GraspDistance(), BallRadius());
         }
 
         float PalmFacingAlignment()

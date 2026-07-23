@@ -9,7 +9,7 @@ namespace KDT.GraspTraining
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "1.3.0";
+        public const string SpecVersion = "1.4.0";
         public const string BehaviorName = "DG5FGrasp";
         public const int ObservationSize = 57;
         public const int ActionSize = 7;
@@ -20,7 +20,15 @@ namespace KDT.GraspTraining
         public const float EpisodeTimeoutSeconds = 20f;
         public const float DecisionTimePenalty = -0.001f;
         public const float ApproachPotentialMaximum = 1f;
+        // The training ball has a 0.02 m world-space radius, so the legacy
+        // 0.05 m center-distance boundary is exactly 0.03 m from its surface.
+        // Keep the legacy constant and tensor slot stable for transfer while
+        // expressing the new success contract in surface-relative terms.
         public const float ApproachSuccessDistance = 0.05f;
+        public const float TargetSurfaceClearance = 0.03f;
+        public const float HoldDurationSeconds = 3f;
+        public const float HoldPositionTolerance = 0.01f;
+        public const float HoldPotentialMaximum = 0.5f;
         public const float ApproachSuccessReward = 1f;
 
         public const float V1MinimumSpawnRadius = 0.35f;
@@ -129,6 +137,44 @@ namespace KDT.GraspTraining
             return IsFinite(graspDistance)
                 && graspDistance <= ApproachSuccessDistance + 1e-6f
                 && IsPalmFacingBall(palmFacingAlignment);
+        }
+
+        public static float SurfaceClearance(float centerDistance, float ballRadius)
+        {
+            if (!IsFinite(centerDistance) || !IsFinite(ballRadius))
+                return float.PositiveInfinity;
+            return Mathf.Max(0f, centerDistance - Mathf.Max(0f, ballRadius));
+        }
+
+        public static bool IsWithinSurfaceApproachTarget(
+            float centerDistance,
+            float ballRadius,
+            float palmFacingAlignment)
+        {
+            return SurfaceClearance(centerDistance, ballRadius)
+                    <= TargetSurfaceClearance + 1e-6f
+                && IsPalmFacingBall(palmFacingAlignment);
+        }
+
+        public static bool IsStableHoldPosition(Vector3 graspPosition, Vector3 anchorPosition)
+        {
+            return IsFinite(graspPosition)
+                && IsFinite(anchorPosition)
+                && Vector3.Distance(graspPosition, anchorPosition)
+                    <= HoldPositionTolerance + 1e-6f;
+        }
+
+        public static float HoldPotential(float holdSeconds)
+        {
+            if (!IsFinite(holdSeconds)) return 0f;
+            return HoldPotentialMaximum * Mathf.Clamp01(
+                Mathf.Max(0f, holdSeconds) / HoldDurationSeconds);
+        }
+
+        public static bool HasCompletedHold(float holdSeconds)
+        {
+            return IsFinite(holdSeconds)
+                && holdSeconds >= HoldDurationSeconds - 1e-5f;
         }
 
         public static float AreaUniformRadius(float unitSample)
