@@ -1,0 +1,8 @@
+{
+  "name": "KDT.MLAgents.Editor",
+  "rootNamespace": "KDT.MLAgents.Editor",
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}

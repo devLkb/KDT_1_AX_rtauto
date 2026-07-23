@@ -1,5 +1,17 @@
 # DG5FGraspReadyReach training
 
+## Linux 빌드 출력 설정
+
+저장소 루트의 `.env.example`에 공유 기본값이 있다. 이를 `.env`로 복사하면
+Unity Linux 빌드의 출력 폴더와 실행 파일명을 사용자별로 변경할 수 있다.
+
+```bash
+cp .env.example .env
+```
+
+상대 경로는 저장소 루트를 기준으로 해석한다. 적용 우선순위는
+`프로세스 환경변수 > .env > .env.example`이며, `.env`는 Git에 포함되지 않는다.
+
 현재 활성 학습 계약은 열린 DG5F 손을 공 위로 안전하게 이동하고 파지 준비 자세에서
 팔을 고정하는 단일 정책이다.
 

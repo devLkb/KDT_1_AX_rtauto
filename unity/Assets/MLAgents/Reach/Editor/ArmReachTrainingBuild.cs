@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using KDT.MLAgents.Editor;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -8,29 +9,20 @@ namespace KDT.ReachTraining.Editor
 {
     public static class ArmReachTrainingBuild
     {
-        const string BuildDirectoryName = "DG5FGraspReadyReach";
-        const string PlayerName = "DG5FGraspReadyReach.x86_64";
-
         [MenuItem("Tools/ML-Agents/Build DG5F Grasp Ready Reach Linux Player")]
         public static void BuildLinux()
         {
             ArmReachTrainingSceneBuilder.Build();
 
-            string projectRoot =
-                Directory.GetParent(Application.dataPath)?.FullName
-                ?? throw new InvalidOperationException(
-                    "Cannot resolve Unity project root.");
-            string repositoryRoot =
-                Directory.GetParent(projectRoot)?.FullName
-                ?? throw new InvalidOperationException(
-                    "Cannot resolve repository root.");
-            string directory = Path.Combine(
-                repositoryRoot,
-                "training",
-                "builds",
-                BuildDirectoryName);
+            BuildEnvironment environment = BuildEnvironment.Load();
+            string directory = environment.GetPath(
+                "DG5F_REACH_BUILD_OUTPUT");
+            string playerName = environment.GetFileName(
+                "DG5F_REACH_PLAYER_NAME");
+            string dataDirectoryName =
+                Path.GetFileNameWithoutExtension(playerName) + "_Data";
             Directory.CreateDirectory(directory);
-            string output = Path.Combine(directory, PlayerName);
+            string output = Path.Combine(directory, playerName);
 
             var options = new BuildPlayerOptions
             {
@@ -49,27 +41,31 @@ namespace KDT.ReachTraining.Editor
                     "DG5F grasp-ready reach Linux build failed: "
                     + report.summary.result);
 
-            RemoveUnusedRuntimeAssimp(directory);
-            InstallLinuxLibDlProbeShim(directory);
+            RemoveUnusedRuntimeAssimp(directory, dataDirectoryName);
+            InstallLinuxLibDlProbeShim(directory, dataDirectoryName);
             Directory.CreateDirectory(Path.Combine(
                 directory,
-                "DG5FGraspReadyReach_Data",
+                dataDirectoryName,
                 "ML-Agents",
                 "Timers"));
             Debug.Log($"[ArmReachTrainingBuild] Built {output}");
         }
 
-        static void RemoveUnusedRuntimeAssimp(string outputDirectory)
+        static void RemoveUnusedRuntimeAssimp(
+            string outputDirectory,
+            string dataDirectoryName)
         {
             string plugin = Path.Combine(
                 outputDirectory,
-                "DG5FGraspReadyReach_Data",
+                dataDirectoryName,
                 "Plugins",
                 "libassimp.so");
             if (File.Exists(plugin)) File.Delete(plugin);
         }
 
-        static void InstallLinuxLibDlProbeShim(string outputDirectory)
+        static void InstallLinuxLibDlProbeShim(
+            string outputDirectory,
+            string dataDirectoryName)
         {
             string[] candidates =
             {
@@ -82,7 +78,7 @@ namespace KDT.ReachTraining.Editor
                     "Linux libdl.so.2 is required for the URDF importer probe.");
             string plugins = Path.Combine(
                 outputDirectory,
-                "DG5FGraspReadyReach_Data",
+                dataDirectoryName,
                 "Plugins");
             Directory.CreateDirectory(plugins);
             File.Copy(source, Path.Combine(plugins, "libdl.so"), true);

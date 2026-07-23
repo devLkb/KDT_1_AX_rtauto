@@ -3,6 +3,7 @@
   "rootNamespace": "KDT.GraspTraining.Editor",
   "references": [
     "KDT.GraspTraining",
+    "KDT.MLAgents.Editor",
     "Unity.ML-Agents"
   ],
   "includePlatforms": ["Editor"],

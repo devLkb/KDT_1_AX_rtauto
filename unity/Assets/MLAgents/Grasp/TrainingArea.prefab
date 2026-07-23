@@ -489,6 +489,10 @@ PrefabInstance:
       propertyPath: m_XDrive.forceLimit
       value: 28
       objectReference: {fileID: 0}
+    - target: {fileID: 4630947862775914348, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.x
+      value: 0.000000014901168
+      objectReference: {fileID: 0}
     - target: {fileID: 4690675079454138659, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.damping
       value: 100
@@ -572,6 +576,10 @@ PrefabInstance:
     - target: {fileID: 7500637150231856370, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.forceLimit
       value: 28
+      objectReference: {fileID: 0}
+    - target: {fileID: 7500637150231856370, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      propertyPath: m_ParentAnchorPosition.x
+      value: 0.099700086
       objectReference: {fileID: 0}
     - target: {fileID: 7607438824666650721, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       propertyPath: m_XDrive.damping
@@ -825,7 +833,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -844,7 +852,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -868,7 +876,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -887,7 +895,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -906,7 +914,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -925,7 +933,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -944,7 +952,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -963,14 +971,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d1c4e0b1822b495aa52bc52839ecb30, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
   m_BrainParameters:
     VectorObservationSize: 57
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 7
-      BranchSizes:
+      BranchSizes: 
     VectorActionSize: 07000000
     VectorActionDescriptions:
     - shoulder_pan_delta
@@ -982,9 +990,9 @@ MonoBehaviour:
     - grip_delta_compatibility_ignored
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: aa0d97130ec0602baa387b2e690e2ece, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 0
+  m_BehaviorType: 2
   m_BehaviorName: DG5FGrasp
   TeamId: 0
   m_UseChildSensors: 1
@@ -1001,7 +1009,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 939ba8dd010ce20628dbfa66b690e5b3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.Dg5fGraspAgent
   agentParameters:
     maxStep: 0
@@ -1135,7 +1143,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 44a89de12ca74892804862cfb0aa62c6, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspTeleoperationHandoff
   agent: {fileID: 4008474240250374591}
   teleoperationDrivers:
@@ -1153,7 +1161,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.DecisionRequester
   DecisionPeriod: 5
   DecisionStep: 0
@@ -1173,7 +1181,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1192,7 +1200,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1211,7 +1219,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1230,7 +1238,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1249,7 +1257,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1262,7 +1270,7 @@ MonoBehaviour:
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e3964a4c674a2bf4287eb1a9fc82b865, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fHandDriver
 --- !u!4 &2988403490596620692 stripped
 Transform:
@@ -1278,7 +1286,7 @@ MonoBehaviour:
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9ec6df08c4003d429fa1705a3058e2b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fFingerIK
 --- !u!1 &3173754524263377732 stripped
 GameObject:
@@ -1295,7 +1303,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1314,7 +1322,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1333,7 +1341,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5cae44f635d7500af974413a6af4d799, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspContactSensor
   fingerIndex: 3
   targetBall: {fileID: 1318350585174679090}
@@ -1352,7 +1360,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1371,7 +1379,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1390,7 +1398,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1414,7 +1422,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1433,7 +1441,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5cae44f635d7500af974413a6af4d799, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspContactSensor
   fingerIndex: 2
   targetBall: {fileID: 1318350585174679090}
@@ -1452,7 +1460,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1465,7 +1473,7 @@ MonoBehaviour:
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba36ed70e8ac94b4693802829bc2333b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fReceiver
 --- !u!1 &5478947409890378761 stripped
 GameObject:
@@ -1482,7 +1490,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1501,7 +1509,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1520,7 +1528,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1539,7 +1547,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1558,7 +1566,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1577,7 +1585,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5cae44f635d7500af974413a6af4d799, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspContactSensor
   fingerIndex: 1
   targetBall: {fileID: 1318350585174679090}
@@ -1596,7 +1604,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5cae44f635d7500af974413a6af4d799, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspContactSensor
   fingerIndex: 0
   targetBall: {fileID: 1318350585174679090}
@@ -1620,7 +1628,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1644,7 +1652,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5cae44f635d7500af974413a6af4d799, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspContactSensor
   fingerIndex: 4
   targetBall: {fileID: 1318350585174679090}
@@ -1663,7 +1671,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1682,7 +1690,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1701,7 +1709,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1725,7 +1733,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1744,7 +1752,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1763,7 +1771,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1782,7 +1790,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1801,7 +1809,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1820,7 +1828,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
@@ -1833,7 +1841,7 @@ MonoBehaviour:
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9ec6df08c4003d429fa1705a3058e2b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fThumbIK
 --- !u!1 &9223145389829452505 stripped
 GameObject:
@@ -1850,7 +1858,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 4008474240250374591}
   unsafeSurface: {fileID: 3271790040711901280}
