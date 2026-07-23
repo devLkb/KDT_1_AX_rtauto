@@ -53,7 +53,8 @@ namespace KDT.GraspTraining
         float _bestGraspDistance;
         float _episodeSeconds;
         float _holdSeconds;
-        float _previousHoldPotential;
+        float _bestHoldSeconds;
+        float _bestHoldPotential;
         Vector3 _holdAnchorPosition;
         int _holdResetCount;
         int _ballReleaseFixedSteps;
@@ -76,6 +77,7 @@ namespace KDT.GraspTraining
         public float CurrentPlanarDistance => PlanarDistance();
         public float CurrentSurfaceClearance => SurfaceClearance();
         public float CurrentHoldSeconds => _holdSeconds;
+        public float BestHoldSeconds => _bestHoldSeconds;
         public int CurrentHoldResetCount => _holdResetCount;
         public bool IsArmLocked => _armLocked;
         public bool IsExternalHandControl => _externalHandControl;
@@ -219,9 +221,11 @@ namespace KDT.GraspTraining
             _armLocked = false;
             _externalHandControl = false;
             _unsafeSurfaceContact = false;
+            Dg5fGraspSpec.RefreshHoldStage();
             _holdActive = false;
             _holdSeconds = 0f;
-            _previousHoldPotential = 0f;
+            _bestHoldSeconds = 0f;
+            _bestHoldPotential = 0f;
             _holdAnchorPosition = Vector3.zero;
             _holdResetCount = 0;
             ResetRobot();
@@ -353,11 +357,16 @@ namespace KDT.GraspTraining
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]));
 
-            // 49..52: v1/v2/v3/v4 objective one-hot. v1 is Reach.
+            // 49..52: Reach objective plus hold-state signals. These slots were
+            // constant zero in v1 except for Reach, so the transfer initializer
+            // zeros their input weights before curriculum fine-tuning.
             sensor.AddObservation(1f);
-            sensor.AddObservation(0f);
-            sensor.AddObservation(0f);
-            sensor.AddObservation(0f);
+            sensor.AddObservation(Dg5fGraspSpec.HoldProgress(_holdSeconds));
+            sensor.AddObservation(Dg5fGraspSpec.HoldAnchorErrorNormalized(
+                graspPoint.position,
+                _holdAnchorPosition,
+                _holdActive));
+            sensor.AddObservation(Dg5fGraspSpec.HoldStageNormalized());
 
             // 53..56: forward-compatible task progress slots.
             sensor.AddObservation(Dg5fGraspSpec.ApproachPotential(GraspDistance()));
@@ -402,14 +411,24 @@ namespace KDT.GraspTraining
             AddReward(Dg5fGraspSpec.DecisionTimePenalty);
             ScoreApproachProgress();
 
+            bool nearTarget = Dg5fGraspSpec.UsesNearTargetControl(SurfaceClearance());
+            float actionScale = nearTarget
+                ? Dg5fGraspSpec.NearTargetArmDeltaScale
+                : 1f;
+            float sumSquaredArmActions = 0f;
             for (int i = 0; i < _armTargetDeg.Length; i++)
             {
-                float delta = Mathf.Clamp(continuous[i], -1f, 1f) * armDeltaDegPerDecision;
+                float action = Mathf.Clamp(continuous[i], -1f, 1f);
+                sumSquaredArmActions += action * action;
+                float delta = action * armDeltaDegPerDecision * actionScale;
                 _armTargetDeg[i] = Mathf.Clamp(
                     _armTargetDeg[i] + delta,
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]);
             }
+            if (nearTarget)
+                AddReward(Dg5fGraspSpec.NearTargetActionPenalty(
+                    sumSquaredArmActions));
             ApplyArmTargets();
             if (enablePolicyClosure)
             {
@@ -553,7 +572,6 @@ namespace KDT.GraspTraining
                 _holdActive = true;
                 _holdAnchorPosition = graspPoint.position;
                 _holdSeconds = 0f;
-                _previousHoldPotential = 0f;
             }
             else if (!Dg5fGraspSpec.IsStableHoldPosition(
                          graspPoint.position,
@@ -564,23 +582,23 @@ namespace KDT.GraspTraining
             }
 
             _holdSeconds = Mathf.Min(
-                Dg5fGraspSpec.HoldDurationSeconds,
+                Dg5fGraspSpec.RequiredHoldSeconds,
                 _holdSeconds + Time.fixedDeltaTime);
-            float currentPotential = Dg5fGraspSpec.HoldPotential(_holdSeconds);
+            _bestHoldSeconds = Mathf.Max(_bestHoldSeconds, _holdSeconds);
+            float currentBestPotential =
+                Dg5fGraspSpec.HoldPotential(_bestHoldSeconds);
             AddReward(Dg5fGraspSpec.PotentialDelta(
-                _previousHoldPotential,
-                currentPotential));
-            _previousHoldPotential = currentPotential;
+                _bestHoldPotential,
+                currentBestPotential));
+            _bestHoldPotential = currentBestPotential;
         }
 
         void ResetHoldProgress(bool countReset)
         {
             if (!_holdActive && _holdSeconds <= 0f) return;
             if (countReset && _holdSeconds > 0f) _holdResetCount++;
-            AddReward(Dg5fGraspSpec.PotentialDelta(_previousHoldPotential, 0f));
             _holdActive = false;
             _holdSeconds = 0f;
-            _previousHoldPotential = 0f;
             _holdAnchorPosition = Vector3.zero;
         }
 
@@ -701,7 +719,10 @@ namespace KDT.GraspTraining
             _stats.Add("Reach/BestDistanceMeters", _bestGraspDistance, StatAggregationMethod.Average);
             _stats.Add("Reach/FinalPalmFacingAlignment", PalmFacingAlignment(), StatAggregationMethod.Average);
             _stats.Add("Reach/HoldSeconds", _holdSeconds, StatAggregationMethod.Average);
+            _stats.Add("Reach/BestHoldSeconds", _bestHoldSeconds, StatAggregationMethod.Average);
+            _stats.Add("Reach/HoldProgress", Dg5fGraspSpec.HoldProgress(_bestHoldSeconds), StatAggregationMethod.Average);
             _stats.Add("Reach/HoldResets", _holdResetCount, StatAggregationMethod.Average);
+            _stats.Add("Curriculum/HoldStage", Dg5fGraspSpec.CurrentHoldStage, StatAggregationMethod.Average);
             if (!success)
                 _stats.Add($"Failure/{reason}", 1f, StatAggregationMethod.Sum);
         }
