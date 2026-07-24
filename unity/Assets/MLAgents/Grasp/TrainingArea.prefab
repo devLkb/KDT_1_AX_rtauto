@@ -990,9 +990,9 @@ MonoBehaviour:
     - grip_delta_compatibility_ignored
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: aa0d97130ec0602baa387b2e690e2ece, type: 3}
+  m_Model: {fileID: 5022602860645237092, guid: 464dc29b103507bc791dd399892ea502, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: DG5FGrasp
   TeamId: 0
   m_UseChildSensors: 1

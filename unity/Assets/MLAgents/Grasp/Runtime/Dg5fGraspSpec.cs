@@ -10,7 +10,7 @@ namespace KDT.GraspTraining
     /// </summary>
     public static class Dg5fGraspSpec
     {
-        public const string SpecVersion = "1.5.0";
+        public const string SpecVersion = "1.7.0";
         public const string BehaviorName = "DG5FGrasp";
         public const int ObservationSize = 57;
         public const int ActionSize = 7;
@@ -29,7 +29,18 @@ namespace KDT.GraspTraining
         public const float TargetSurfaceClearance = 0.03f;
         public const float HoldDurationSeconds = 3f;
         public const float HoldPositionTolerance = 0.01f;
+        // Fixed pre-grasp dwell used by every stage (see RequiredHoldSeconds).
+        public const float PreGraspHoldSeconds = 0.3f;
         public const float HoldPotentialMaximum = 0.5f;
+        // Weight of the per-step sustain reward (see HoldDwellReward). Small so
+        // a full continuous hold accumulates on the order of the one-shot
+        // HoldPotential rather than dwarfing the +1 success reward.
+        public const float HoldDwellRewardScale = 0.01f;
+        // Raised from 0.25: the top-down approach angle is the primary training
+        // objective (park the hand vertically above the object for grasping), so
+        // its alignment potential is now the dominant shaping term.
+        public const float TopDownAlignmentPotentialMaximum = 0.5f;
+        public const float TopDownAlignmentRewardDistance = 0.15f;
         public const string HoldStageParameterName = "hold_stage";
         public const int FirstHoldStage = 1;
         public const int FinalHoldStage = 5;
@@ -48,6 +59,14 @@ namespace KDT.GraspTraining
         public const float MinimumTransitClearance = 0.10f;
         public const float MaximumLowClearancePlanarDistance = 0.05f;
         public const float SafetyPenalty = -2f;
+        // Premature/misaligned descents abort a navigation attempt rather than
+        // physically striking the panel. The old -2 cliff made the expected
+        // value of ever descending negative at low success rates, so the policy
+        // collapsed to a risk-averse hover ~7 cm above the surface and never
+        // reached the hold contract. A softer abort penalty keeps descents
+        // discouraged without dominating the gradient. Real surface contact
+        // (UnsafeSurfaceContact) still receives the full SafetyPenalty.
+        public const float DescentAbortPenalty = -0.5f;
 
         // Palm-local center of the full-hand grasp volume. The palm surface ends
         // near +Z 0.03 m, so this leaves the requested 0.01 m outward clearance.
@@ -85,20 +104,14 @@ namespace KDT.GraspTraining
 
         public static int CurrentHoldStage => _holdStage;
 
-        public static float RequiredHoldSeconds
-        {
-            get
-            {
-                switch (_holdStage)
-                {
-                    case 1: return 0.25f;
-                    case 2: return 0.50f;
-                    case 3: return 1.00f;
-                    case 4: return 2.00f;
-                    default: return HoldDurationSeconds;
-                }
-            }
-        }
+        // Pre-grasp hold is decoupled from the curriculum stage. The training
+        // goal is to park the hand in a graspable top-down pose and hand off to
+        // the grasp controller, not to hold for seconds. The stage now tightens
+        // only the approach angle / position tolerance (see below), while the
+        // hold stays a short fixed dwell that just confirms the pre-grasp pose
+        // is stable before handoff. This removes the seconds-long hold wall that
+        // blocked the angle from tightening.
+        public static float RequiredHoldSeconds => PreGraspHoldSeconds;
 
         public static float CurrentHoldPositionTolerance
         {
@@ -111,6 +124,36 @@ namespace KDT.GraspTraining
                     case 3: return 0.02f;
                     case 4: return 0.015f;
                     default: return HoldPositionTolerance;
+                }
+            }
+        }
+
+        public static float CurrentMaximumTopDownAngleDegrees
+        {
+            get
+            {
+                switch (_holdStage)
+                {
+                    case 1: return 80f;
+                    case 2: return 60f;
+                    case 3: return 45f;
+                    case 4: return 30f;
+                    default: return 15f;
+                }
+            }
+        }
+
+        public static float CurrentTopDownRewardEntryAngleDegrees
+        {
+            get
+            {
+                switch (_holdStage)
+                {
+                    case 1: return 100f;
+                    case 2: return 85f;
+                    case 3: return 65f;
+                    case 4: return 50f;
+                    default: return 35f;
                 }
             }
         }
@@ -183,6 +226,71 @@ namespace KDT.GraspTraining
             return Mathf.Clamp(Vector3.Dot(palmForward.normalized, palmToBall.normalized), -1f, 1f);
         }
 
+        public static float TopDownAlignment(Vector3 graspForward, Vector3 robotUp)
+        {
+            if (!IsFinite(graspForward)
+                || !IsFinite(robotUp)
+                || graspForward.sqrMagnitude <= 1e-12f
+                || robotUp.sqrMagnitude <= 1e-12f)
+            {
+                return -1f;
+            }
+
+            return Mathf.Clamp(
+                Vector3.Dot(graspForward.normalized, -robotUp.normalized),
+                -1f,
+                1f);
+        }
+
+        public static float TopDownAngleDegrees(float topDownAlignment)
+        {
+            if (!IsFinite(topDownAlignment)) return 180f;
+            return Mathf.Acos(Mathf.Clamp(topDownAlignment, -1f, 1f))
+                * Mathf.Rad2Deg;
+        }
+
+        public static bool IsTopDownAligned(float topDownAlignment)
+        {
+            if (!IsFinite(topDownAlignment)) return false;
+            float minimumAlignment = Mathf.Cos(
+                CurrentMaximumTopDownAngleDegrees * Mathf.Deg2Rad);
+            return topDownAlignment >= minimumAlignment - 1e-6f;
+        }
+
+        public static float TopDownAlignmentPotential(
+            float graspDistance,
+            float heightAboveBall,
+            float topDownAlignment)
+        {
+            if (!IsFinite(graspDistance)
+                || !IsFinite(heightAboveBall)
+                || !IsFinite(topDownAlignment)
+                || graspDistance > TopDownAlignmentRewardDistance + 1e-6f
+                || heightAboveBall < -1e-6f)
+            {
+                return 0f;
+            }
+
+            float entryAngle = CurrentTopDownRewardEntryAngleDegrees;
+            float targetAngle = CurrentMaximumTopDownAngleDegrees;
+            float progress = Mathf.Clamp01(
+                (entryAngle - TopDownAngleDegrees(topDownAlignment))
+                / (entryAngle - targetAngle));
+
+            // Squaring keeps the signal monotonic while concentrating more of
+            // the finite episode reward near the current lesson's target.
+            return TopDownAlignmentPotentialMaximum * progress * progress;
+        }
+
+        public static float NewBestPotentialDelta(
+            float previousBestPotential,
+            float currentPotential)
+        {
+            if (!IsFinite(previousBestPotential) || !IsFinite(currentPotential))
+                return 0f;
+            return Mathf.Max(0f, currentPotential - previousBestPotential);
+        }
+
         public static bool IsPalmFacingBall(float palmFacingAlignment)
         {
             // A positive dot product places the ball in the palm-facing half-space.
@@ -218,11 +326,13 @@ namespace KDT.GraspTraining
         public static bool IsWithinSurfaceApproachTarget(
             float centerDistance,
             float ballRadius,
-            float palmFacingAlignment)
+            float palmFacingAlignment,
+            float topDownAlignment)
         {
             return SurfaceClearance(centerDistance, ballRadius)
                     <= TargetSurfaceClearance + 1e-6f
-                && IsPalmFacingBall(palmFacingAlignment);
+                && IsPalmFacingBall(palmFacingAlignment)
+                && IsTopDownAligned(topDownAlignment);
         }
 
         public static bool IsStableHoldPosition(Vector3 graspPosition, Vector3 anchorPosition)
@@ -243,6 +353,19 @@ namespace KDT.GraspTraining
         public static float HoldPotential(float holdSeconds)
         {
             return HoldPotentialMaximum * HoldProgress(holdSeconds);
+        }
+
+        // Per-decision dwell reward paid every step the hold is active, scaled
+        // by the current continuous-hold fraction. The new-best HoldPotential
+        // delta alone gave no incentive to *sustain* a hold once a brief best
+        // was banked, so policies plateaued around a ~0.1-0.2 s tap and never
+        // approached the 0.5 s+ contract. This term rewards long uninterrupted
+        // holds far more than repeated short taps (the fraction restarts at 0
+        // on any anchor break), so it pulls dwell time up without opening a
+        // stationary reward-farming loop.
+        public static float HoldDwellReward(float holdSeconds)
+        {
+            return HoldDwellRewardScale * HoldProgress(holdSeconds);
         }
 
         public static bool HasCompletedHold(float holdSeconds)
@@ -295,15 +418,36 @@ namespace KDT.GraspTraining
 
         public static Vector3 SpawnBallLocalPosition(
             float radiusUnitSample,
+            float distributionUnitSample,
             float azimuthUnitSample,
             float ballRadius)
         {
             float horizontalRadius = AreaUniformRadius(radiusUnitSample);
-            float azimuth = Mathf.Clamp01(azimuthUnitSample) * 2f * Mathf.PI;
+            float azimuth = SpawnAzimuthRadians(
+                distributionUnitSample,
+                azimuthUnitSample);
             return new Vector3(
                 Mathf.Cos(azimuth) * horizontalRadius,
                 SupportTopHeight + Mathf.Max(0f, ballRadius),
                 Mathf.Sin(azimuth) * horizontalRadius);
+        }
+
+        public static float SpawnAzimuthRadians(
+            float distributionUnitSample,
+            float azimuthUnitSample)
+        {
+            float distribution = Mathf.Clamp01(distributionUnitSample);
+            float azimuth = Mathf.Clamp01(azimuthUnitSample);
+            if (distribution < 0.5f)
+                return azimuth * 2f * Mathf.PI;
+
+            // Robot-local +Z is forward and +X is right. Half the samples stay
+            // globally uniform; the other half is split evenly between the
+            // forward and right 90-degree sectors.
+            float sectorCenter = distribution < 0.75f
+                ? 0.5f * Mathf.PI
+                : 0f;
+            return sectorCenter + (azimuth - 0.5f) * 0.5f * Mathf.PI;
         }
 
         public static bool IsValidSpawn(Vector3 ballLocalPosition, float ballRadius)
@@ -349,12 +493,31 @@ namespace KDT.GraspTraining
                 && planarDistance > MaximumLowClearancePlanarDistance;
         }
 
+        public static bool IsMisalignedDescent(
+            float planarDistance,
+            float floorClearance,
+            float topDownAlignment)
+        {
+            if (!IsFinite(planarDistance)
+                || !IsFinite(floorClearance)
+                || !IsFinite(topDownAlignment))
+            {
+                return true;
+            }
+
+            return floorClearance < MinimumTransitClearance
+                && planarDistance <= MaximumLowClearancePlanarDistance + 1e-6f
+                && !IsTopDownAligned(topDownAlignment);
+        }
+
         public static float FailurePenalty(string reason)
         {
-            return string.Equals(reason, "UnsafeSurfaceContact", StringComparison.Ordinal)
-                || string.Equals(reason, "PrematureDescent", StringComparison.Ordinal)
-                ? SafetyPenalty
-                : 0f;
+            if (string.Equals(reason, "UnsafeSurfaceContact", StringComparison.Ordinal))
+                return SafetyPenalty;
+            if (string.Equals(reason, "PrematureDescent", StringComparison.Ordinal)
+                || string.Equals(reason, "MisalignedDescent", StringComparison.Ordinal))
+                return DescentAbortPenalty;
+            return 0f;
         }
 
         public static bool IsFinite(float value)

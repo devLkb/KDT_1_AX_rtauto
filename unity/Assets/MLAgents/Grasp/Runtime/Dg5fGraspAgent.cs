@@ -50,6 +50,7 @@ namespace KDT.GraspTraining
         float _initialBallHeight;
         float _supportTopHeight;
         float _previousApproachPotential;
+        float _bestTopDownAlignmentPotential;
         float _bestGraspDistance;
         float _episodeSeconds;
         float _holdSeconds;
@@ -73,6 +74,9 @@ namespace KDT.GraspTraining
         public float CurrentGraspDistance => GraspDistance();
         public float BestGraspDistance => _bestGraspDistance;
         public float CurrentPalmFacingAlignment => PalmFacingAlignment();
+        public float CurrentTopDownAlignment => TopDownAlignment();
+        public float CurrentTopDownAngleDegrees =>
+            Dg5fGraspSpec.TopDownAngleDegrees(TopDownAlignment());
         public float CurrentFloorClearance => FloorClearance();
         public float CurrentPlanarDistance => PlanarDistance();
         public float CurrentSurfaceClearance => SurfaceClearance();
@@ -239,6 +243,7 @@ namespace KDT.GraspTraining
             _previousApproachPotential = Dg5fGraspSpec.DirectionalApproachPotential(
                 _bestGraspDistance,
                 PalmFacingAlignment());
+            _bestTopDownAlignmentPotential = TopDownAlignmentPotential();
             _episodeActive = true;
         }
 
@@ -272,6 +277,7 @@ namespace KDT.GraspTraining
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = BallRadius();
             Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
+                Next01(),
                 Next01(),
                 Next01(),
                 ballRadius);
@@ -357,9 +363,8 @@ namespace KDT.GraspTraining
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
                     Dg5fGraspSpec.ArmSafeMaxDeg[i]));
 
-            // 49..52: Reach objective plus hold-state signals. These slots were
-            // constant zero in v1 except for Reach, so the transfer initializer
-            // zeros their input weights before curriculum fine-tuning.
+            // 49..52: Reach objective plus hold-state signals. Their meanings stay
+            // unchanged so the 599887-step hold policy can transfer without edits.
             sensor.AddObservation(1f);
             sensor.AddObservation(Dg5fGraspSpec.HoldProgress(_holdSeconds));
             sensor.AddObservation(Dg5fGraspSpec.HoldAnchorErrorNormalized(
@@ -540,6 +545,16 @@ namespace KDT.GraspTraining
                 return;
             }
 
+            float topDownAlignment = TopDownAlignment();
+            if (Dg5fGraspSpec.IsMisalignedDescent(
+                    PlanarDistance(),
+                    FloorClearance(),
+                    topDownAlignment))
+            {
+                FinishEpisode(false, "MisalignedDescent");
+                return;
+            }
+
             _episodeSeconds += Time.fixedDeltaTime;
             float distance = GraspDistance();
             float palmFacingAlignment = PalmFacingAlignment();
@@ -547,7 +562,8 @@ namespace KDT.GraspTraining
             if (Dg5fGraspSpec.IsWithinSurfaceApproachTarget(
                     distance,
                     BallRadius(),
-                    palmFacingAlignment))
+                    palmFacingAlignment,
+                    topDownAlignment))
             {
                 UpdateHoldProgress();
                 if (Dg5fGraspSpec.HasCompletedHold(_holdSeconds))
@@ -591,6 +607,10 @@ namespace KDT.GraspTraining
                 _bestHoldPotential,
                 currentBestPotential));
             _bestHoldPotential = currentBestPotential;
+            // Sustain incentive: reward every held step by its current
+            // continuous-hold fraction so long uninterrupted holds pay far more
+            // than repeated short taps, pulling dwell time toward the contract.
+            AddReward(Dg5fGraspSpec.HoldDwellReward(_holdSeconds));
         }
 
         void ResetHoldProgress(bool countReset)
@@ -613,6 +633,7 @@ namespace KDT.GraspTraining
             _previousApproachPotential = Dg5fGraspSpec.DirectionalApproachPotential(
                 _bestGraspDistance,
                 PalmFacingAlignment());
+            _bestTopDownAlignmentPotential = TopDownAlignmentPotential();
         }
 
         void ScoreApproachProgress()
@@ -623,6 +644,13 @@ namespace KDT.GraspTraining
                 PalmFacingAlignment());
             AddReward(Dg5fGraspSpec.PotentialDelta(_previousApproachPotential, currentPotential));
             _previousApproachPotential = currentPotential;
+            float currentTopDownPotential = TopDownAlignmentPotential();
+            AddReward(Dg5fGraspSpec.NewBestPotentialDelta(
+                _bestTopDownAlignmentPotential,
+                currentTopDownPotential));
+            _bestTopDownAlignmentPotential = Mathf.Max(
+                _bestTopDownAlignmentPotential,
+                currentTopDownPotential);
             if (Dg5fGraspSpec.IsFinite(distance))
                 _bestGraspDistance = Mathf.Min(_bestGraspDistance, distance);
         }
@@ -718,6 +746,8 @@ namespace KDT.GraspTraining
             _stats.Add("Reach/FinalSurfaceClearanceMeters", SurfaceClearance(), StatAggregationMethod.Average);
             _stats.Add("Reach/BestDistanceMeters", _bestGraspDistance, StatAggregationMethod.Average);
             _stats.Add("Reach/FinalPalmFacingAlignment", PalmFacingAlignment(), StatAggregationMethod.Average);
+            _stats.Add("Reach/FinalTopDownAlignment", TopDownAlignment(), StatAggregationMethod.Average);
+            _stats.Add("Reach/FinalTopDownAngleDegrees", CurrentTopDownAngleDegrees, StatAggregationMethod.Average);
             _stats.Add("Reach/HoldSeconds", _holdSeconds, StatAggregationMethod.Average);
             _stats.Add("Reach/BestHoldSeconds", _bestHoldSeconds, StatAggregationMethod.Average);
             _stats.Add("Reach/HoldProgress", Dg5fGraspSpec.HoldProgress(_bestHoldSeconds), StatAggregationMethod.Average);
@@ -760,6 +790,24 @@ namespace KDT.GraspTraining
             return Dg5fGraspSpec.PalmFacingAlignment(
                 graspPoint.forward,
                 ball.position - palm.position);
+        }
+
+        float TopDownAlignment()
+        {
+            return Dg5fGraspSpec.TopDownAlignment(
+                graspPoint.forward,
+                robotBase.up);
+        }
+
+        float TopDownAlignmentPotential()
+        {
+            float heightAboveBall = Vector3.Dot(
+                graspPoint.position - ball.position,
+                robotBase.up);
+            return Dg5fGraspSpec.TopDownAlignmentPotential(
+                GraspDistance(),
+                heightAboveBall,
+                TopDownAlignment());
         }
 
         public override void Heuristic(in ActionBuffers actionsOut)

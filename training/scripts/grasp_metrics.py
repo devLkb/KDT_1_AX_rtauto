@@ -42,10 +42,15 @@ METRICS = (
     Metric("유지 단계", "Curriculum/HoldStage", lower_is_better=False),
     Metric("최소 이동 여유", "Reach/MinimumTransitClearanceMeters", scale=100.0, unit=" cm", lower_is_better=False),
     Metric("손바닥 정렬", "Reach/PalmAlignment", lower_is_better=False),
+    Metric("물체 방향 손바닥 정렬", "Reach/FinalPalmFacingAlignment", lower_is_better=False),
+    Metric("하향 손바닥 정렬", "Reach/FinalTopDownAlignment", lower_is_better=False),
+    Metric("최종 손바닥 각도", "Reach/FinalTopDownAngleDegrees", unit=" °", lower_is_better=True),
     Metric("상단 원뿔 정렬", "Reach/UpperConeAlignment", lower_is_better=False),
     # ReadyReach records this tag with Count aggregation. It can exceed 1 and
     # must not be presented as a percentage.
     Metric("조기 하강 실패 건수", "Failure/PrematureDescent", unit=" 건", lower_is_better=True),
+    Metric("오정렬 하강 실패 건수", "Failure/MisalignedDescent", unit=" 건", lower_is_better=True),
+    Metric("표면 접촉 실패 건수", "Failure/UnsafeSurfaceContact", unit=" 건", lower_is_better=True),
     # Legacy environments only emit Failure/Timeout on a failure. Therefore
     # its scalar value is not an all-episode denominator-backed rate.
     Metric("시간 초과 기록값", "Failure/Timeout", lower_is_better=True),
@@ -236,6 +241,33 @@ def ready_reach_curriculum_status(
     )
 
 
+def current_topdown_stage(data: dict[str, list[ScalarPoint]]) -> int:
+    runtime_points = data.get("Curriculum/HoldStage", [])
+    if runtime_points:
+        return max(1, min(5, int(round(runtime_points[-1][2]))))
+
+    lesson_points = data.get("Environment/Lesson Number/hold_stage", [])
+    if lesson_points:
+        return max(1, min(5, int(round(lesson_points[-1][2])) + 1))
+    return 1
+
+
+def topdown_curriculum_status(
+    run_dir: Path, data: dict[str, list[ScalarPoint]]
+) -> str | None:
+    if "topdown" not in run_dir.name:
+        return None
+    stage = current_topdown_stage(data)
+    lesson = stage - 1
+    angles = (80, 60, 45, 30, 15)
+    holds = (0.25, 0.50, 1.00, 2.00, 3.00)
+    tolerances_cm = (3.0, 2.5, 2.0, 1.5, 1.0)
+    return (
+        f"top-down stage {stage} | 손바닥 각도 ≤ {angles[lesson]}° | "
+        f"유지 {holds[lesson]:.2f}s / {tolerances_cm[lesson]:.1f}cm"
+    )
+
+
 def format_number(value: float | None, metric: Metric) -> str:
     if value is None:
         return "-"
@@ -309,6 +341,29 @@ def analysis_lines(data: dict[str, list[ScalarPoint]], window: int, current_step
             lines.append(
                 f"조기 하강 실패가 {last_failure_step:,} step에도 기록됐으며, 발생한 summary당 "
                 f"최근 평균은 {failure:.2f}건입니다(이 tag는 실패율이 아니라 Count입니다)."
+            )
+
+    misaligned_points = data.get("Failure/MisalignedDescent", [])
+    if misaligned_points:
+        failure = rolling(misaligned_points, window)
+        if failure is not None:
+            lines.append(
+                f"오정렬 하강 실패가 최근 발생 summary당 평균 {failure:.2f}건입니다. "
+                "성공률과 최종 손바닥 각도가 함께 개선되는지 확인해야 합니다."
+            )
+
+    topdown_angle = get_mean(data, "Reach/FinalTopDownAngleDegrees", window)
+    if topdown_angle is not None:
+        stage = current_topdown_stage(data)
+        stage_limit = (80.0, 60.0, 45.0, 30.0, 15.0)[stage - 1]
+        if topdown_angle > stage_limit:
+            lines.append(
+                f"최종 손바닥 각도는 최근 평균 {topdown_angle:.1f}°로 "
+                f"stage {stage} 허용각 {stage_limit:.0f}° 밖입니다."
+            )
+        else:
+            lines.append(
+                f"최종 손바닥 각도는 최근 평균 {topdown_angle:.1f}°입니다."
             )
 
     reward_points = data.get("Environment/Cumulative Reward", [])
@@ -386,7 +441,10 @@ def main() -> int:
         eta_text = f" | ETA {(target - step) / rate / 60:.1f}분"
     print(f"step   : {step:,}{progress}{rate_text}{eta_text}")
     print(f"event  : {latest_event.name} | 갱신 {updated:%Y-%m-%d %H:%M:%S UTC}")
-    curriculum = ready_reach_curriculum_status(run_dir, data)
+    curriculum = (
+        topdown_curriculum_status(run_dir, data)
+        or ready_reach_curriculum_status(run_dir, data)
+    )
     if curriculum:
         print(f"policy : {curriculum}")
     if latest_session_only:

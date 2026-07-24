@@ -90,7 +90,11 @@ namespace KDT.GraspTraining.PlayModeTests
                 Is.EqualTo(Dg5fGraspSpec.PalmFacingAlignment(
                     agent.graspPoint.forward,
                     agent.ball.position - agent.palm.position)).Within(1e-6f));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.5.0"));
+            Assert.That(agent.CurrentTopDownAlignment,
+                Is.EqualTo(Dg5fGraspSpec.TopDownAlignment(
+                    agent.graspPoint.forward,
+                    agent.robotBase.up)).Within(1e-6f));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.7.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(agent.MaxStep, Is.Zero, "v1 measures timeout in simulation time.");
             Assert.That(agent.enablePolicyClosure, Is.False);
@@ -305,15 +309,37 @@ namespace KDT.GraspTraining.PlayModeTests
             agent.endEpisodeOnReach = false;
             agent.ball.isKinematic = true;
             agent.ball.useGravity = false;
-            agent.ball.position = agent.graspPoint.position;
+            Vector3 holdPosition =
+                agent.palm.position - agent.robotBase.up * 0.10f;
+            PlaceBallAtGraspPoint(
+                agent,
+                holdPosition,
+                -agent.robotBase.up,
+                agent.robotBase.forward);
             agent.ball.rotation = Quaternion.identity;
-            Physics.SyncTransforms();
+            Assert.That(agent.CurrentTopDownAngleDegrees, Is.LessThan(1e-3f));
             int holdSteps = Mathf.CeilToInt(
                 Dg5fGraspSpec.RequiredHoldSeconds / Time.fixedDeltaTime) + 2;
             for (int i = 0; i < holdSteps; i++)
+            {
+                PlaceBallAtGraspPoint(
+                    agent,
+                    holdPosition,
+                    -agent.robotBase.up,
+                    agent.robotBase.forward);
                 yield return new WaitForFixedUpdate();
+            }
 
-            Assert.That(agent.IsArmLocked, Is.True);
+            Assert.That(agent.IsArmLocked, Is.True,
+                $"reason={agent.LastTerminationReason}, active={agent.IsEpisodeActive}, "
+                + $"hold={agent.CurrentHoldSeconds}, bestHold={agent.BestHoldSeconds}, "
+                + $"distance={agent.CurrentGraspDistance}, "
+                + $"surface={agent.CurrentSurfaceClearance}, "
+                + $"palm={agent.CurrentPalmFacingAlignment}, "
+                + $"topDown={agent.CurrentTopDownAlignment}, "
+                + $"angle={agent.CurrentTopDownAngleDegrees}, "
+                + $"planar={agent.CurrentPlanarDistance}, "
+                + $"floor={agent.CurrentFloorClearance}");
             Assert.That(agent.IsExternalHandControl, Is.True);
             Assert.That(agent.IsEpisodeActive, Is.False);
             Assert.That(agent.LastTerminationReason, Is.EqualTo("Success"));
@@ -348,6 +374,51 @@ namespace KDT.GraspTraining.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator SideOnPoseCannotStartHoldOrLockArm()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Dg5fGraspAgent agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            agent.GetComponent<Unity.MLAgents.DecisionRequester>().enabled = false;
+            agent.endEpisodeOnReach = false;
+            agent.ball.isKinematic = true;
+            agent.ball.useGravity = false;
+            Vector3 holdPosition =
+                agent.palm.position + agent.robotBase.right * 0.10f;
+            PlaceBallAtGraspPoint(
+                agent,
+                holdPosition,
+                agent.robotBase.right,
+                agent.robotBase.up);
+
+            Assert.That(agent.CurrentSurfaceClearance,
+                Is.LessThanOrEqualTo(Dg5fGraspSpec.TargetSurfaceClearance));
+            Assert.That(agent.CurrentPalmFacingAlignment, Is.GreaterThan(0f));
+            Assert.That(agent.CurrentTopDownAngleDegrees,
+                Is.EqualTo(90f).Within(1e-3f));
+
+            int holdSteps = Mathf.CeilToInt(
+                Dg5fGraspSpec.HoldDurationSeconds / Time.fixedDeltaTime) + 2;
+            for (int i = 0; i < holdSteps; i++)
+            {
+                PlaceBallAtGraspPoint(
+                    agent,
+                    holdPosition,
+                    agent.robotBase.right,
+                    agent.robotBase.up);
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.That(agent.IsArmLocked, Is.False);
+            Assert.That(agent.IsExternalHandControl, Is.False);
+            Assert.That(agent.CurrentHoldSeconds, Is.Zero);
+            Assert.That(agent.LastTerminationReason, Is.Not.EqualTo("Success"));
+        }
+
+        [UnityTest]
         public IEnumerator ReportedPanelContactTerminatesAsUnsafeSurfaceContact()
         {
             SceneManager.LoadScene("DG5F_GraspTraining");
@@ -362,6 +433,21 @@ namespace KDT.GraspTraining.PlayModeTests
 
             Assert.That(agent.LastTerminationReason,
                 Is.EqualTo("UnsafeSurfaceContact"));
+        }
+
+        static void PlaceBallAtGraspPoint(
+            Dg5fGraspAgent agent,
+            Vector3 graspPosition,
+            Vector3 graspForward,
+            Vector3 graspUp)
+        {
+            agent.graspPoint.position = graspPosition;
+            agent.graspPoint.rotation = Quaternion.LookRotation(
+                graspForward,
+                graspUp);
+            agent.ball.position =
+                agent.graspPoint.position + agent.graspPoint.forward * 0.02f;
+            Physics.SyncTransforms();
         }
     }
 }

@@ -41,6 +41,19 @@ torch.onnx.export = _legacy_onnx_export
 # new Python thread as well. CPU does not need this mode, and PyTorch 2.1's CPU
 # implementation can corrupt its mode stack when concurrent threads install it.
 _selected_device = default_device()
+_torch_load = torch.load
+if _selected_device.type == "cpu":
+    @wraps(_torch_load)
+    def _load_cuda_checkpoint_on_cpu(*args, **kwargs):
+        # ML-Agents' initialize-from path calls torch.load() without a
+        # map_location. The frozen 599887 checkpoint contains CUDA-tagged
+        # optimizer storage, so keep its bytes immutable and remap only while
+        # deserializing on CPU-only development machines.
+        kwargs.setdefault("map_location", _selected_device)
+        return _torch_load(*args, **kwargs)
+
+    torch.load = _load_cuda_checkpoint_on_cpu
+
 if _selected_device.type != "cpu":
     _thread_run = threading.Thread.run
 

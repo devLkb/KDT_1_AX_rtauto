@@ -2,7 +2,8 @@
   "name": "KDT.GraspTraining.Tests",
   "rootNamespace": "KDT.GraspTraining.Tests",
   "references": [
-    "KDT.GraspTraining"
+    "KDT.GraspTraining",
+    "Unity.InferenceEngine"
   ],
   "optionalUnityReferences": ["TestAssemblies"],
   "includePlatforms": ["Editor"],
