@@ -1,66 +1,38 @@
-# DG5F GraspPoint 팔 도달 강화학습 설계
+# DG5F 열린 손 파지 준비 도달 설계
 
-## 1. 목표와 시스템 경계
-
-확정된 제품 파이프라인은 다음과 같다.
+## 범위
 
 ```text
-3D 카메라가 목표 좌표 계산
-  -> DG5FGraspPointReach 정책이 UR5e 팔 이동
-  -> 사용자가 원격조작으로 DG5F 손 조작
+현재: 랜덤 공 위치 -> RL이 열린 손과 팔을 안전하게 배치 -> 팔 잠금
+후속: MediaPipe 손 20관절 인식 -> 잠긴 팔 위에서 실제 파지
 ```
 
-이 저장소의 현재 강화학습 범위는 가운데 단계다. 카메라 수신·좌표 보정은 후속 입력
-adapter의 책임이고, 손의 20관절 조작은 기존 `vision/dg5f` 텔레옵의 책임이다.
-정책은 파지나 상승을 학습하지 않는다.
+현재 정책은 카메라나 MediaPipe를 입력으로 사용하지 않는다. Unity가 만든 목표 좌표에
+대해 팔 6축만 학습하고, 손 20관절은 prefab의 열린 자세로 유지한다.
 
-## 2. 단일 말단점과 제어
+## 바닥 쓸기 방지
 
-기존 20개 손가락 관절 상태/행동 대신 palm에 고정된 `GraspPoint` 하나를 작업점으로
-사용한다. policy는 UR5e 6관절의 xDrive 명령만 증분 제어하며, 위치 목표에 빠르게
-도달한 뒤 낮은 속도로 안정화하는 문제를 푼다. 자세 목표는 현재 범위가 아니다.
+거리만 최소화하면 Agent는 손이나 팔을 패널에 붙여 수평 이동하는 shortcut을 선택할 수
+있다. 이를 보상 조정만으로 완화하지 않고 환경 계약으로 차단한다.
 
-정확한 관측 26개, 행동 6개, 좌표계와 인덱스는
-[`AGENT_SPEC.md`](AGENT_SPEC.md)가 유일한 계약이다.
+1. 먼저 공 중심 10 cm 위 waypoint를 목표로 한다.
+2. waypoint 3 cm 이내와 clearance 10 cm 이상을 동시에 만족해야 하강 단계로 간다.
+3. 하강 중에는 공과 수평 거리 5 cm 안에 있어야 한다.
+4. root base를 제외한 움직이는 로봇 collider가 패널에 닿으면 즉시 실패한다.
 
-## 3. 목표 분포
+따라서 낮은 높이에서의 수평 접근은 terminal penalty를 받고 성공 trajectory가 될 수 없다.
 
-빨간 목표는 패널 상면에 닿는 static trigger다. robot-base 기준 반경
-`0.20..0.85 m`, 전 방위 `0..360°`를 각각 균등 표본화해 가까운 전방 목표에
-편중되지 않게 한다. 패널 밖, 로봇과 겹침, 초기 GraspPoint 거리 10 cm 미만인 표본은
-버린다. 병렬 환경마다 seed를 분리해 동일 episode가 복제되지 않게 한다.
+## 파지 준비와 잠금
 
-이 분포는 현재 카메라 대신 사용하는 학습 입력이다. 카메라 adapter가 추가되어도
-robot-base 좌표의 target Transform이라는 환경 경계는 유지한다.
+위치만 맞고 손등이 공을 향하는 상태를 방지하기 위해 palm 자세를 성공 조건에 포함한다.
+GraspPoint가 1 cm 이내이고 느리며, palm이 목표 방향 15° 이내이고 공 위쪽 45° cone에
+있는 상태를 0.25초 유지해야 한다. 그 후 6축 xDrive target을 latch한다. 학습은 성공
+종료하고, 배포는 `ReleaseArmLock()` 전까지 계속 고정할 수 있다.
 
-## 4. 보상 설계
+## 학습과 평가
 
-- 거리 변화량은 실제 접근만 보상하고 후퇴에는 같은 비율로 벌점을 준다.
-- decision당 작은 시간 비용으로 더 빠른 경로를 선호한다.
-- 1 cm 이내에서 속도 0.05 m/s 이하를 0.25초 유지해야 terminal 성공을 준다.
-- 성공 보너스는 남은 시간과 최종 오차를 함께 반영한다.
-- timeout과 안전/비유한 물리 실패는 명시적으로 벌점 처리한다.
+37개 관측에는 관절 상태, 목표/waypoint 오차, clearance, 속도, palm 방향, 단계와 hold가
+포함된다. 행동은 팔 6개뿐이다. checkpoint와 curriculum 없이 5M-step fresh PPO를
+사용한다. 최종 평가는 500개 미학습 seed에서 성공률과 모든 안전 조건을 함께 검증한다.
 
-절대 거리의 매 step 음수 보상이나 실패 시 진행 보상 회수는 사용하지 않는다.
-전자는 긴 trajectory의 scale을 불안정하게 만들고, 후자는 유효한 접근 경험까지
-없애기 때문이다. 접근/후퇴 반복은 progress가 상쇄되고 시간 비용만 남는다.
-
-## 5. 환경과 손 모델
-
-20개 독립 학습 영역을 유지한다. 시각적으로는 DG5F 손을 남기지만 학습 환경의 손가락
-ArticulationBody, collider, 텔레옵 수신기는 비활성화한다. 따라서 손 접촉이나 관절
-상태가 팔 policy에 영향을 주지 않는다. 실제 원격조작용 prefab과 코드는 삭제하지 않는다.
-
-episode reset은 팔의 실제 관절 상태와 명령 target을 일치시키고 모든 속도·reward
-기억·hold timer를 초기화해야 한다. 20 simulation seconds 안에 성공하지 못하거나
-workspace를 벗어나면 종료한다.
-
-## 6. 학습과 승인
-
-PPO는 checkpoint 없이 처음부터 단일 단계로 5M steps 학습한다. curriculum,
-behavior cloning, 이전 move/grasp/lift 모델의 encoder/action head 전이는 사용하지
-않는다. 512-step smoke는 communicator와 tensor shape 검증일 뿐 성능 판정이 아니다.
-
-최종 승인은 미학습 500 seed 결정론 평가에서 성공률 90% 이상, 모든 성공의 정밀 조건
-충족, 안전/비유한 실패 0건으로 한다. 자세한 실행 절차는
-[`ML_AGENTS_TRAINING_GUIDE.md`](ML_AGENTS_TRAINING_GUIDE.md)를 따른다.
+수치·인덱스의 단일 출처는 [`AGENT_SPEC.md`](AGENT_SPEC.md)다.

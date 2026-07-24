@@ -3,20 +3,26 @@ using UnityEngine;
 
 namespace KDT.ReachTraining
 {
+    public enum ReachPhase
+    {
+        Transit = 0,
+        Descend = 1,
+        Locked = 2
+    }
+
     /// <summary>
-    /// Versioned policy, episode, and reward contract for positioning one logical
-    /// GraspPoint with the six UR5e arm joints. Hand joints are intentionally absent.
+    /// Policy and safety contract for moving an open DG5F hand to a grasp-ready
+    /// pose. The policy controls only the UR5e arm; the hand remains at the
+    /// prefab's calibrated open pose throughout training.
     /// </summary>
     public static class Dg5fReachSpec
     {
-        public const string SpecVersion = "1.1.0";
-        public const string BehaviorName = "DG5FGraspPointReach";
-        public const string CurriculumParameterName = "reach_stage";
-        public const int FirstCurriculumStage = 1;
-        public const int FinalCurriculumStage = 3;
+        public const string SpecVersion = "2.0.0";
+        public const string BehaviorName = "DG5FGraspReadyReach";
 
         public const int ArmJointCount = 6;
-        public const int ObservationSize = 26;
+        public const int HandJointCount = 20;
+        public const int ObservationSize = 37;
         public const int ActionSize = 6;
         public const int DecisionPeriod = 5;
 
@@ -24,16 +30,22 @@ namespace KDT.ReachTraining
         public const int ArmVelocityObservationOffset = 6;
         public const int ArmTargetObservationOffset = 12;
         public const int TargetOffsetObservationOffset = 18;
-        public const int DistanceObservationIndex = 21;
-        public const int GraspPointVelocityObservationOffset = 22;
-        public const int HoldProgressObservationIndex = 25;
+        public const int ActiveWaypointOffsetObservationOffset = 21;
+        public const int DistanceObservationIndex = 24;
+        public const int PlanarDistanceObservationIndex = 25;
+        public const int FloorClearanceObservationIndex = 26;
+        public const int GraspPointVelocityObservationOffset = 27;
+        public const int PalmTargetObservationOffset = 30;
+        public const int PalmAlignmentObservationIndex = 33;
+        public const int UpperConeObservationIndex = 34;
+        public const int PhaseObservationIndex = 35;
+        public const int HoldProgressObservationIndex = 36;
 
         public const float MaximumArmDeltaDegPerDecision = 4f;
         public const float TrainingArmDeltaDegPerDecision = 2f;
         public const float PrecisionArmDeltaDegPerDecision = 1f;
         public const float PrecisionDeltaDistance = 0.10f;
-        public const float LegacyMinimumTargetRadius = 0.35f;
-        public const float LegacyMaximumTargetRadius = 0.70f;
+
         public const float MinimumTargetRadius = 0.20f;
         public const float MaximumTargetRadius = 0.85f;
         public const float TargetRadius = 0.02f;
@@ -43,33 +55,36 @@ namespace KDT.ReachTraining
         public const float PanelDepth = 1.80f;
         public const float PanelThickness = 0.25f;
 
+        public const float PreGraspHeight = 0.10f;
+        public const float TransitWaypointTolerance = 0.03f;
+        public const float MinimumTransitClearance = 0.10f;
+        public const float MaximumDescendPlanarDistance = 0.05f;
         public const float SuccessDistance = 0.01f;
         public const float MaximumSuccessPointSpeed = 0.05f;
         public const float RequiredSuccessHoldSeconds = 0.25f;
+        public const float MinimumPalmAlignment = 0.965925826f; // cos(15 deg)
+        public const float MinimumUpperConeAlignment = 0.707106781f; // cos(45 deg)
         public const float EpisodeTimeoutSeconds = 20f;
 
         public const float WorkspaceRadius = 1.05f;
-        public const float WorkspaceMinimumY = -0.15f;
+        public const float WorkspaceMinimumY = -0.05f;
         public const float WorkspaceMaximumY = 1.05f;
 
         public const float ProgressRewardScale = 2f;
+        public const float AlignmentRewardScale = 0.25f;
+        public const float DescendPhaseReward = 0.25f;
+        public const float LockSuccessReward = 4f;
         public const float DecisionTimePenalty = -0.001f;
         public const float TimeoutPenalty = -1f;
         public const float SafetyPenalty = -2f;
 
-        // Generated from the source DG5F prefab. This is one logical policy point,
-        // not an average or a set of hand action channels.
         public static readonly Vector3 CalibratedGraspPointLocalPosition =
             new Vector3(0.0170203224f, 0.152462155f, 0.0135399457f);
 
         public static readonly string[] ArmLinks =
         {
-            "shoulder_link",
-            "upper_arm_link",
-            "forearm_link",
-            "wrist_1_link",
-            "wrist_2_link",
-            "wrist_3_link"
+            "shoulder_link", "upper_arm_link", "forearm_link",
+            "wrist_1_link", "wrist_2_link", "wrist_3_link"
         };
 
         public static readonly float[] ArmSafeMinDeg =
@@ -82,63 +97,21 @@ namespace KDT.ReachTraining
             180f, -20f, 140f, 0f, -30f, 180f
         };
 
-        /// <summary>
-        /// Samples radius and azimuth uniformly, then rejects a target too close to
-        /// the episode's initial GraspPoint. The returned position is robot-base local.
-        /// </summary>
         public static Vector3 SpawnTargetLocalPosition(
             System.Random random,
             Vector3 initialGraspPointLocal,
-            float targetCenterY = TargetRadius)
-        {
-            return SpawnTargetLocalPosition(
-                random,
-                initialGraspPointLocal,
-                targetCenterY,
-                null);
-        }
-
-        /// <summary>
-        /// Samples with an additional scene-level acceptance predicate. This lets the
-        /// Agent reject panel-edge and robot-overlap candidates without weakening the
-        /// deterministic 256-attempt bound in the policy contract.
-        /// </summary>
-        public static Vector3 SpawnTargetLocalPosition(
-            System.Random random,
-            Vector3 initialGraspPointLocal,
-            float targetCenterY,
-            Predicate<Vector3> acceptsCandidate)
-        {
-            return SpawnTargetLocalPosition(
-                random,
-                initialGraspPointLocal,
-                targetCenterY,
-                acceptsCandidate,
-                MinimumTargetRadius,
-                MaximumTargetRadius);
-        }
-
-        public static Vector3 SpawnTargetLocalPosition(
-            System.Random random,
-            Vector3 initialGraspPointLocal,
-            float targetCenterY,
-            Predicate<Vector3> acceptsCandidate,
-            float minimumTargetRadius,
-            float maximumTargetRadius)
+            float targetCenterY = TargetRadius,
+            Predicate<Vector3> acceptsCandidate = null)
         {
             if (random == null) throw new ArgumentNullException(nameof(random));
             if (!IsFinite(initialGraspPointLocal) || !IsFinite(targetCenterY))
                 throw new ArgumentException("Spawn inputs must be finite.");
-            if (!IsFinite(minimumTargetRadius) || !IsFinite(maximumTargetRadius)
-                || minimumTargetRadius < 0f
-                || maximumTargetRadius < minimumTargetRadius)
-                throw new ArgumentOutOfRangeException(nameof(minimumTargetRadius));
 
             for (int attempt = 0; attempt < MaximumSpawnAttempts; attempt++)
             {
                 float radius = Mathf.Lerp(
-                    minimumTargetRadius,
-                    maximumTargetRadius,
+                    MinimumTargetRadius,
+                    MaximumTargetRadius,
                     (float)random.NextDouble());
                 float azimuth = 2f * Mathf.PI * (float)random.NextDouble();
                 var candidate = new Vector3(
@@ -163,10 +136,7 @@ namespace KDT.ReachTraining
             float targetCenterY = TargetRadius)
         {
             if (!IsFinite(targetLocalPosition) || !IsFinite(initialGraspPointLocal)
-                || !IsFinite(targetCenterY))
-            {
-                return false;
-            }
+                || !IsFinite(targetCenterY)) return false;
 
             float planarRadius = new Vector2(
                 targetLocalPosition.x,
@@ -178,25 +148,15 @@ namespace KDT.ReachTraining
                     >= MinimumInitialCenterDistance - 1e-5f;
         }
 
-        /// <summary>
-        /// Checks that a target sphere footprint remains inside the panel collider.
-        /// Box colliders are evaluated in panel-local coordinates, so rotation and
-        /// non-uniform scale do not turn the test into a world-AABB approximation.
-        /// </summary>
         public static bool IsTargetSphereWithinPanel(
             Vector3 worldCenter,
             float worldRadius,
             Collider panelCollider)
         {
-            if (panelCollider == null
-                || !panelCollider.enabled
+            if (panelCollider == null || !panelCollider.enabled
                 || !panelCollider.gameObject.activeInHierarchy
-                || !IsFinite(worldCenter)
-                || !IsFinite(worldRadius)
-                || worldRadius < 0f)
-            {
-                return false;
-            }
+                || !IsFinite(worldCenter) || !IsFinite(worldRadius)
+                || worldRadius < 0f) return false;
 
             if (panelCollider is BoxCollider box)
             {
@@ -218,6 +178,138 @@ namespace KDT.ReachTraining
                 && worldCenter.z + worldRadius <= bounds.max.z;
         }
 
+        public static Vector3 PreGraspPoint(Vector3 targetPosition)
+        {
+            return targetPosition + Vector3.up * PreGraspHeight;
+        }
+
+        public static float PlanarDistance(Vector3 first, Vector3 second)
+        {
+            if (!IsFinite(first) || !IsFinite(second)) return float.PositiveInfinity;
+            return new Vector2(first.x - second.x, first.z - second.z).magnitude;
+        }
+
+        public static bool CanEnterDescend(float waypointDistance, float floorClearance)
+        {
+            return IsFinite(waypointDistance) && IsFinite(floorClearance)
+                && waypointDistance <= TransitWaypointTolerance
+                && floorClearance >= MinimumTransitClearance;
+        }
+
+        public static bool IsPrematureDescent(
+            ReachPhase phase,
+            float planarDistance,
+            float floorClearance)
+        {
+            if (!IsFinite(planarDistance) || !IsFinite(floorClearance)) return true;
+            if (floorClearance >= MinimumTransitClearance) return false;
+            return phase == ReachPhase.Transit
+                || planarDistance > MaximumDescendPlanarDistance;
+        }
+
+        public static float PalmFacingAlignment(Vector3 palmForward, Vector3 palmToTarget)
+        {
+            if (!IsFinite(palmForward) || !IsFinite(palmToTarget)
+                || palmForward.sqrMagnitude <= 1e-12f
+                || palmToTarget.sqrMagnitude <= 1e-12f) return -1f;
+            return Mathf.Clamp(
+                Vector3.Dot(palmForward.normalized, palmToTarget.normalized),
+                -1f,
+                1f);
+        }
+
+        public static float UpperConeAlignment(
+            Vector3 palmPosition,
+            Vector3 targetPosition)
+        {
+            Vector3 targetToPalm = palmPosition - targetPosition;
+            if (!IsFinite(targetToPalm) || targetToPalm.sqrMagnitude <= 1e-12f)
+                return -1f;
+            return Mathf.Clamp(
+                Vector3.Dot(targetToPalm.normalized, Vector3.up),
+                -1f,
+                1f);
+        }
+
+        public static bool MeetsLockState(
+            float distance,
+            float pointSpeed,
+            float palmAlignment,
+            float upperConeAlignment)
+        {
+            return IsFinite(distance) && IsFinite(pointSpeed)
+                && IsFinite(palmAlignment) && IsFinite(upperConeAlignment)
+                && distance >= 0f && pointSpeed >= 0f
+                && distance <= SuccessDistance
+                && pointSpeed <= MaximumSuccessPointSpeed
+                && palmAlignment >= MinimumPalmAlignment
+                && upperConeAlignment >= MinimumUpperConeAlignment;
+        }
+
+        public static float NextLockHoldSeconds(
+            float previousHoldSeconds,
+            float distance,
+            float pointSpeed,
+            float palmAlignment,
+            float upperConeAlignment,
+            float deltaSeconds)
+        {
+            if (!MeetsLockState(
+                    distance,
+                    pointSpeed,
+                    palmAlignment,
+                    upperConeAlignment)
+                || !IsFinite(previousHoldSeconds) || !IsFinite(deltaSeconds)
+                || deltaSeconds < 0f) return 0f;
+            return Mathf.Max(0f, previousHoldSeconds) + deltaSeconds;
+        }
+
+        public static float LockHoldProgress(float holdSeconds)
+        {
+            if (!IsFinite(holdSeconds)) return 0f;
+            return Mathf.Clamp01(
+                Mathf.Max(0f, holdSeconds) / RequiredSuccessHoldSeconds);
+        }
+
+        public static bool HasCompletedLockHold(float holdSeconds)
+        {
+            return IsFinite(holdSeconds)
+                && holdSeconds >= RequiredSuccessHoldSeconds;
+        }
+
+        public static float DecisionReward(
+            float previousDistance,
+            float currentDistance,
+            ReachPhase phase,
+            float previousAlignment,
+            float currentAlignment)
+        {
+            float reward = DecisionTimePenalty;
+            if (IsFinite(previousDistance) && IsFinite(currentDistance))
+                reward += ProgressRewardScale * (previousDistance - currentDistance);
+            if (phase == ReachPhase.Descend
+                && IsFinite(previousAlignment) && IsFinite(currentAlignment))
+            {
+                reward += AlignmentRewardScale
+                    * (currentAlignment - previousAlignment);
+            }
+            return reward;
+        }
+
+        public static float FailurePenalty(string reason)
+        {
+            return string.Equals(reason, "Timeout", StringComparison.Ordinal)
+                ? TimeoutPenalty
+                : SafetyPenalty;
+        }
+
+        public static float ArmDeltaDeg(float distance)
+        {
+            return IsFinite(distance) && distance <= PrecisionDeltaDistance
+                ? PrecisionArmDeltaDegPerDecision
+                : TrainingArmDeltaDegPerDecision;
+        }
+
         public static float AccumulateJointTarget(
             float currentTargetDeg,
             float normalizedAction,
@@ -227,16 +319,15 @@ namespace KDT.ReachTraining
         {
             if (!IsFinite(currentTargetDeg) || !IsFinite(normalizedAction)
                 || !IsFinite(maximumDeltaDeg))
-            {
                 return ClampJointTarget(0f, lowerLimitDeg, upperLimitDeg);
-            }
-
             float allowedDelta = Mathf.Min(
                 MaximumArmDeltaDegPerDecision,
                 Mathf.Max(0f, maximumDeltaDeg));
-            float next = currentTargetDeg
-                + Mathf.Clamp(normalizedAction, -1f, 1f) * allowedDelta;
-            return ClampJointTarget(next, lowerLimitDeg, upperLimitDeg);
+            return ClampJointTarget(
+                currentTargetDeg
+                    + Mathf.Clamp(normalizedAction, -1f, 1f) * allowedDelta,
+                lowerLimitDeg,
+                upperLimitDeg);
         }
 
         public static float ClampJointTarget(
@@ -244,8 +335,8 @@ namespace KDT.ReachTraining
             float lowerLimitDeg,
             float upperLimitDeg)
         {
-            if (!IsFinite(valueDeg) || !IsFinite(lowerLimitDeg) || !IsFinite(upperLimitDeg))
-                return 0f;
+            if (!IsFinite(valueDeg) || !IsFinite(lowerLimitDeg)
+                || !IsFinite(upperLimitDeg)) return 0f;
             return Mathf.Clamp(
                 valueDeg,
                 Mathf.Min(lowerLimitDeg, upperLimitDeg),
@@ -255,20 +346,13 @@ namespace KDT.ReachTraining
         public static float NormalizeJoint(float valueDeg, float lowerDeg, float upperDeg)
         {
             if (!IsFinite(valueDeg) || !IsFinite(lowerDeg) || !IsFinite(upperDeg)
-                || upperDeg <= lowerDeg)
-            {
-                return 0f;
-            }
+                || upperDeg <= lowerDeg) return 0f;
             return Mathf.Clamp(
                 (valueDeg - lowerDeg) / (upperDeg - lowerDeg) * 2f - 1f,
                 -1f,
                 1f);
         }
 
-        /// <summary>
-        /// Velocity of a rigidly attached point using v(point) = v(COM) + w x r.
-        /// Angular velocity is expressed in radians per second.
-        /// </summary>
         public static Vector3 PointVelocity(
             Vector3 centerOfMassVelocity,
             Vector3 angularVelocity,
@@ -277,201 +361,23 @@ namespace KDT.ReachTraining
         {
             if (!IsFinite(centerOfMassVelocity) || !IsFinite(angularVelocity)
                 || !IsFinite(worldCenterOfMass) || !IsFinite(worldPoint))
-            {
                 return Vector3.zero;
-            }
             return centerOfMassVelocity
                 + Vector3.Cross(angularVelocity, worldPoint - worldCenterOfMass);
-        }
-
-        public static float ProgressReward(float previousDistance, float currentDistance)
-        {
-            if (!IsFinite(previousDistance) || !IsFinite(currentDistance)) return 0f;
-            return ProgressRewardScale
-                * (Mathf.Max(0f, previousDistance) - Mathf.Max(0f, currentDistance));
-        }
-
-        public static float DecisionReward(float previousDistance, float currentDistance)
-        {
-            return ProgressReward(previousDistance, currentDistance) + DecisionTimePenalty;
-        }
-
-        public static float SuccessReward(float elapsedSeconds, float finalDistance)
-        {
-            return SuccessReward(FinalCurriculumStage, elapsedSeconds, finalDistance);
-        }
-
-        public static float SuccessReward(
-            int curriculumStage,
-            float elapsedSeconds,
-            float finalDistance)
-        {
-            float timeFraction = IsFinite(elapsedSeconds)
-                ? 1f - Mathf.Clamp01(Mathf.Max(0f, elapsedSeconds) / EpisodeTimeoutSeconds)
-                : 0f;
-            float precisionFraction = IsFinite(finalDistance)
-                ? 1f - Mathf.Clamp01(
-                    Mathf.Max(0f, finalDistance)
-                    / SuccessDistanceForStage(curriculumStage))
-                : 0f;
-            return 2f + 2f * timeFraction + 2f * precisionFraction;
-        }
-
-        public static float FailurePenalty(string failureReason)
-        {
-            return string.Equals(failureReason, "Timeout", StringComparison.Ordinal)
-                ? TimeoutPenalty
-                : SafetyPenalty;
-        }
-
-        public static bool MeetsSuccessState(float centerDistance, float pointSpeed)
-        {
-            return MeetsSuccessState(
-                FinalCurriculumStage,
-                centerDistance,
-                pointSpeed);
-        }
-
-        public static bool MeetsSuccessState(
-            int curriculumStage,
-            float centerDistance,
-            float pointSpeed)
-        {
-            return IsFinite(centerDistance)
-                && IsFinite(pointSpeed)
-                && centerDistance >= 0f
-                && pointSpeed >= 0f
-                && centerDistance <= SuccessDistanceForStage(curriculumStage)
-                && pointSpeed <= MaximumSuccessPointSpeedForStage(curriculumStage);
-        }
-
-        public static float NextSuccessHoldSeconds(
-            float previousHoldSeconds,
-            float centerDistance,
-            float pointSpeed,
-            float deltaSeconds)
-        {
-            return NextSuccessHoldSeconds(
-                FinalCurriculumStage,
-                previousHoldSeconds,
-                centerDistance,
-                pointSpeed,
-                deltaSeconds);
-        }
-
-        public static float NextSuccessHoldSeconds(
-            int curriculumStage,
-            float previousHoldSeconds,
-            float centerDistance,
-            float pointSpeed,
-            float deltaSeconds)
-        {
-            if (!MeetsSuccessState(curriculumStage, centerDistance, pointSpeed)
-                || !IsFinite(previousHoldSeconds)
-                || !IsFinite(deltaSeconds)
-                || deltaSeconds < 0f)
-            {
-                return 0f;
-            }
-            return Mathf.Max(0f, previousHoldSeconds) + deltaSeconds;
-        }
-
-        public static float SuccessHoldProgress(float holdSeconds)
-        {
-            return SuccessHoldProgress(FinalCurriculumStage, holdSeconds);
-        }
-
-        public static float SuccessHoldProgress(int curriculumStage, float holdSeconds)
-        {
-            if (!IsFinite(holdSeconds)) return 0f;
-            return Mathf.Clamp01(
-                Mathf.Max(0f, holdSeconds)
-                / RequiredSuccessHoldSecondsForStage(curriculumStage));
-        }
-
-        public static bool HasCompletedSuccessHold(float holdSeconds)
-        {
-            return HasCompletedSuccessHold(FinalCurriculumStage, holdSeconds);
-        }
-
-        public static bool HasCompletedSuccessHold(
-            int curriculumStage,
-            float holdSeconds)
-        {
-            return IsFinite(holdSeconds)
-                && holdSeconds >= RequiredSuccessHoldSecondsForStage(curriculumStage);
-        }
-
-        public static int ClampCurriculumStage(float value)
-        {
-            if (!IsFinite(value)) return FirstCurriculumStage;
-            return Mathf.Clamp(
-                Mathf.RoundToInt(value),
-                FirstCurriculumStage,
-                FinalCurriculumStage);
-        }
-
-        public static float MinimumTargetRadiusForStage(int curriculumStage)
-        {
-            return curriculumStage <= FirstCurriculumStage
-                ? LegacyMinimumTargetRadius
-                : MinimumTargetRadius;
-        }
-
-        public static float MaximumTargetRadiusForStage(int curriculumStage)
-        {
-            return curriculumStage <= FirstCurriculumStage
-                ? LegacyMaximumTargetRadius
-                : MaximumTargetRadius;
-        }
-
-        public static float SuccessDistanceForStage(int curriculumStage)
-        {
-            if (curriculumStage <= FirstCurriculumStage) return 0.05f;
-            if (curriculumStage < FinalCurriculumStage) return 0.03f;
-            return SuccessDistance;
-        }
-
-        public static float MaximumSuccessPointSpeedForStage(int curriculumStage)
-        {
-            if (curriculumStage <= FirstCurriculumStage) return 1000f;
-            if (curriculumStage < FinalCurriculumStage) return 0.15f;
-            return MaximumSuccessPointSpeed;
-        }
-
-        public static float RequiredSuccessHoldSecondsForStage(int curriculumStage)
-        {
-            if (curriculumStage <= FirstCurriculumStage) return 0.02f;
-            if (curriculumStage < FinalCurriculumStage) return 0.10f;
-            return RequiredSuccessHoldSeconds;
-        }
-
-        public static float ArmDeltaDegForStage(
-            int curriculumStage,
-            float centerDistance)
-        {
-            if (curriculumStage > FirstCurriculumStage
-                && IsFinite(centerDistance)
-                && centerDistance <= PrecisionDeltaDistance)
-                return PrecisionArmDeltaDegPerDecision;
-            return TrainingArmDeltaDegPerDecision;
         }
 
         public static bool ReachedEpisodeTimeout(float elapsedSeconds)
         {
             return IsFinite(elapsedSeconds)
-                && elapsedSeconds >= EpisodeTimeoutSeconds;
+                && elapsedSeconds >= EpisodeTimeoutSeconds - 1e-5f;
         }
 
-        public static bool IsWithinWorkspace(Vector3 graspPointLocalPosition)
+        public static bool IsWithinWorkspace(Vector3 localPosition)
         {
-            if (!IsFinite(graspPointLocalPosition)) return false;
-            float planarRadius = new Vector2(
-                graspPointLocalPosition.x,
-                graspPointLocalPosition.z).magnitude;
-            return planarRadius <= WorkspaceRadius
-                && graspPointLocalPosition.y >= WorkspaceMinimumY
-                && graspPointLocalPosition.y <= WorkspaceMaximumY;
+            return IsFinite(localPosition)
+                && localPosition.magnitude <= WorkspaceRadius
+                && localPosition.y >= WorkspaceMinimumY
+                && localPosition.y <= WorkspaceMaximumY;
         }
 
         public static bool IsFinite(float value)

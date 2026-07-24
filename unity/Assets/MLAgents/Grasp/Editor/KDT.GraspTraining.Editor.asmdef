@@ -5,7 +5,8 @@
     "KDT.GraspTraining",
     "Unity.ML-Agents",
     "KDT.RobotScripts",
-    "Unity.InferenceEngine"
+    "Unity.InferenceEngine",
+    "KDT.MLAgents.Editor"
   ],
   "includePlatforms": ["Editor"],
   "autoReferenced": true

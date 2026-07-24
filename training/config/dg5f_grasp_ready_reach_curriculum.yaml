@@ -1,13 +1,15 @@
-# V1 arm-policy transfer followed by progressively stricter point reaching.
+# ReadyReach curriculum: learn a forgiving 5 cm lock first, then finish at 3 cm.
+# Stage 3 (1 cm / 5 cm/s / 0.25 s) remains implemented in the policy but is
+# intentionally not entered by this default training run.
 behaviors:
-  DG5FGraspPointReach:
+  DG5FGraspReadyReach:
     trainer_type: ppo
     hyperparameters:
       batch_size: 1024
       buffer_size: 10240
-      learning_rate: 0.00005
-      beta: 0.003
-      epsilon: 0.15
+      learning_rate: 0.0003
+      beta: 0.005
+      epsilon: 0.2
       lambd: 0.95
       num_epoch: 3
       learning_rate_schedule: linear
@@ -20,11 +22,11 @@ behaviors:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-    keep_checkpoints: 15
+    keep_checkpoints: 10
     checkpoint_interval: 100000
-    max_steps: 3000000
+    max_steps: 2000000
     time_horizon: 128
-    summary_freq: 10000
+    summary_freq: 2000
     threaded: false
 
 torch_settings:
@@ -33,32 +35,20 @@ torch_settings:
 environment_parameters:
   reach_stage:
     curriculum:
-      - name: legacy_5cm_instant
+      - name: learn_5cm_lock
         completion_criteria:
           measure: reward
-          behavior: DG5FGraspPointReach
-          threshold: 2.0
-          min_lesson_length: 200
-          signal_smoothing: false
+          behavior: DG5FGraspReadyReach
+          threshold: 2.5
+          min_lesson_length: 500
+          signal_smoothing: true
           require_reset: true
         value:
           sampler_type: constant
           sampler_parameters:
             value: 1.0
-      - name: wide_3cm_slow_hold
-        completion_criteria:
-          measure: reward
-          behavior: DG5FGraspPointReach
-          threshold: 2.5
-          min_lesson_length: 200
-          signal_smoothing: false
-          require_reset: true
+      - name: finish_3cm_stable
         value:
           sampler_type: constant
           sampler_parameters:
             value: 2.0
-      - name: precise_1cm_stable_hold
-        value:
-          sampler_type: constant
-          sampler_parameters:
-            value: 3.0

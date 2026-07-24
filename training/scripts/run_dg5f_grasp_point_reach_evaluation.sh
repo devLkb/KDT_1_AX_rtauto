@@ -2,17 +2,17 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-RUN_ID="${DG5F_RUN_ID:-dg5f-grasp-point-reach}"
+RUN_ID="${DG5F_RUN_ID:-dg5f-grasp-ready-reach}"
 CONFIG="${DG5F_CONFIG:-$ROOT/training/config/dg5f_grasp_point_reach.yaml}"
 RESULTS_DIR="${RESULTS_DIR:-$ROOT/training/results}"
 EPISODES="${DG5F_EVAL_EPISODES:-500}"
 BASE_SEED="${DG5F_EVAL_BASE_SEED:-500000}"
 CSV_PATH="${DG5F_EVAL_CSV:-$RESULTS_DIR/$RUN_ID/evaluation.csv}"
 APPROVAL_PATH="${DG5F_EVAL_APPROVAL:-$CSV_PATH.approved.json}"
-PLAYER="${ENV_PATH:-$ROOT/training/builds/DG5FGraspPointReach/DG5FGraspPointReach.x86_64}"
+PLAYER="${ENV_PATH:-$ROOT/training/builds/DG5FGraspReadyReach/DG5FGraspReadyReach.x86_64}"
 TIMEOUT_SECONDS="${DG5F_EVAL_TIMEOUT_SECONDS:-1200}"
 TRAINER_PID_FILE="$RESULTS_DIR/$RUN_ID/run_logs/evaluation.trainer.pid"
-BEHAVIOR="DG5FGraspPointReach"
+BEHAVIOR="DG5FGraspReadyReach"
 VENV="${VENV:-${VIRTUAL_ENV:-$ROOT/vision/.vision}}"
 PYTHON="$VENV/bin/python"
 
@@ -141,14 +141,17 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 payload = {
-    "specVersion": "1.0.0",
-    "behaviorName": "DG5FGraspPointReach",
+    "specVersion": "2.0.0",
+    "behaviorName": "DG5FGraspReadyReach",
     "episodes": 500,
     "baseSeed": base_seed,
     "minimumSuccessRate": 0.90,
     "maximumDistanceMeters": 0.01,
     "maximumSpeedMetersPerSecond": 0.05,
     "minimumHoldSeconds": 0.25,
+    "minimumPalmAlignment": 0.965925826,
+    "minimumUpperConeAlignment": 0.707106781,
+    "minimumTransitClearanceMeters": 0.10,
     "maximumEpisodeSeconds": 20.0,
     "runId": run_id,
     "modelPath": str(model.resolve()),

@@ -90,9 +90,39 @@ namespace KDT.GraspTraining.PlayModeTests
                 Is.EqualTo(Dg5fGraspSpec.PalmFacingAlignment(
                     agent.graspPoint.forward,
                     agent.ball.position - agent.palm.position)).Within(1e-6f));
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.5.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(agent.MaxStep, Is.Zero, "v1 measures timeout in simulation time.");
+            Assert.That(agent.enablePolicyClosure, Is.False);
+            Assert.That(agent.endEpisodeOnReach, Is.True);
+            GraspTeleoperationHandoff handoff =
+                agent.GetComponent<GraspTeleoperationHandoff>();
+            Assert.That(handoff, Is.Not.Null);
+            Assert.That(handoff.agent, Is.SameAs(agent));
+            Assert.That(handoff.teleoperationDrivers, Is.Not.Empty);
+            Assert.That(handoff.teleoperationDrivers.Select(driver => driver.enabled),
+                Is.All.False);
+
+            Collider[] movingColliders = agent.robotBase
+                .GetComponentsInChildren<Collider>(true)
+                .Where(collider =>
+                {
+                    ArticulationBody body =
+                        collider.GetComponentInParent<ArticulationBody>();
+                    return collider.enabled && !collider.isTrigger
+                        && body != null && !body.isRoot;
+                })
+                .ToArray();
+            Assert.That(movingColliders, Is.Not.Empty);
+            Assert.That(agent.safetySensors, Has.Length.EqualTo(movingColliders.Length));
+            foreach (Collider collider in movingColliders)
+            {
+                GraspSurfaceContactSensor sensor =
+                    collider.GetComponent<GraspSurfaceContactSensor>();
+                Assert.That(sensor, Is.Not.Null, collider.name);
+                Assert.That(sensor.agent, Is.SameAs(agent));
+                Assert.That(sensor.unsafeSurface, Is.SameAs(agent.pedestalCollider));
+            }
 
             var behavior = agent.GetComponent<BehaviorParameters>();
             Assert.That(behavior.BehaviorName, Is.EqualTo(Dg5fGraspSpec.BehaviorName));
@@ -113,7 +143,7 @@ namespace KDT.GraspTraining.PlayModeTests
 
             string[] competingDrivers =
             {
-                "Dg5fReceiver", "Dg5fHandDriver", "Dg5fThumbIK", "Dg5fJointLogger",
+                "Dg5fReceiver", "Dg5fHandDriver", "Dg5fFingerIK", "Dg5fThumbIK", "Dg5fJointLogger",
                 "HandSliderUI", "ArmTargetIK", "RobotInitialPoseSync"
             };
             foreach (var behaviour in agent.GetComponents<MonoBehaviour>())
@@ -231,6 +261,107 @@ namespace KDT.GraspTraining.PlayModeTests
             for (int i = 0; i < 200; i++)
                 agent.OnActionReceived(new ActionBuffers(action, new int[0]));
             Assert.That(agent.CurrentArmTargetDeg(0), Is.EqualTo(-180f));
+        }
+
+        [UnityTest]
+        public IEnumerator CompatibilityClosureActionIsIgnoredAndHandStaysOpen()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Dg5fGraspAgent agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            agent.GetComponent<Unity.MLAgents.DecisionRequester>().enabled = false;
+            ArticulationBody[] handJoints = agent.robotBase
+                .GetComponentsInChildren<ArticulationBody>(true)
+                .Where(body => body.name.Contains("_dg_")
+                    && body.jointType == ArticulationJointType.RevoluteJoint)
+                .ToArray();
+            Assert.That(handJoints, Has.Length.EqualTo(Dg5fGraspSpec.HandJointCount));
+            float[] openTargets = handJoints.Select(body => body.xDrive.target).ToArray();
+
+            var action = new float[Dg5fGraspSpec.ActionSize];
+            action[6] = 1f;
+            for (int i = 0; i < 10; i++)
+                agent.OnActionReceived(new ActionBuffers(action, new int[0]));
+            yield return new WaitForFixedUpdate();
+
+            Assert.That(agent.CurrentClosure, Is.Zero);
+            Assert.That(handJoints.Select(body => body.xDrive.target),
+                Is.EqualTo(openTargets).Within(1e-5f));
+        }
+
+        [UnityTest]
+        public IEnumerator DeploymentReachLocksArmAndYieldsHandWriter()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Dg5fGraspAgent agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            agent.GetComponent<Unity.MLAgents.DecisionRequester>().enabled = false;
+            agent.endEpisodeOnReach = false;
+            agent.ball.isKinematic = true;
+            agent.ball.useGravity = false;
+            agent.ball.position = agent.graspPoint.position;
+            agent.ball.rotation = Quaternion.identity;
+            Physics.SyncTransforms();
+            int holdSteps = Mathf.CeilToInt(
+                Dg5fGraspSpec.RequiredHoldSeconds / Time.fixedDeltaTime) + 2;
+            for (int i = 0; i < holdSteps; i++)
+                yield return new WaitForFixedUpdate();
+
+            Assert.That(agent.IsArmLocked, Is.True);
+            Assert.That(agent.IsExternalHandControl, Is.True);
+            Assert.That(agent.IsEpisodeActive, Is.False);
+            Assert.That(agent.LastTerminationReason, Is.EqualTo("Success"));
+            GraspTeleoperationHandoff handoff =
+                agent.GetComponent<GraspTeleoperationHandoff>();
+            yield return new WaitForFixedUpdate();
+            Assert.That(handoff.IsTeleoperationActive, Is.True);
+            Assert.That(handoff.teleoperationDrivers.Select(driver => driver.enabled),
+                Is.All.True);
+
+            ArticulationBody handJoint = agent.robotBase
+                .GetComponentsInChildren<ArticulationBody>(true)
+                .First(body => body.name.Contains("_dg_")
+                    && body.jointType == ArticulationJointType.RevoluteJoint);
+            ArticulationDrive externalTarget = handJoint.xDrive;
+            externalTarget.target += 1f;
+            handJoint.xDrive = externalTarget;
+            float expectedHandTarget = handJoint.xDrive.target;
+            float[] lockedArmTargets = Enumerable.Range(0, Dg5fGraspSpec.ArmJointCount)
+                .Select(agent.CurrentArmTargetDeg)
+                .ToArray();
+
+            var action = Enumerable.Repeat(1f, Dg5fGraspSpec.ActionSize).ToArray();
+            agent.OnActionReceived(new ActionBuffers(action, new int[0]));
+            yield return new WaitForFixedUpdate();
+
+            Assert.That(handJoint.xDrive.target,
+                Is.EqualTo(expectedHandTarget).Within(1e-5f));
+            Assert.That(Enumerable.Range(0, Dg5fGraspSpec.ArmJointCount)
+                    .Select(agent.CurrentArmTargetDeg),
+                Is.EqualTo(lockedArmTargets).Within(1e-5f));
+        }
+
+        [UnityTest]
+        public IEnumerator ReportedPanelContactTerminatesAsUnsafeSurfaceContact()
+        {
+            SceneManager.LoadScene("DG5F_GraspTraining");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Dg5fGraspAgent agent = Object.FindAnyObjectByType<Dg5fGraspAgent>();
+            agent.GetComponent<Unity.MLAgents.DecisionRequester>().enabled = false;
+            agent.NotifyUnsafeSurfaceContact(agent.pedestalCollider);
+            yield return new WaitForFixedUpdate();
+
+            Assert.That(agent.LastTerminationReason,
+                Is.EqualTo("UnsafeSurfaceContact"));
         }
     }
 }

@@ -1,0 +1,1 @@
+contract=PASS: graspPoint local (0,0.05,0.04), forward=palm.forward; success <=0.050001m and dot(palmForward,palmToBall)>0; success reward=1

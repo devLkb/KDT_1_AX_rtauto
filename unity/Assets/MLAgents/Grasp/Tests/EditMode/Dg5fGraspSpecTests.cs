@@ -5,10 +5,16 @@ namespace KDT.GraspTraining.Tests
 {
     public sealed class Dg5fGraspSpecTests
     {
+        [SetUp]
+        public void ResetHoldStage()
+        {
+            Dg5fGraspSpec.SetHoldStage(Dg5fGraspSpec.FirstHoldStage);
+        }
+
         [Test]
         public void V1KeepsTheForwardCompatiblePolicyShape()
         {
-            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.2.0"));
+            Assert.That(Dg5fGraspSpec.SpecVersion, Is.EqualTo("1.5.0"));
             Assert.That(Dg5fGraspSpec.BehaviorName, Is.EqualTo("DG5FGrasp"));
             Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
             Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
@@ -54,6 +60,69 @@ namespace KDT.GraspTraining.Tests
                 "The configured full-hand point must remain in front of the palm plane.");
             Assert.That(Dg5fGraspSpec.HasReachedApproachTarget(0f, configuredPointAlignment),
                 Is.True);
+        }
+
+        [Test]
+        public void SurfaceTargetAndHoldCurriculumKeepTheTransferShape()
+        {
+            const float ballRadius = 0.02f;
+            Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
+            Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
+            Assert.That(Dg5fGraspSpec.TargetSurfaceClearance, Is.EqualTo(0.03f));
+            Assert.That(Dg5fGraspSpec.HoldDurationSeconds, Is.EqualTo(3f));
+            Assert.That(Dg5fGraspSpec.HoldPositionTolerance, Is.EqualTo(0.01f));
+            Assert.That(Dg5fGraspSpec.RequiredHoldSeconds, Is.EqualTo(0.25f));
+            Assert.That(Dg5fGraspSpec.CurrentHoldPositionTolerance, Is.EqualTo(0.03f));
+            Assert.That(Dg5fGraspSpec.NearTargetArmDeltaScale, Is.EqualTo(0.25f));
+            Assert.That(Dg5fGraspSpec.SurfaceClearance(0.05f, ballRadius),
+                Is.EqualTo(0.03f).Within(1e-6f));
+            Assert.That(Dg5fGraspSpec.IsWithinSurfaceApproachTarget(
+                0.05f, ballRadius, 1f), Is.True);
+            Assert.That(Dg5fGraspSpec.IsWithinSurfaceApproachTarget(
+                0.05001f, ballRadius, 1f), Is.False);
+            Assert.That(Dg5fGraspSpec.IsWithinSurfaceApproachTarget(
+                0.05f, ballRadius, 0f), Is.False);
+            Assert.That(Dg5fGraspSpec.IsStableHoldPosition(
+                Vector3.zero, new Vector3(0.03f, 0f, 0f)), Is.True);
+            Assert.That(Dg5fGraspSpec.IsStableHoldPosition(
+                Vector3.zero, new Vector3(0.03001f, 0f, 0f)), Is.False);
+            Assert.That(Dg5fGraspSpec.HoldPotential(0f), Is.Zero);
+            Assert.That(Dg5fGraspSpec.HoldPotential(0.125f),
+                Is.EqualTo(Dg5fGraspSpec.HoldPotentialMaximum * 0.5f));
+            Assert.That(Dg5fGraspSpec.HoldPotential(0.25f),
+                Is.EqualTo(Dg5fGraspSpec.HoldPotentialMaximum));
+            Assert.That(Dg5fGraspSpec.HasCompletedHold(0.24f), Is.False);
+            Assert.That(Dg5fGraspSpec.HasCompletedHold(0.25f), Is.True);
+
+            Dg5fGraspSpec.SetHoldStage(5f);
+            Assert.That(Dg5fGraspSpec.RequiredHoldSeconds, Is.EqualTo(3f));
+            Assert.That(Dg5fGraspSpec.CurrentHoldPositionTolerance, Is.EqualTo(0.01f));
+            Assert.That(Dg5fGraspSpec.NearTargetArmDeltaScale, Is.EqualTo(0.05f));
+            Assert.That(Dg5fGraspSpec.HoldPotential(1.5f),
+                Is.EqualTo(Dg5fGraspSpec.HoldPotentialMaximum * 0.5f));
+            Assert.That(Dg5fGraspSpec.HasCompletedHold(2.99f), Is.False);
+            Assert.That(Dg5fGraspSpec.HasCompletedHold(3f), Is.True);
+        }
+
+        [Test]
+        public void CurriculumSignalsAndNearTargetControlAreBounded()
+        {
+            Dg5fGraspSpec.SetHoldStage(float.NaN);
+            Assert.That(Dg5fGraspSpec.CurrentHoldStage, Is.EqualTo(1));
+            Assert.That(Dg5fGraspSpec.HoldStageNormalized(), Is.Zero);
+            Assert.That(Dg5fGraspSpec.HoldAnchorErrorNormalized(
+                Vector3.zero, Vector3.one, false), Is.Zero);
+            Assert.That(Dg5fGraspSpec.HoldAnchorErrorNormalized(
+                Vector3.zero, new Vector3(0.015f, 0f, 0f), true),
+                Is.EqualTo(0.5f).Within(1e-6f));
+            Assert.That(Dg5fGraspSpec.UsesNearTargetControl(0.05f), Is.True);
+            Assert.That(Dg5fGraspSpec.UsesNearTargetControl(0.05001f), Is.False);
+            Assert.That(Dg5fGraspSpec.NearTargetActionPenalty(6f),
+                Is.EqualTo(Dg5fGraspSpec.NearTargetActionPenaltyScale));
+
+            Dg5fGraspSpec.SetHoldStage(99f);
+            Assert.That(Dg5fGraspSpec.CurrentHoldStage, Is.EqualTo(5));
+            Assert.That(Dg5fGraspSpec.HoldStageNormalized(), Is.EqualTo(1f));
         }
 
         [Test]
@@ -143,6 +212,37 @@ namespace KDT.GraspTraining.Tests
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(0.85f, 0f, 0f), -1f), Is.False);
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(0.851f, 0f, 0f), -1f), Is.True);
             Assert.That(Dg5fGraspSpec.ShouldResetForBall(new Vector3(float.NaN, 0f, 0f), -1f), Is.True);
+        }
+
+        [Test]
+        public void LowClearanceSafetyBlocksFloorSweepsWithoutChangingPolicyShape()
+        {
+            Assert.That(Dg5fGraspSpec.ObservationSize, Is.EqualTo(57));
+            Assert.That(Dg5fGraspSpec.ActionSize, Is.EqualTo(7));
+            Assert.That(Dg5fGraspSpec.MinimumTransitClearance, Is.EqualTo(0.10f));
+            Assert.That(Dg5fGraspSpec.MaximumLowClearancePlanarDistance,
+                Is.EqualTo(0.05f));
+
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(0.051f, 0.099f),
+                Is.True);
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(0.05f, 0.099f),
+                Is.False);
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(0.051f, 0.10f),
+                Is.False);
+            Assert.That(Dg5fGraspSpec.IsUnsafeLowClearanceMotion(float.NaN, 0.10f),
+                Is.True);
+        }
+
+        [Test]
+        public void OnlyPanelSafetyFailuresReceiveTheDemoPenalty()
+        {
+            Assert.That(Dg5fGraspSpec.SafetyPenalty, Is.EqualTo(-2f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("UnsafeSurfaceContact"),
+                Is.EqualTo(-2f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("PrematureDescent"),
+                Is.EqualTo(-2f));
+            Assert.That(Dg5fGraspSpec.FailurePenalty("Timeout"), Is.Zero);
+            Assert.That(Dg5fGraspSpec.FailurePenalty("BallOutOfBounds"), Is.Zero);
         }
 
         static float Azimuth(Vector3 position)

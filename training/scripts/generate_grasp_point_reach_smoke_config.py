@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 
-BEHAVIOR = "DG5FGraspPointReach"
+BEHAVIOR = "DG5FGraspReadyReach"
 CANONICAL_MAX_STEPS = 5_000_000
 SMOKE_MAX_STEPS = 512
 
