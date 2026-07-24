@@ -2,7 +2,8 @@
 // Python 비전 프로세스(dg5f/vision_node_dg5f.py)가 보내는 DG5F 20관절 각도(UDP) 수신.
 // 패킷: float32 little-endian. v1='<20f'(관절각[deg]) / v2='<24f'(+엄지끝 정규화좌표 3, 핀치 플래그 1)
 //       / v3='<25f'(+엄지-검지 끝거리 비율 1)
-//       / v4='<37f'(+검지·중지·약지·새끼 리치벡터 각 3 = 12, Python TIP_FINGERS 순서).
+//       / v4='<37f'(+검지·중지·약지·새끼 리치벡터 각 3 = 12, Python TIP_FINGERS 순서)
+//       / v5='<52f'(+손목→끝 벡터 5개 각 3 = 15, 엄지~새끼, 새 방식 RobotRootTipVector용).
 // 길이로 버전 판별 — 상위 버전 필드는 없으면 미제공 처리. 비교가 '>='라 상위 버전 패킷을
 // 하위 버전만 아는 빌드에 쏴도 앞부분만 읽고 뒤는 무시된다(양방향 호환).
 // 채널 순서(계약): [0..3]엄지 1_1~1_4 / [4..7]검지 2_1~2_4 / [8..11]중지 / [12..15]약지 / [16..19]새끼
@@ -26,17 +27,29 @@ public class Dg5fReceiver : MonoBehaviour
     /// v4 리치벡터를 싣는 손가락 수 (검지·중지·약지·새끼 — 엄지는 v2 필드에 따로 있음)
     public const int FingerTipCount = 4;
 
+    /// v5 손목→끝 벡터를 싣는 손가락 수 (엄지·검지·중지·약지·새끼 — 새 방식 RobotRootTipVector용)
+    public const int WristTipCount = 5;
+
+    /// v6 라디안 원값 채널 수 (compute_raw 20채널 = 매핑·필터 전 프록시 라디안, 디버그/비교용)
+    public const int RawRadCount = 20;
+
     readonly float[] _latest = new float[ChannelCount];
     // v2 패킷(24f): 20 관절각 + 엄지끝 정규화좌표(ex,ey,ez) + 핀치 플래그
     // v3 패킷(25f): + 엄지-검지 끝거리 비율(손길이 정규화, 연속값) — 핀치 연속 블렌딩용
     readonly float[] _tip = new float[4];
     // v4 패킷(37f): + 검지→새끼 리치벡터 4×3. 엄지와 같은 해부학 축·같은 '펴짐 비율' 의미.
     readonly float[] _fingerTips = new float[FingerTipCount * 3];
+    // v5 패킷(52f): + 손목→끝 벡터 5×3(엄지~새끼). 해부학 프레임 성분 ÷ 손길이(정규화). 새 방식용.
+    readonly float[] _wristTips = new float[WristTipCount * 3];
+    // v6 패킷(72f): + 20채널 라디안 원값(매핑·필터 전). 비전 라디안 vs 로봇 관절 라디안 비교/로깅용.
+    readonly float[] _rawRad = new float[RawRadCount];
     float _pinchDist;
     volatile bool _hasData;
     volatile bool _hasTip;
     volatile bool _hasPinchDist;
     volatile bool _hasFingerTips;
+    volatile bool _hasWristTips;
+    volatile bool _hasRawRad;
     long _lastPacketUtcTicks; // 수신 스레드에서 Unity Time API 사용 불가 → DateTime 사용
 
     UdpClient _client;
@@ -74,6 +87,8 @@ public class Dg5fReceiver : MonoBehaviour
                 bool v2 = data.Length >= (ChannelCount + 4) * 4;
                 bool v3 = data.Length >= (ChannelCount + 5) * 4;
                 bool v4 = data.Length >= (ChannelCount + 5 + FingerTipCount * 3) * 4;
+                bool v5 = data.Length >= (ChannelCount + 5 + FingerTipCount * 3 + WristTipCount * 3) * 4;
+                bool v6 = data.Length >= (ChannelCount + 5 + FingerTipCount * 3 + WristTipCount * 3 + RawRadCount) * 4;
                 lock (_lock)
                 {
                     for (int i = 0; i < ChannelCount; i++)
@@ -86,12 +101,22 @@ public class Dg5fReceiver : MonoBehaviour
                     if (v4)
                         for (int i = 0; i < FingerTipCount * 3; i++)
                             _fingerTips[i] = BitConverter.ToSingle(data, (ChannelCount + 5 + i) * 4);
+                    if (v5)
+                        for (int i = 0; i < WristTipCount * 3; i++)
+                            _wristTips[i] = BitConverter.ToSingle(
+                                data, (ChannelCount + 5 + FingerTipCount * 3 + i) * 4);
+                    if (v6)
+                        for (int i = 0; i < RawRadCount; i++)
+                            _rawRad[i] = BitConverter.ToSingle(
+                                data, (ChannelCount + 5 + FingerTipCount * 3 + WristTipCount * 3 + i) * 4);
                 }
                 Interlocked.Exchange(ref _lastPacketUtcTicks, DateTime.UtcNow.Ticks);
                 _hasData = true;
                 if (v2) _hasTip = true;
                 if (v3) _hasPinchDist = true;
                 if (v4) _hasFingerTips = true;
+                if (v5) _hasWristTips = true;
+                if (v6) _hasRawRad = true;
             }
             catch (Exception e)
             {
@@ -135,6 +160,30 @@ public class Dg5fReceiver : MonoBehaviour
             int o = (fingerIndex - 2) * 3;
             tipNormalized = new Vector3(_fingerTips[o], _fingerTips[o + 1], _fingerTips[o + 2]);
         }
+        return true;
+    }
+
+    /// v5 손목→끝 벡터(해부학 프레임 성분 ÷ 손길이). fingerIndex 1=엄지 … 5=새끼.
+    /// 새 방식(RobotRootTipVector)이 로봇 손목 기준 목표를 찍는 데 쓴다. v5 미수신이면 false
+    /// → 새 방식은 지금 방식(AnatomicalReach)으로 폴백해야 한다.
+    public bool GetWristTipVector(int fingerIndex, out Vector3 vecNormalized)
+    {
+        vecNormalized = Vector3.zero;
+        if (!_hasWristTips || fingerIndex < 1 || fingerIndex > WristTipCount) return false;
+        lock (_lock)
+        {
+            int o = (fingerIndex - 1) * 3;
+            vecNormalized = new Vector3(_wristTips[o], _wristTips[o + 1], _wristTips[o + 2]);
+        }
+        return true;
+    }
+
+    /// v6 패킷의 20채널 라디안 원값(compute_raw, 매핑·필터 전)을 buffer에 복사. v6 미수신이면 false.
+    /// 채널 순서는 관절각과 동일: [0..3]엄지 [4..7]검지 [8..11]중지 [12..15]약지 [16..19]새끼.
+    public bool GetRawRadians(float[] buffer)
+    {
+        if (!_hasRawRad) return false;
+        lock (_lock) { Array.Copy(_rawRad, buffer, RawRadCount); }
         return true;
     }
 

@@ -5870,6 +5870,8 @@ GameObject:
   - component: {fileID: 7224916347378615764}
   - component: {fileID: 3751176811604736801}
   - component: {fileID: 3250736832516696487}
+  - component: {fileID: 3271557803807001673}
+  - component: {fileID: 5309212545678111970}
   m_Layer: 0
   m_Name: dg5f_right_short
   m_TagString: robot
@@ -5988,9 +5990,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ec6df08c4003d429fa1705a3058e2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dg5fThumbIK
+  fingerIndex: 1
   enableIK: 1
-  maxStepDeg: 0.8
+  ikMode: 0
+  maxStepDeg: 1
   iterations: 1
+  enablePinchBlend: 1
   pinchOffset: 0.012
   robotThumbMaxReach: 0.124
   reachOffset: {x: 0.174, y: -0.038, z: -0.092}
@@ -5999,14 +6004,14 @@ MonoBehaviour:
   windupDeg: 15
   priorGain: 3
   priorWeights:
-  - 1
+  - 0
   - 1
   - 1
   - 1
   priorStepRatio: 0.3
   priorAngleLerp: 4
-  cmcFeedforward: 0
-  feedforwardJoint: 1
+  cmcFeedforward: 8
+  feedforwardJoint: 0
   pinchNear: 0.32
   pinchFar: 0.55
   debugShowTip: 1
@@ -6015,6 +6020,35 @@ MonoBehaviour:
   debugLogFlushEvery: 100
   stallTime: 0.6
   rearmDist: 0.008
+--- !u!114 &3271557803807001673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6011193786100807956}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2fbf1c0ea0df44b4d96b335468bc27a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Dg5fFingerIKMode
+  ikMode: 0
+  applyToAll: 1
+--- !u!114 &5309212545678111970
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6011193786100807956}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5056d7a4a8005d047881e10f0d060082, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Dg5fRootMarker
+  show: 1
+  size: 0.016
+  color: {r: 0.2, g: 0.5, b: 1, a: 1}
 --- !u!1 &6021894059707324089
 GameObject:
   m_ObjectHideFlags: 0

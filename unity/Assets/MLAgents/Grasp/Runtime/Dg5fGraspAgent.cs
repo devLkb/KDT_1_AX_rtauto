@@ -32,6 +32,12 @@ namespace KDT.GraspTraining
         [Header("Control")]
         public float armDeltaDegPerDecision = 2f;
         public float gripDeltaPerDecision = 0.04f;
+        [Tooltip("false면 손가락 20관절 xDrive를 쓰지 않음 — 손은 별도 텔레옵(Dg5fHandDriver)이 전담. " +
+                 "팔 6관절 제어는 영향받지 않음. 학습 인스턴스는 항상 true(기본값)로 둘 것.")]
+        public bool driveHandJoints = true;
+        [Tooltip("설정하면 랜덤 스폰 대신 이 리시버의 최신 카메라 좌표로 공을 스폰 (없으면 기존 랜덤 로직 유지). " +
+                 "학습 인스턴스는 비워둘 것.")]
+        public CameraTargetReceiver cameraReceiver;
         [Tooltip("Legacy 7th action stays in the policy shape but is ignored for demo fine-tuning.")]
         public bool enablePolicyClosure;
         [Tooltip("Training ends on reach. Deployment locks the arm and yields the hand to teleoperation.")]
@@ -60,6 +66,7 @@ namespace KDT.GraspTraining
         int _holdResetCount;
         int _ballReleaseFixedSteps;
         bool _episodeActive;
+        bool _ballFloating;
         bool _holdActive;
         bool _armLocked;
         bool _externalHandControl;
@@ -94,8 +101,22 @@ namespace KDT.GraspTraining
             return _armTargetDeg[index];
         }
 
+        bool _resolved;
+
         public override void Initialize()
         {
+            EnsureResolved();
+        }
+
+        // Unity ML-Agents subscribes this Agent to Academy.AgentForceReset (which can
+        // fire OnEpisodeBegin via ForcedFullReset) before calling our Initialize()
+        // override — so OnEpisodeBegin can in rare cases run first. Guard both entry
+        // points with the same idempotent setup instead of assuming Initialize() always
+        // runs first.
+        void EnsureResolved()
+        {
+            if (_resolved) return;
+
             ResolveReferences();
             _ballCollider = ball != null ? ball.GetComponent<Collider>() : null;
             ResolveJoints();
@@ -105,12 +126,24 @@ namespace KDT.GraspTraining
             _armTargetDeg = new float[Dg5fGraspSpec.ArmJointCount];
             _lockedArmTargetDeg = new float[Dg5fGraspSpec.ArmJointCount];
             foreach (var body in _allJoints)
-                _initialTargetDeg[body] = body.xDrive.target;
+            {
+                // ArticulationBody drive state can still be unready for a few joints at
+                // this point in the lifecycle. Best-effort here; InitialTargetDeg() below
+                // lazily (and safely) fills in whatever this loop misses on first real use.
+                try { _initialTargetDeg[body] = body.xDrive.target; }
+                catch (Exception) { /* filled in lazily by InitialTargetDeg */ }
+            }
 
             // The exact 20-second limit is measured in simulation time.
             MaxStep = 0;
             _random = new System.Random(spawnSeed);
             _stats = Academy.Instance.StatsRecorder;
+
+            // Only mark resolved once every step above has actually succeeded — if
+            // ValidateConfiguration (or anything before it) throws because the robot
+            // hierarchy isn't fully built yet, the next OnEpisodeBegin/Initialize call
+            // must retry from scratch instead of silently skipping setup forever.
+            _resolved = true;
         }
 
         void ResolveReferences()
@@ -156,11 +189,6 @@ namespace KDT.GraspTraining
         void ResolveJoints()
         {
             var bodies = GetComponentsInChildren<ArticulationBody>(true);
-            var revolute = new List<ArticulationBody>();
-            foreach (var body in bodies)
-                if (body.jointType == ArticulationJointType.RevoluteJoint && body.dofCount > 0)
-                    revolute.Add(body);
-            _allJoints = revolute.ToArray();
 
             _armJoints = new ArticulationBody[Dg5fGraspSpec.ArmJointCount];
             for (int i = 0; i < _armJoints.Length; i++)
@@ -173,6 +201,17 @@ namespace KDT.GraspTraining
                     int channel = (finger - 1) * 4 + joint - 1;
                     _handJoints[channel] = FindBodyBySuffix(bodies, $"_dg_{finger}_{joint}");
                 }
+
+            // Name-based resolution (above) is available immediately. jointType/dofCount
+            // can still read stale at this point in the Agent lifecycle, so _allJoints is
+            // derived from the already-resolved arm+hand joints rather than re-querying
+            // physics state.
+            var all = new List<ArticulationBody>(_armJoints.Length + _handJoints.Length);
+            foreach (var body in _armJoints)
+                if (body != null) all.Add(body);
+            foreach (var body in _handJoints)
+                if (body != null) all.Add(body);
+            _allJoints = all.ToArray();
         }
 
         void ResolveSafetySensors()
@@ -220,6 +259,7 @@ namespace KDT.GraspTraining
 
         public override void OnEpisodeBegin()
         {
+            EnsureResolved();
             _episodeActive = false;
             _closure = 0f;
             _armLocked = false;
@@ -247,11 +287,19 @@ namespace KDT.GraspTraining
             _episodeActive = true;
         }
 
+        float InitialTargetDeg(ArticulationBody body)
+        {
+            if (_initialTargetDeg.TryGetValue(body, out float cached)) return cached;
+            float value = body.xDrive.target;
+            _initialTargetDeg[body] = value;
+            return value;
+        }
+
         void ResetRobot()
         {
             foreach (var body in _allJoints)
             {
-                float targetDeg = _initialTargetDeg[body];
+                float targetDeg = InitialTargetDeg(body);
                 var drive = body.xDrive;
                 drive.target = targetDeg;
                 body.xDrive = drive;
@@ -261,7 +309,7 @@ namespace KDT.GraspTraining
 
             for (int i = 0; i < _armJoints.Length; i++)
             {
-                float initial = _initialTargetDeg[_armJoints[i]];
+                float initial = InitialTargetDeg(_armJoints[i]);
                 _armTargetDeg[i] = Mathf.Clamp(
                     initial,
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
@@ -276,15 +324,14 @@ namespace KDT.GraspTraining
             if (_ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = BallRadius();
-            Vector3 ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(
-                Next01(),
-                Next01(),
-                Next01(),
-                ballRadius);
-            if (!Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
+            Vector3 ballLocalPosition = TryGetModeAwareSpawnPosition(ballRadius, out Vector3 modeLocal, out bool floating)
+                ? modeLocal
+                : Dg5fGraspSpec.SpawnBallLocalPosition(Next01(), Next01(), Next01(), ballRadius);
+            if (!floating && !Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
                 throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
 
             _supportTopHeight = Dg5fGraspSpec.SupportTopHeight;
+            _ballFloating = floating;
 
             if (!ball.isKinematic)
             {
@@ -301,6 +348,47 @@ namespace KDT.GraspTraining
             // Articulation collider transforms lag direct jointPosition writes by one
             // physics step. Keep the ball kinematic for that step, then release it.
             _ballReleaseFixedSteps = 2;
+        }
+
+        /// cameraReceiver.mode에 따라 공 스폰 위치를 고른다.
+        ///   Camera: 기존 동작 그대로 — 카메라 좌표의 XZ 방향/반경만 쓰고 높이는 항상
+        ///           SupportTopHeight+ballRadius(테이블 위)로 고정(깊이 노이즈로 신뢰 못 함).
+        ///   Manual: cameraReceiver.manualLocalPosition을 XYZ 그대로 사용 — 높이도 자유
+        ///           (테이블 위로 띄워서 도달 테스트하는 용도). floating=true를 반환해
+        ///           ReleaseBall()이 중력을 켜지 않게 한다.
+        ///   Random: 매 에피소드 cameraReceiver.RandomizeTarget()으로 새 위치를 뽑고 Manual과
+        ///           동일하게 자유 높이로 취급한다.
+        bool TryGetModeAwareSpawnPosition(float ballRadius, out Vector3 ballLocalPosition, out bool floating)
+        {
+            ballLocalPosition = Vector3.zero;
+            floating = false;
+            if (cameraReceiver == null) return false;
+
+            if (cameraReceiver.mode == CameraTargetReceiver.TargetSourceMode.Camera)
+            {
+                if (!cameraReceiver.TryGetRobotLocalPosition(out Vector3 cameraLocal)) return false;
+
+                float horizontalRadius = new Vector2(cameraLocal.x, cameraLocal.z).magnitude;
+                if (horizontalRadius < 1e-6f) return false;
+                horizontalRadius = Mathf.Clamp(
+                    horizontalRadius,
+                    Dg5fGraspSpec.V1MinimumSpawnRadius,
+                    Dg5fGraspSpec.V1MaximumSpawnRadius);
+                float azimuth = Mathf.Atan2(cameraLocal.z, cameraLocal.x);
+                ballLocalPosition = new Vector3(
+                    Mathf.Cos(azimuth) * horizontalRadius,
+                    Dg5fGraspSpec.SupportTopHeight + Mathf.Max(0f, ballRadius),
+                    Mathf.Sin(azimuth) * horizontalRadius);
+                return Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius);
+            }
+
+            if (cameraReceiver.mode == CameraTargetReceiver.TargetSourceMode.Random)
+                cameraReceiver.RandomizeTarget();
+
+            // Manual, 또는 방금 새로 뽑은 Random 값 — robotBase 로컬 XYZ를 그대로 신뢰한다.
+            ballLocalPosition = cameraReceiver.manualLocalPosition;
+            floating = true;
+            return true;
         }
 
         float Next01()
@@ -462,6 +550,7 @@ namespace KDT.GraspTraining
 
         void ApplyGripTargets()
         {
+            if (!driveHandJoints) return;
             for (int i = 0; i < _handJoints.Length; i++)
             {
                 var drive = _handJoints[i].xDrive;
@@ -479,7 +568,7 @@ namespace KDT.GraspTraining
             {
                 var drive = handJoint.xDrive;
                 drive.target = Mathf.Clamp(
-                    _initialTargetDeg[handJoint],
+                    InitialTargetDeg(handJoint),
                     drive.lowerLimit,
                     drive.upperLimit);
                 handJoint.xDrive = drive;
@@ -502,6 +591,17 @@ namespace KDT.GraspTraining
 
         void FixedUpdate()
         {
+            if (!_resolved)
+            {
+                // A ForcedFullReset can invoke OnEpisodeBegin before the robot hierarchy
+                // is fully built, so EnsureResolved() may have failed on that first try.
+                // Retry here every physics tick; once it succeeds, kick off the episode
+                // that OnEpisodeBegin couldn't complete earlier.
+                EnsureResolved();
+                if (!_resolved) return;
+                OnEpisodeBegin();
+                return;
+            }
             if (!_externalHandControl && !enablePolicyClosure)
                 ApplyOpenHandTargets();
             if (_armLocked)
@@ -625,7 +725,7 @@ namespace KDT.GraspTraining
         void ReleaseBall()
         {
             ball.isKinematic = false;
-            ball.useGravity = true;
+            ball.useGravity = !_ballFloating;
             ball.linearVelocity = Vector3.zero;
             ball.angularVelocity = Vector3.zero;
             _initialBallHeight = ball.position.y;
