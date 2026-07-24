@@ -97,8 +97,22 @@ namespace KDT.GraspTraining
             return _armTargetDeg[index];
         }
 
+        bool _resolved;
+
         public override void Initialize()
         {
+            EnsureResolved();
+        }
+
+        // Unity ML-Agents subscribes this Agent to Academy.AgentForceReset (which can
+        // fire OnEpisodeBegin via ForcedFullReset) before calling our Initialize()
+        // override — so OnEpisodeBegin can in rare cases run first. Guard both entry
+        // points with the same idempotent setup instead of assuming Initialize() always
+        // runs first.
+        void EnsureResolved()
+        {
+            if (_resolved) return;
+
             ResolveReferences();
             _ballCollider = ball != null ? ball.GetComponent<Collider>() : null;
             ResolveJoints();
@@ -108,12 +122,24 @@ namespace KDT.GraspTraining
             _armTargetDeg = new float[Dg5fGraspSpec.ArmJointCount];
             _lockedArmTargetDeg = new float[Dg5fGraspSpec.ArmJointCount];
             foreach (var body in _allJoints)
-                _initialTargetDeg[body] = body.xDrive.target;
+            {
+                // ArticulationBody drive state can still be unready for a few joints at
+                // this point in the lifecycle. Best-effort here; InitialTargetDeg() below
+                // lazily (and safely) fills in whatever this loop misses on first real use.
+                try { _initialTargetDeg[body] = body.xDrive.target; }
+                catch (Exception) { /* filled in lazily by InitialTargetDeg */ }
+            }
 
             // The exact 20-second limit is measured in simulation time.
             MaxStep = 0;
             _random = new System.Random(spawnSeed);
             _stats = Academy.Instance.StatsRecorder;
+
+            // Only mark resolved once every step above has actually succeeded — if
+            // ValidateConfiguration (or anything before it) throws because the robot
+            // hierarchy isn't fully built yet, the next OnEpisodeBegin/Initialize call
+            // must retry from scratch instead of silently skipping setup forever.
+            _resolved = true;
         }
 
         void ResolveReferences()
@@ -159,11 +185,6 @@ namespace KDT.GraspTraining
         void ResolveJoints()
         {
             var bodies = GetComponentsInChildren<ArticulationBody>(true);
-            var revolute = new List<ArticulationBody>();
-            foreach (var body in bodies)
-                if (body.jointType == ArticulationJointType.RevoluteJoint && body.dofCount > 0)
-                    revolute.Add(body);
-            _allJoints = revolute.ToArray();
 
             _armJoints = new ArticulationBody[Dg5fGraspSpec.ArmJointCount];
             for (int i = 0; i < _armJoints.Length; i++)
@@ -176,6 +197,17 @@ namespace KDT.GraspTraining
                     int channel = (finger - 1) * 4 + joint - 1;
                     _handJoints[channel] = FindBodyBySuffix(bodies, $"_dg_{finger}_{joint}");
                 }
+
+            // Name-based resolution (above) is available immediately. jointType/dofCount
+            // can still read stale at this point in the Agent lifecycle, so _allJoints is
+            // derived from the already-resolved arm+hand joints rather than re-querying
+            // physics state.
+            var all = new List<ArticulationBody>(_armJoints.Length + _handJoints.Length);
+            foreach (var body in _armJoints)
+                if (body != null) all.Add(body);
+            foreach (var body in _handJoints)
+                if (body != null) all.Add(body);
+            _allJoints = all.ToArray();
         }
 
         void ResolveSafetySensors()
@@ -223,6 +255,7 @@ namespace KDT.GraspTraining
 
         public override void OnEpisodeBegin()
         {
+            EnsureResolved();
             _episodeActive = false;
             _closure = 0f;
             _armLocked = false;
@@ -249,11 +282,19 @@ namespace KDT.GraspTraining
             _episodeActive = true;
         }
 
+        float InitialTargetDeg(ArticulationBody body)
+        {
+            if (_initialTargetDeg.TryGetValue(body, out float cached)) return cached;
+            float value = body.xDrive.target;
+            _initialTargetDeg[body] = value;
+            return value;
+        }
+
         void ResetRobot()
         {
             foreach (var body in _allJoints)
             {
-                float targetDeg = _initialTargetDeg[body];
+                float targetDeg = InitialTargetDeg(body);
                 var drive = body.xDrive;
                 drive.target = targetDeg;
                 body.xDrive = drive;
@@ -263,7 +304,7 @@ namespace KDT.GraspTraining
 
             for (int i = 0; i < _armJoints.Length; i++)
             {
-                float initial = _initialTargetDeg[_armJoints[i]];
+                float initial = InitialTargetDeg(_armJoints[i]);
                 _armTargetDeg[i] = Mathf.Clamp(
                     initial,
                     Dg5fGraspSpec.ArmSafeMinDeg[i],
@@ -523,7 +564,7 @@ namespace KDT.GraspTraining
             {
                 var drive = handJoint.xDrive;
                 drive.target = Mathf.Clamp(
-                    _initialTargetDeg[handJoint],
+                    InitialTargetDeg(handJoint),
                     drive.lowerLimit,
                     drive.upperLimit);
                 handJoint.xDrive = drive;
@@ -546,6 +587,17 @@ namespace KDT.GraspTraining
 
         void FixedUpdate()
         {
+            if (!_resolved)
+            {
+                // A ForcedFullReset can invoke OnEpisodeBegin before the robot hierarchy
+                // is fully built, so EnsureResolved() may have failed on that first try.
+                // Retry here every physics tick; once it succeeds, kick off the episode
+                // that OnEpisodeBegin couldn't complete earlier.
+                EnsureResolved();
+                if (!_resolved) return;
+                OnEpisodeBegin();
+                return;
+            }
             if (!_externalHandControl && !enablePolicyClosure)
                 ApplyOpenHandTargets();
             if (_armLocked)

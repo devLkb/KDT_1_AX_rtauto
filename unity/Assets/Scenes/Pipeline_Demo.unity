@@ -633,6 +633,11 @@ MonoBehaviour:
   logToConsole: 1
   logIntervalSeconds: 0.5
   logToFile: 1
+  mode: 0
+  manualLocalPosition: {x: 0.4, y: 0.1, z: 0}
+  randomLocalYMin: 0.05
+  randomLocalYMax: 0.4
+  showModeUI: 1
 --- !u!114 &43554923
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -682,12 +687,108 @@ MonoBehaviour:
   - {fileID: 2693714}
   - {fileID: 276017483}
   - {fileID: 334650498}
+  safetySensors:
+  - {fileID: 723470894}
+  - {fileID: 2071519536}
+  - {fileID: 982106353}
+  - {fileID: 681882998}
+  - {fileID: 1962819252}
+  - {fileID: 257907540}
+  - {fileID: 1557555643}
+  - {fileID: 1859866804}
+  - {fileID: 1859866804}
+  - {fileID: 975088033}
+  - {fileID: 975088033}
+  - {fileID: 652798268}
+  - {fileID: 652798268}
+  - {fileID: 652798268}
+  - {fileID: 652798268}
+  - {fileID: 652798268}
+  - {fileID: 1604599746}
+  - {fileID: 1604599746}
+  - {fileID: 1604599746}
+  - {fileID: 1604599746}
+  - {fileID: 1604599746}
+  - {fileID: 747865715}
+  - {fileID: 747865715}
+  - {fileID: 747865715}
+  - {fileID: 747865715}
+  - {fileID: 747865715}
+  - {fileID: 747865715}
+  - {fileID: 747865715}
+  - {fileID: 1996852083}
+  - {fileID: 1996852083}
+  - {fileID: 1996852083}
+  - {fileID: 2100238080}
+  - {fileID: 2100238080}
+  - {fileID: 1248891906}
+  - {fileID: 1026814663}
+  - {fileID: 1026814663}
+  - {fileID: 1026814663}
+  - {fileID: 1707911508}
+  - {fileID: 1707911508}
+  - {fileID: 1707911508}
+  - {fileID: 750179977}
+  - {fileID: 750179977}
+  - {fileID: 750179977}
+  - {fileID: 1038722398}
+  - {fileID: 1038722398}
+  - {fileID: 1038722398}
+  - {fileID: 1038722398}
+  - {fileID: 915933137}
+  - {fileID: 943253595}
+  - {fileID: 943253595}
+  - {fileID: 943253595}
+  - {fileID: 1559989149}
+  - {fileID: 1559989149}
+  - {fileID: 1559989149}
+  - {fileID: 193731788}
+  - {fileID: 193731788}
+  - {fileID: 193731788}
+  - {fileID: 181715008}
+  - {fileID: 181715008}
+  - {fileID: 181715008}
+  - {fileID: 181715008}
+  - {fileID: 2144297157}
+  - {fileID: 1855621527}
+  - {fileID: 1855621527}
+  - {fileID: 1855621527}
+  - {fileID: 785552713}
+  - {fileID: 785552713}
+  - {fileID: 785552713}
+  - {fileID: 692308948}
+  - {fileID: 692308948}
+  - {fileID: 692308948}
+  - {fileID: 1763170774}
+  - {fileID: 1763170774}
+  - {fileID: 1763170774}
+  - {fileID: 1763170774}
+  - {fileID: 1785757677}
+  - {fileID: 363047345}
+  - {fileID: 363047345}
+  - {fileID: 363047345}
+  - {fileID: 363047345}
+  - {fileID: 1529539248}
+  - {fileID: 1529539248}
+  - {fileID: 1529539248}
+  - {fileID: 1529539248}
+  - {fileID: 1529539248}
+  - {fileID: 1529539248}
+  - {fileID: 1529539248}
+  - {fileID: 837768091}
+  - {fileID: 837768091}
+  - {fileID: 837768091}
+  - {fileID: 576144569}
+  - {fileID: 576144569}
+  - {fileID: 657516952}
   useDeterministicSpawns: 0
   spawnSeed: 12345
   armDeltaDegPerDecision: 2
   gripDeltaPerDecision: 0.04
   driveHandJoints: 0
   cameraReceiver: {fileID: 43554922}
+  enablePolicyClosure: 0
+  endEpisodeOnReach: 1
 --- !u!114 &43554925
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1157,6 +1258,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0044198fa1c54e4882c03d77430e9cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RobotSelfCollisionIgnore
+  ignoreSelfCollision: 1
+  toggleKey: 0
 --- !u!114 &43554940
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2617,6 +2720,7 @@ GameObject:
   - component: {fileID: 181715006}
   - component: {fileID: 181715005}
   - component: {fileID: 181715004}
+  - component: {fileID: 181715008}
   m_Layer: 0
   m_Name: ll_dg_3_4_c_0
   m_TagString: Untagged
@@ -2727,6 +2831,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 7a3c859697f5ea946bbea002bd90c939, type: 2}
+--- !u!114 &181715008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 181715002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &190963479
 GameObject:
   m_ObjectHideFlags: 0
@@ -2785,6 +2903,7 @@ GameObject:
   - component: {fileID: 193731787}
   - component: {fileID: 193731786}
   - component: {fileID: 193731785}
+  - component: {fileID: 193731788}
   m_Layer: 0
   m_Name: ll_dg_3_3_c_0
   m_TagString: Untagged
@@ -2873,6 +2992,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 483d0bf41a478f541bebec1f12121ec3, type: 2}
+--- !u!114 &193731788
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 193731783}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &195506793
 GameObject:
   m_ObjectHideFlags: 0
@@ -3418,6 +3551,7 @@ GameObject:
   m_Component:
   - component: {fileID: 257907538}
   - component: {fileID: 257907539}
+  - component: {fileID: 257907540}
   m_Layer: 0
   m_Name: wrist2_0
   m_TagString: Untagged
@@ -3462,6 +3596,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: ebf675f9c57cc824cb0257fabf6c38e1, type: 2}
+--- !u!114 &257907540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257907537}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &258324852
 GameObject:
   m_ObjectHideFlags: 0
@@ -4682,6 +4830,7 @@ GameObject:
   - component: {fileID: 363047343}
   - component: {fileID: 363047342}
   - component: {fileID: 363047341}
+  - component: {fileID: 363047345}
   m_Layer: 0
   m_Name: ll_dg_1_1_c_0
   m_TagString: Untagged
@@ -4792,6 +4941,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: ca7d36f9368df9a48acbcb4c268f331a, type: 2}
+--- !u!114 &363047345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 363047339}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &365148617
 GameObject:
   m_ObjectHideFlags: 0
@@ -6081,6 +6244,7 @@ GameObject:
   - component: {fileID: 576144566}
   - component: {fileID: 576144568}
   - component: {fileID: 576144567}
+  - component: {fileID: 576144569}
   m_Layer: 0
   m_Name: ll_dg_1_4_c_0
   m_TagString: Untagged
@@ -6147,6 +6311,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 505afce7e0fb4f242bd1ea7878ea2e01, type: 2}
+--- !u!114 &576144569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 576144565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &578003283
 GameObject:
   m_ObjectHideFlags: 0
@@ -7219,6 +7397,7 @@ GameObject:
   - component: {fileID: 652798265}
   - component: {fileID: 652798264}
   - component: {fileID: 652798263}
+  - component: {fileID: 652798268}
   m_Layer: 0
   m_Name: ll_dg_palm_c_0
   m_TagString: Untagged
@@ -7351,6 +7530,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: d5f7d43df06065046a98032b4a1fac77, type: 2}
+--- !u!114 &652798268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 652798261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &653141793
 GameObject:
   m_ObjectHideFlags: 0
@@ -7452,6 +7645,7 @@ GameObject:
   m_Component:
   - component: {fileID: 657516950}
   - component: {fileID: 657516951}
+  - component: {fileID: 657516952}
   m_Layer: 0
   m_Name: ll_dg_1_tip_c_0
   m_TagString: Untagged
@@ -7496,6 +7690,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 9d4e64b055408a74fb8eec7eda9ee739, type: 2}
+--- !u!114 &657516952
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 657516949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &670767417
 GameObject:
   m_ObjectHideFlags: 0
@@ -7596,6 +7804,7 @@ GameObject:
   m_Component:
   - component: {fileID: 681882996}
   - component: {fileID: 681882997}
+  - component: {fileID: 681882998}
   m_Layer: 0
   m_Name: forearm_0
   m_TagString: Untagged
@@ -7640,6 +7849,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 17a4f9524f4abca48ada6c1ee8ad2905, type: 2}
+--- !u!114 &681882998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681882995}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &692308943
 GameObject:
   m_ObjectHideFlags: 0
@@ -7652,6 +7875,7 @@ GameObject:
   - component: {fileID: 692308947}
   - component: {fileID: 692308946}
   - component: {fileID: 692308945}
+  - component: {fileID: 692308948}
   m_Layer: 0
   m_Name: ll_dg_2_3_c_0
   m_TagString: Untagged
@@ -7740,6 +7964,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 3dc7d17da4c9bca4f8d7ae7145cce405, type: 2}
+--- !u!114 &692308948
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 692308943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &696962005
 GameObject:
   m_ObjectHideFlags: 0
@@ -7839,6 +8077,7 @@ GameObject:
   m_Component:
   - component: {fileID: 723470892}
   - component: {fileID: 723470893}
+  - component: {fileID: 723470894}
   m_Layer: 0
   m_Name: base_0
   m_TagString: Untagged
@@ -7883,6 +8122,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 9082f5959e5438d4abd3b506550da7ea, type: 2}
+--- !u!114 &723470894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 723470891}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &726957918
 GameObject:
   m_ObjectHideFlags: 0
@@ -8179,6 +8432,7 @@ GameObject:
   - component: {fileID: 747865710}
   - component: {fileID: 747865709}
   - component: {fileID: 747865708}
+  - component: {fileID: 747865715}
   m_Layer: 0
   m_Name: ll_dg_5_2_c_0
   m_TagString: Untagged
@@ -8355,6 +8609,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: ca8030a1c442c194991d8e87e8484b67, type: 2}
+--- !u!114 &747865715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 747865706}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &750179972
 GameObject:
   m_ObjectHideFlags: 0
@@ -8367,6 +8635,7 @@ GameObject:
   - component: {fileID: 750179976}
   - component: {fileID: 750179975}
   - component: {fileID: 750179974}
+  - component: {fileID: 750179977}
   m_Layer: 0
   m_Name: ll_dg_4_3_c_0
   m_TagString: Untagged
@@ -8455,6 +8724,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: c0136334c7c32f244b5b0c97aea12351, type: 2}
+--- !u!114 &750179977
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 750179972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &754395901
 GameObject:
   m_ObjectHideFlags: 0
@@ -8836,6 +9119,7 @@ GameObject:
   - component: {fileID: 785552712}
   - component: {fileID: 785552711}
   - component: {fileID: 785552710}
+  - component: {fileID: 785552713}
   m_Layer: 0
   m_Name: ll_dg_2_2_c_0
   m_TagString: Untagged
@@ -8924,6 +9208,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 35205df167b499247a1dde55fb398a98, type: 2}
+--- !u!114 &785552713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 785552708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &786139238
 GameObject:
   m_ObjectHideFlags: 0
@@ -9916,6 +10214,7 @@ GameObject:
   - component: {fileID: 837768090}
   - component: {fileID: 837768089}
   - component: {fileID: 837768088}
+  - component: {fileID: 837768091}
   m_Layer: 0
   m_Name: ll_dg_1_3_c_0
   m_TagString: Untagged
@@ -10004,6 +10303,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: a521be1a0ffc8cd41bfa36c27f715c6c, type: 2}
+--- !u!114 &837768091
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 837768086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &881738618
 GameObject:
   m_ObjectHideFlags: 0
@@ -10303,6 +10616,7 @@ GameObject:
   m_Component:
   - component: {fileID: 915933135}
   - component: {fileID: 915933136}
+  - component: {fileID: 915933137}
   m_Layer: 0
   m_Name: ll_dg_4_tip_c_0
   m_TagString: Untagged
@@ -10347,6 +10661,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 10fb7eaf9f4d14545bd94a937b99fcf5, type: 2}
+--- !u!114 &915933137
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 915933134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &917579599
 GameObject:
   m_ObjectHideFlags: 0
@@ -10862,6 +11190,7 @@ GameObject:
   - component: {fileID: 943253594}
   - component: {fileID: 943253593}
   - component: {fileID: 943253592}
+  - component: {fileID: 943253595}
   m_Layer: 0
   m_Name: ll_dg_3_1_c_0
   m_TagString: Untagged
@@ -10950,6 +11279,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: b2b0ac3002b214e4eb4c44f80fcac159, type: 2}
+--- !u!114 &943253595
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 943253590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &943800805
 GameObject:
   m_ObjectHideFlags: 0
@@ -11461,6 +11804,7 @@ GameObject:
   - component: {fileID: 975088030}
   - component: {fileID: 975088032}
   - component: {fileID: 975088031}
+  - component: {fileID: 975088033}
   m_Layer: 0
   m_Name: ll_dg_base_c_0
   m_TagString: Untagged
@@ -11527,6 +11871,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 8b0db1da092cbe145ba9a134586a7e95, type: 2}
+--- !u!114 &975088033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 975088029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &976508007
 GameObject:
   m_ObjectHideFlags: 0
@@ -11752,6 +12110,7 @@ GameObject:
   m_Component:
   - component: {fileID: 982106351}
   - component: {fileID: 982106352}
+  - component: {fileID: 982106353}
   m_Layer: 0
   m_Name: upperarm_0
   m_TagString: Untagged
@@ -11796,6 +12155,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 95f516724bd511c478210aba4e19ece4, type: 2}
+--- !u!114 &982106353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 982106350}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &984271873
 GameObject:
   m_ObjectHideFlags: 0
@@ -12155,6 +12528,7 @@ GameObject:
   - component: {fileID: 1026814662}
   - component: {fileID: 1026814661}
   - component: {fileID: 1026814660}
+  - component: {fileID: 1026814663}
   m_Layer: 0
   m_Name: ll_dg_4_1_c_0
   m_TagString: Untagged
@@ -12243,6 +12617,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 67398b91f461a924db6d9a883983f52f, type: 2}
+--- !u!114 &1026814663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1026814658}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1030481562
 GameObject:
   m_ObjectHideFlags: 0
@@ -12414,6 +12802,7 @@ GameObject:
   - component: {fileID: 1038722396}
   - component: {fileID: 1038722395}
   - component: {fileID: 1038722394}
+  - component: {fileID: 1038722398}
   m_Layer: 0
   m_Name: ll_dg_4_4_c_0
   m_TagString: Untagged
@@ -12524,6 +12913,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 480f73ed270401d40a9d56bf1678cf30, type: 2}
+--- !u!114 &1038722398
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1038722392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1046234270
 GameObject:
   m_ObjectHideFlags: 0
@@ -14307,6 +14710,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1248891904}
   - component: {fileID: 1248891905}
+  - component: {fileID: 1248891906}
   m_Layer: 0
   m_Name: ll_dg_5_tip_c_0
   m_TagString: Untagged
@@ -14351,6 +14755,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 80a440b024962a44cab0b17c81079f21, type: 2}
+--- !u!114 &1248891906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1248891903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1252123603
 GameObject:
   m_ObjectHideFlags: 0
@@ -16897,6 +17315,7 @@ GameObject:
   - component: {fileID: 1529539243}
   - component: {fileID: 1529539242}
   - component: {fileID: 1529539241}
+  - component: {fileID: 1529539248}
   m_Layer: 0
   m_Name: ll_dg_1_2_c_0
   m_TagString: Untagged
@@ -17073,6 +17492,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 32bd6d02a9837394789f7639b44caf63, type: 2}
+--- !u!114 &1529539248
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1529539239}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1548441455
 GameObject:
   m_ObjectHideFlags: 0
@@ -17416,6 +17849,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1557555641}
   - component: {fileID: 1557555642}
+  - component: {fileID: 1557555643}
   m_Layer: 0
   m_Name: wrist3_0
   m_TagString: Untagged
@@ -17460,6 +17894,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 3fcc010df78fc294d9ec1b053610192e, type: 2}
+--- !u!114 &1557555643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1557555640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1559284657
 GameObject:
   m_ObjectHideFlags: 0
@@ -17517,6 +17965,7 @@ GameObject:
   - component: {fileID: 1559989148}
   - component: {fileID: 1559989147}
   - component: {fileID: 1559989146}
+  - component: {fileID: 1559989149}
   m_Layer: 0
   m_Name: ll_dg_3_2_c_0
   m_TagString: Untagged
@@ -17605,6 +18054,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 3e48d7f2c379fcd40b7f8c5d5588e492, type: 2}
+--- !u!114 &1559989149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1559989144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1560398624
 GameObject:
   m_ObjectHideFlags: 0
@@ -18384,6 +18847,7 @@ GameObject:
   - component: {fileID: 1604599743}
   - component: {fileID: 1604599742}
   - component: {fileID: 1604599741}
+  - component: {fileID: 1604599746}
   m_Layer: 0
   m_Name: ll_dg_5_1_c_0
   m_TagString: Untagged
@@ -18516,6 +18980,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 9089b7606c7282e4bb659f3de4db6eeb, type: 2}
+--- !u!114 &1604599746
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1604599739}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1619433596
 GameObject:
   m_ObjectHideFlags: 0
@@ -19317,6 +19795,7 @@ GameObject:
   - component: {fileID: 1707911507}
   - component: {fileID: 1707911506}
   - component: {fileID: 1707911505}
+  - component: {fileID: 1707911508}
   m_Layer: 0
   m_Name: ll_dg_4_2_c_0
   m_TagString: Untagged
@@ -19405,6 +19884,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 4b6ae83a9b04ce34ca66df065d786b33, type: 2}
+--- !u!114 &1707911508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1707911503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1709632174
 GameObject:
   m_ObjectHideFlags: 0
@@ -19957,6 +20450,7 @@ GameObject:
   - component: {fileID: 1763170772}
   - component: {fileID: 1763170771}
   - component: {fileID: 1763170770}
+  - component: {fileID: 1763170774}
   m_Layer: 0
   m_Name: ll_dg_2_4_c_0
   m_TagString: Untagged
@@ -20067,6 +20561,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 6dbc6c2a393a5d7459861fcca1e6c8c9, type: 2}
+--- !u!114 &1763170774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1763170768}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1765564762
 GameObject:
   m_ObjectHideFlags: 0
@@ -20349,6 +20857,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1785757675}
   - component: {fileID: 1785757676}
+  - component: {fileID: 1785757677}
   m_Layer: 0
   m_Name: ll_dg_2_tip_c_0
   m_TagString: Untagged
@@ -20393,6 +20902,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 09b08ef999caf53409187503b37824ce, type: 2}
+--- !u!114 &1785757677
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1785757674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1786372624
 GameObject:
   m_ObjectHideFlags: 0
@@ -20995,6 +21518,7 @@ GameObject:
   - component: {fileID: 1855621526}
   - component: {fileID: 1855621525}
   - component: {fileID: 1855621524}
+  - component: {fileID: 1855621527}
   m_Layer: 0
   m_Name: ll_dg_2_1_c_0
   m_TagString: Untagged
@@ -21083,6 +21607,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: d538421cd8e67f947ac9cf6debd7fe0d, type: 2}
+--- !u!114 &1855621527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1855621522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1859866800
 GameObject:
   m_ObjectHideFlags: 0
@@ -21094,6 +21632,7 @@ GameObject:
   - component: {fileID: 1859866801}
   - component: {fileID: 1859866803}
   - component: {fileID: 1859866802}
+  - component: {fileID: 1859866804}
   m_Layer: 0
   m_Name: ll_dg_mount_c_0
   m_TagString: Untagged
@@ -21160,6 +21699,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 868c006df0ed3854683901a9460f3f2b, type: 2}
+--- !u!114 &1859866804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1859866800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1862678209
 GameObject:
   m_ObjectHideFlags: 0
@@ -21983,6 +22536,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1962819250}
   - component: {fileID: 1962819251}
+  - component: {fileID: 1962819252}
   m_Layer: 0
   m_Name: wrist1_0
   m_TagString: Untagged
@@ -22027,6 +22581,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: cb8ff9c7eb212a94a855ce487ef853e9, type: 2}
+--- !u!114 &1962819252
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1962819249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1967530628
 GameObject:
   m_ObjectHideFlags: 0
@@ -22329,6 +22897,7 @@ GameObject:
   - component: {fileID: 1996852082}
   - component: {fileID: 1996852081}
   - component: {fileID: 1996852080}
+  - component: {fileID: 1996852083}
   m_Layer: 0
   m_Name: ll_dg_5_3_c_0
   m_TagString: Untagged
@@ -22417,6 +22986,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 41d87938ba02522409b5b62f4bea6561, type: 2}
+--- !u!114 &1996852083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1996852078}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &1996884886
 GameObject:
   m_ObjectHideFlags: 0
@@ -23136,6 +23719,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2071519534}
   - component: {fileID: 2071519535}
+  - component: {fileID: 2071519536}
   m_Layer: 0
   m_Name: shoulder_0
   m_TagString: Untagged
@@ -23180,6 +23764,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: f0b969143e6494040ad66d986a0622e7, type: 2}
+--- !u!114 &2071519536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2071519533}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &2092454839
 GameObject:
   m_ObjectHideFlags: 0
@@ -23328,6 +23926,7 @@ GameObject:
   - component: {fileID: 2100238077}
   - component: {fileID: 2100238079}
   - component: {fileID: 2100238078}
+  - component: {fileID: 2100238080}
   m_Layer: 0
   m_Name: ll_dg_5_4_c_0
   m_TagString: Untagged
@@ -23394,6 +23993,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 9ab3243932703524fae56ce80748e81c, type: 2}
+--- !u!114 &2100238080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100238076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1 &2107045131
 GameObject:
   m_ObjectHideFlags: 0
@@ -23724,6 +24337,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2144297155}
   - component: {fileID: 2144297156}
+  - component: {fileID: 2144297157}
   m_Layer: 0
   m_Name: ll_dg_3_tip_c_0
   m_TagString: Untagged
@@ -23768,6 +24382,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: a6b8fd799f78b7e4db05f865e33b6165, type: 2}
+--- !u!114 &2144297157
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144297154}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23079e2ad12943a3bebab85f5a4fcf49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
+  agent: {fileID: 43554924}
+  unsafeSurface: {fileID: 1030481565}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
