@@ -787,6 +787,8 @@ MonoBehaviour:
   gripDeltaPerDecision: 0.04
   driveHandJoints: 0
   cameraReceiver: {fileID: 43554922}
+  obstacleField: {fileID: 384596011}
+  obstacleLandingChance: 0.35
   enablePolicyClosure: 0
   endEpisodeOnReach: 1
 --- !u!114 &43554925
@@ -818,7 +820,7 @@ MonoBehaviour:
     - grip_delta
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: cff3fe4ee1104cb5f820e8299896a744, type: 3}
+  m_Model: {fileID: 5022602860645237092, guid: 03cf0fc3ad6a6594eaeb570e930297ce, type: 3}
   m_InferenceDevice: 0
   m_BehaviorType: 2
   m_BehaviorName: DG5FGrasp
@@ -5000,6 +5002,59 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46398bc5d6905ad429a6d2d973afe002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Robotics.UrdfImporter::Unity.Robotics.UrdfImporter.UrdfCollisions
+--- !u!1 &376337431
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 376337432}
+  - component: {fileID: 376337433}
+  m_Layer: 0
+  m_Name: Obstacle_ShelfStack_2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &376337432
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 376337431}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.0000000047699524, y: 0.25, z: -0.4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 384596010}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &376337433
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 376337431}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9056f36f9c6e7d54988535f9f3e309d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.RobotScripts::RandomShelfStack
+  plateCount: 3
+  minWidth: 0.1
+  maxWidth: 0.35
+  minDepth: 0.1
+  maxDepth: 0.35
+  thickness: 0.02
+  minGap: 0.08
+  maxGap: 0.15
+  plateMaterial: {fileID: 0}
 --- !u!1 &382789064
 GameObject:
   m_ObjectHideFlags: 0
@@ -5033,6 +5088,62 @@ Transform:
   - {fileID: 1343852759}
   m_Father: {fileID: 1807039557}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &384596009
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 384596010}
+  - component: {fileID: 384596011}
+  m_Layer: 0
+  m_Name: SceneProps
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &384596010
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384596009}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1662774643}
+  - {fileID: 1639173820}
+  - {fileID: 1708588873}
+  - {fileID: 1327331249}
+  - {fileID: 376337432}
+  m_Father: {fileID: 1379347635}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &384596011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384596009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33d67206368bddb4f92b3939c8913c9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.PanelObstacleRandomizer
+  agent: {fileID: 43554924}
+  obstacles: []
+  minRadius: 0.1
+  maxRadius: 0.84999996
+  minSeparation: 0.25
+  minCount: 0
+  maxCount: 5
 --- !u!1 &385954007
 GameObject:
   m_ObjectHideFlags: 0
@@ -15211,6 +15322,56 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Robotics.UrdfImporter::Unity.Robotics.UrdfImporter.UrdfLink
   IsBaseLink: 0
+--- !u!1 &1327331248
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1327331249}
+  - component: {fileID: 1327331250}
+  m_Layer: 0
+  m_Name: Obstacle_Pillar_C
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1327331249
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1327331248}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.4, y: 0.25, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 384596010}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1327331250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1327331248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a06e258cb3f126846b15de53fa28ef41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.RobotScripts::RandomPillarSpawner
+  shape: 0
+  minHeight: 0.15
+  maxHeight: 0.9
+  minWidth: 0.05
+  maxWidth: 0.25
+  material: {fileID: 0}
 --- !u!1 &1328141416
 GameObject:
   m_ObjectHideFlags: 0
@@ -16228,6 +16389,7 @@ Transform:
   - {fileID: 43554921}
   - {fileID: 1030481563}
   - {fileID: 819323939}
+  - {fileID: 384596010}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1384739712
@@ -19131,6 +19293,56 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1635546386}
   m_Mesh: {fileID: -8327721336633515227, guid: 2a4a46f934b8f3b4485b7a51bd591033, type: 3}
+--- !u!1 &1639173819
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1639173820}
+  - component: {fileID: 1639173821}
+  m_Layer: 0
+  m_Name: Obstacle_Pillar_B
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1639173820
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1639173819}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.56568545, y: 0.25, z: -0.5656854}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 384596010}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1639173821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1639173819}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a06e258cb3f126846b15de53fa28ef41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.RobotScripts::RandomPillarSpawner
+  shape: 0
+  minHeight: 0.15
+  maxHeight: 0.9
+  minWidth: 0.05
+  maxWidth: 0.25
+  material: {fileID: 0}
 --- !u!1 &1648958173
 GameObject:
   m_ObjectHideFlags: 0
@@ -19389,6 +19601,56 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Robotics.UrdfImporter::Unity.Robotics.UrdfImporter.UrdfVisual
   geometryType: 3
+--- !u!1 &1662774642
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1662774643}
+  - component: {fileID: 1662774644}
+  m_Layer: 0
+  m_Name: Obstacle_Pillar_A
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1662774643
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1662774642}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.56568545, y: 0.25, z: 0.56568545}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 384596010}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1662774644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1662774642}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a06e258cb3f126846b15de53fa28ef41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.RobotScripts::RandomPillarSpawner
+  shape: 1
+  minHeight: 0.15
+  maxHeight: 0.9
+  minWidth: 0.05
+  maxWidth: 0.25
+  material: {fileID: 0}
 --- !u!1 &1664931066
 GameObject:
   m_ObjectHideFlags: 0
@@ -19898,6 +20160,59 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspTraining::KDT.GraspTraining.GraspSurfaceContactSensor
   agent: {fileID: 43554924}
   unsafeSurface: {fileID: 1030481565}
+--- !u!1 &1708588872
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1708588873}
+  - component: {fileID: 1708588874}
+  m_Layer: 0
+  m_Name: Obstacle_ShelfStack
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1708588873
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1708588872}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.56568545, y: 0.25, z: 0.56568545}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 384596010}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1708588874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1708588872}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9056f36f9c6e7d54988535f9f3e309d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.RobotScripts::RandomShelfStack
+  plateCount: 3
+  minWidth: 0.1
+  maxWidth: 0.35
+  minDepth: 0.1
+  maxDepth: 0.35
+  thickness: 0.02
+  minGap: 0.08
+  maxGap: 0.15
+  plateMaterial: {fileID: 0}
 --- !u!1 &1709632174
 GameObject:
   m_ObjectHideFlags: 0

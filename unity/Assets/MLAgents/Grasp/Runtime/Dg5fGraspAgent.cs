@@ -38,6 +38,12 @@ namespace KDT.GraspTraining
         [Tooltip("설정하면 랜덤 스폰 대신 이 리시버의 최신 카메라 좌표로 공을 스폰 (없으면 기존 랜덤 로직 유지). " +
                  "학습 인스턴스는 비워둘 것.")]
         public CameraTargetReceiver cameraReceiver;
+        [Tooltip("설정하면 OnEpisodeBegin 초반에 이 랜덤라이저를 먼저 실행해 장애물을 배치한 뒤, " +
+                 "obstacleLandingChance 확률로 그 장애물 중 하나의 윗면에 공을 스폰. 학습 인스턴스는 비워둘 것.")]
+        public PanelObstacleRandomizer obstacleField;
+        [Range(0f, 1f)]
+        [Tooltip("obstacleField가 설정돼 있고 유효한 윗면 후보가 있을 때, 공을 장애물 위에 스폰할 확률.")]
+        public float obstacleLandingChance = 0.35f;
         [Tooltip("Legacy 7th action stays in the policy shape but is ignored for demo fine-tuning.")]
         public bool enablePolicyClosure;
         [Tooltip("Training ends on reach. Deployment locks the arm and yields the hand to teleoperation.")]
@@ -257,6 +263,9 @@ namespace KDT.GraspTraining
                     "[Dg5fGraspAgent] Moving-link panel safety sensors are required.");
         }
 
+        /// 에피소드 시작마다 발생 — 씬 전용 장식/장애물 랜덤화 등 외부 리스너용 훅.
+        public event Action EpisodeBegan;
+
         public override void OnEpisodeBegin()
         {
             EnsureResolved();
@@ -272,6 +281,8 @@ namespace KDT.GraspTraining
             _bestHoldPotential = 0f;
             _holdAnchorPosition = Vector3.zero;
             _holdResetCount = 0;
+            // 공이 장애물 윗면 좌표를 참고할 수 있도록, 장애물을 먼저 재배치한다.
+            obstacleField?.Randomize();
             ResetRobot();
             ResetBall();
             foreach (var sensor in contactSensors) sensor.ResetContacts();
@@ -285,6 +296,7 @@ namespace KDT.GraspTraining
                 PalmFacingAlignment());
             _bestTopDownAlignmentPotential = TopDownAlignmentPotential();
             _episodeActive = true;
+            EpisodeBegan?.Invoke();
         }
 
         float InitialTargetDeg(ArticulationBody body)
@@ -324,9 +336,24 @@ namespace KDT.GraspTraining
             if (_ballCollider == null)
                 throw new InvalidOperationException("[Dg5fGraspAgent] Ball requires a collider.");
             float ballRadius = BallRadius();
-            Vector3 ballLocalPosition = TryGetModeAwareSpawnPosition(ballRadius, out Vector3 modeLocal, out bool floating)
-                ? modeLocal
-                : Dg5fGraspSpec.SpawnBallLocalPosition(Next01(), Next01(), Next01(), ballRadius);
+            Vector3 ballLocalPosition;
+            bool floating;
+            if (obstacleField != null && Next01() < obstacleLandingChance
+                && TryGetReachableObstacleLanding(ballRadius, out Vector3 obstacleLocal))
+            {
+                ballLocalPosition = obstacleLocal;
+                floating = true;
+            }
+            else if (TryGetModeAwareSpawnPosition(ballRadius, out Vector3 modeLocal, out bool modeFloating))
+            {
+                ballLocalPosition = modeLocal;
+                floating = modeFloating;
+            }
+            else
+            {
+                ballLocalPosition = Dg5fGraspSpec.SpawnBallLocalPosition(Next01(), Next01(), Next01(), ballRadius);
+                floating = false;
+            }
             if (!floating && !Dg5fGraspSpec.IsValidSpawn(ballLocalPosition, ballRadius))
                 throw new InvalidOperationException("[Dg5fGraspAgent] Generated an invalid v1 spawn pose.");
 
@@ -348,6 +375,34 @@ namespace KDT.GraspTraining
             // Articulation collider transforms lag direct jointPosition writes by one
             // physics step. Keep the ball kinematic for that step, then release it.
             _ballReleaseFixedSteps = 2;
+        }
+
+        /// obstacleField.TopSurfacePoints 중, robotBase 기준 3D 거리(팔의 실제 도달 범위와 동일한
+        /// 기준인 MaximumSpawnBallDistance)를 만족하는 것만 무작위 순서로 훑어 첫 번째를 채택한다.
+        /// 후보가 다 도달 불가면(예: 너무 높은 기둥) false — 이 경우 호출부가 기존 로직으로 폴백한다.
+        bool TryGetReachableObstacleLanding(float ballRadius, out Vector3 ballLocalPosition)
+        {
+            ballLocalPosition = Vector3.zero;
+            if (obstacleField == null) return false;
+
+            var candidates = new List<Vector3>(obstacleField.TopSurfacePoints);
+            for (int i = candidates.Count - 1; i > 0; i--)
+            {
+                int j = (int)(Next01() * (i + 1));
+                if (j > i) j = i;
+                (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+            }
+
+            foreach (Vector3 worldPoint in candidates)
+            {
+                Vector3 local = robotBase.InverseTransformPoint(worldPoint) + Vector3.up * ballRadius;
+                if (local.magnitude <= Dg5fGraspSpec.MaximumSpawnBallDistance)
+                {
+                    ballLocalPosition = local;
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// cameraReceiver.mode에 따라 공 스폰 위치를 고른다.
