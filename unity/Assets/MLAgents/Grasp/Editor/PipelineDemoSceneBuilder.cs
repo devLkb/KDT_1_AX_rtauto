@@ -32,8 +32,6 @@ namespace KDT.GraspTraining.Editor
         public const string DemoScenePath = "Assets/Scenes/Pipeline_Demo.unity";
         const string HandRootName = "ll_dg_palm";
         const int CameraReceiverPort = 5007;
-        const string CubeMaterialPath = "Assets/MLAgents/Grasp/GraspCube.mat";
-        const string CylinderMaterialPath = "Assets/MLAgents/Grasp/GraspCylinder.mat";
 
         static readonly string[] HandTeleopTypeNames =
         {
@@ -94,7 +92,6 @@ namespace KDT.GraspTraining.Editor
             ReEnableHandTeleop(areaCopy);
             CameraTargetReceiver cameraReceiver = ConfigureCameraReceiver(areaCopy);
             ConfigureAgent(areaCopy, cameraReceiver);
-            ConfigureTargetVariety(areaCopy);
             SetInferenceOnly(areaCopy);
 
             EnsureFolder("Assets/Scenes");
@@ -182,87 +179,6 @@ namespace KDT.GraspTraining.Editor
             Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
             agent.cameraReceiver = cameraReceiver;
             agent.driveHandJoints = false;
-        }
-
-        /// GraspBall 외에 정육면체/원통 후보를 추가로 만들고 GraspTargetSwitcher로 묶어,
-        /// 라이브 데모 중 어떤 물체를 향해 팔이 접근할지 전환할 수 있게 한다. 정책은 구 모양으로
-        /// 학습됐으므로 다른 모양에서는 접근 정확도가 다소 떨어질 수 있다(데모 목적으로는 허용).
-        static void ConfigureTargetVariety(GameObject area)
-        {
-            Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
-            Rigidbody ball = agent.ball;
-            if (ball == null)
-                throw new InvalidOperationException(
-                    $"[PipelineDemoSceneBuilder] Missing ball reference on cloned agent in {area.name}.");
-
-            Collider ballCollider = ball.GetComponent<Collider>();
-            PhysicsMaterial surface = ballCollider != null ? ballCollider.material : null;
-            Transform parent = ball.transform.parent;
-            Vector3 spawnLocalPosition = ball.transform.localPosition;
-
-            Rigidbody cube = CreateExtraTarget(
-                parent,
-                PrimitiveType.Cube,
-                "GraspCube",
-                Vector3.one * 0.036f,
-                spawnLocalPosition,
-                surface,
-                CubeMaterialPath,
-                Color.blue);
-            Rigidbody cylinder = CreateExtraTarget(
-                parent,
-                PrimitiveType.Cylinder,
-                "GraspCylinder",
-                new Vector3(0.04f, 0.02f, 0.04f),
-                spawnLocalPosition,
-                surface,
-                CylinderMaterialPath,
-                Color.green);
-
-            GraspTargetSwitcher switcher = agent.gameObject.GetComponent<GraspTargetSwitcher>();
-            if (switcher == null) switcher = agent.gameObject.AddComponent<GraspTargetSwitcher>();
-            switcher.agent = agent;
-            switcher.targets = new[] { ball, cube, cylinder };
-            switcher.targetLabels = new[] { "빨간 공", "파란 정육면체", "초록 원통" };
-        }
-
-        static Rigidbody CreateExtraTarget(
-            Transform parent,
-            PrimitiveType primitive,
-            string name,
-            Vector3 localScale,
-            Vector3 localPosition,
-            PhysicsMaterial physicsMaterial,
-            string materialPath,
-            Color color)
-        {
-            var target = GameObject.CreatePrimitive(primitive);
-            target.name = name;
-            target.transform.SetParent(parent, false);
-            target.transform.localPosition = localPosition;
-            target.transform.localScale = localScale;
-            target.GetComponent<Collider>().material = physicsMaterial;
-            target.GetComponent<Renderer>().sharedMaterial = GetOrCreateMaterial(materialPath, name, color);
-
-            var body = target.AddComponent<Rigidbody>();
-            body.mass = 0.05f;
-            body.useGravity = true;
-            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            body.interpolation = RigidbodyInterpolation.None;
-
-            // 처음엔 비활성 — GraspTargetSwitcher가 전환할 때만 켜진다.
-            target.SetActive(false);
-            return body;
-        }
-
-        static Material GetOrCreateMaterial(string path, string name, Color color)
-        {
-            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material != null) return material;
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-            material = new Material(shader) { name = name, color = color };
-            AssetDatabase.CreateAsset(material, path);
-            return material;
         }
 
         static void SetInferenceOnly(GameObject area)

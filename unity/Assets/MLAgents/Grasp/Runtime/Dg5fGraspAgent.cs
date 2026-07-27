@@ -874,32 +874,6 @@ namespace KDT.GraspTraining
             EndEpisode();
         }
 
-        /// 라이브 데모에서 잡을 물체를 바꾼다(GraspTargetSwitcher가 호출). ball과 콘택트 센서를
-        /// 새 Rigidbody로 다시 연결하고, 팔이 잠겨 있었다면 풀어준 뒤 새 에피소드를 시작해
-        /// 새 물체를 스폰 위치에 배치한다.
-        public void SetActiveTarget(Rigidbody newBall)
-        {
-            if (newBall == null) throw new ArgumentNullException(nameof(newBall));
-            Collider newCollider = newBall.GetComponent<Collider>();
-            if (newCollider == null)
-                throw new InvalidOperationException("[Dg5fGraspAgent] New target requires a collider.");
-
-            ball = newBall;
-            _ballCollider = newCollider;
-            if (contactSensors != null)
-                foreach (var sensor in contactSensors)
-                    if (sensor != null) sensor.targetBall = ball;
-
-            if (_armLocked)
-            {
-                _armLocked = false;
-                _externalHandControl = false;
-                _closure = 0f;
-                ApplyOpenHandTargets();
-            }
-            EndEpisode();
-        }
-
         void FinishEpisode(bool success, string failureReason)
         {
             if (!_episodeActive) return;
