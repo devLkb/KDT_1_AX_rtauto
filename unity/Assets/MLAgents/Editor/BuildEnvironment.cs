@@ -42,6 +42,23 @@ namespace KDT.MLAgents.Editor
         public string GetPath(params string[] keys)
         {
             string configuredPath = GetValue(keys);
+            return ResolvePath(configuredPath);
+        }
+
+        public bool TryGetPath(out string path, params string[] keys)
+        {
+            if (TryGetValue(out string configuredPath, keys))
+            {
+                path = ResolvePath(configuredPath);
+                return true;
+            }
+
+            path = null;
+            return false;
+        }
+
+        string ResolvePath(string configuredPath)
+        {
             return Path.GetFullPath(
                 Path.IsPathRooted(configuredPath)
                     ? configuredPath
@@ -65,11 +82,24 @@ namespace KDT.MLAgents.Editor
 
         string GetValue(params string[] keys)
         {
+            if (TryGetValue(out string value, keys))
+                return value;
+
+            throw new InvalidOperationException(
+                $"Missing build setting: {string.Join(" or ", keys)}. "
+                + "Restore .env.example or define the environment variable.");
+        }
+
+        bool TryGetValue(out string result, params string[] keys)
+        {
             foreach (string key in keys)
             {
                 string value = Environment.GetEnvironmentVariable(key);
                 if (!string.IsNullOrWhiteSpace(value))
-                    return value.Trim();
+                {
+                    result = value.Trim();
+                    return true;
+                }
             }
 
             foreach (string key in keys)
@@ -77,7 +107,8 @@ namespace KDT.MLAgents.Editor
                 if (localValues.TryGetValue(key, out string value)
                     && !string.IsNullOrWhiteSpace(value))
                 {
-                    return value;
+                    result = value;
+                    return true;
                 }
             }
 
@@ -86,13 +117,13 @@ namespace KDT.MLAgents.Editor
                 if (defaultValues.TryGetValue(key, out string value)
                     && !string.IsNullOrWhiteSpace(value))
                 {
-                    return value;
+                    result = value;
+                    return true;
                 }
             }
 
-            throw new InvalidOperationException(
-                $"Missing build setting: {string.Join(" or ", keys)}. "
-                + "Restore .env.example or define the environment variable.");
+            result = null;
+            return false;
         }
 
         static IReadOnlyDictionary<string, string> ReadDotEnv(string path)

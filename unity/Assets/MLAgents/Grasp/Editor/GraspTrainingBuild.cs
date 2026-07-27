@@ -42,48 +42,10 @@ namespace KDT.GraspTraining.Editor
                 throw new InvalidOperationException(
                     $"Headless build failed: {report.summary.result}, errors={report.summary.totalErrors}");
 
-            RemoveUnusedRuntimeAssimp(outputDirectory, dataDirectoryName);
-            InstallLinuxLibDlProbeShim(outputDirectory, dataDirectoryName);
-            Directory.CreateDirectory(Path.Combine(
-                outputDirectory,
-                dataDirectoryName,
-                "ML-Agents",
-                "Timers"));
+            LinuxPlayerPostProcess.Apply(
+                environment, outputDirectory, dataDirectoryName);
 
             Debug.Log($"[GraspTrainingBuild] Built {options.locationPathName}");
-        }
-
-        static void RemoveUnusedRuntimeAssimp(
-            string outputDirectory,
-            string dataDirectoryName)
-        {
-            string plugin = Path.Combine(
-                outputDirectory,
-                dataDirectoryName,
-                "Plugins",
-                "libassimp.so");
-            if (File.Exists(plugin)) File.Delete(plugin);
-        }
-
-        static void InstallLinuxLibDlProbeShim(
-            string outputDirectory,
-            string dataDirectoryName)
-        {
-            string[] candidates =
-            {
-                "/lib/x86_64-linux-gnu/libdl.so.2",
-                "/usr/lib/x86_64-linux-gnu/libdl.so.2"
-            };
-            string source = Array.Find(candidates, File.Exists);
-            if (source == null)
-                throw new InvalidOperationException(
-                    "Linux libdl.so.2 is required for the URDF importer probe.");
-            string plugins = Path.Combine(
-                outputDirectory,
-                dataDirectoryName,
-                "Plugins");
-            Directory.CreateDirectory(plugins);
-            File.Copy(source, Path.Combine(plugins, "libdl.so"), true);
         }
     }
 }
