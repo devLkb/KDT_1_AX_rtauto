@@ -37,8 +37,8 @@ from dg5f_angles import (compute_raw, map_to_dg5f, compute_thumb_tip,
 from dg5f_paths import unique_log_path
 
 # ------------------------- 설정 -------------------------
-CAM_INDEX = 0
-FRAME_W, FRAME_H = 640, 480
+CAM_INDEX = 0                 # 프레임 크기는 카메라 기본값(640x480@30)을 그대로 쓴다 —
+                              # 강제 설정 상수를 두지 않는 이유는 cap 생성부 주석 참조
 UNITY_IP = "127.0.0.1"
 UNITY_PORT = 5006             # ⚠️ SVH(5005)와 다른 포트 — 공존용
 BRIDGE_PORT = 5007            # --bridge 시 실물 SDK 브리지(dg5f_sdk_bridge.py)에도 같은 패킷 송신
@@ -102,11 +102,12 @@ def main():
         model_complexity=1, max_num_hands=1,
         min_detection_confidence=0.6, min_tracking_confidence=0.6)
 
+    # ⚠️ cap.set() 을 추가하지 말 것. 2026-07-27 실측(4회 반복, 이 웹캠 + Windows MSMF):
+    #    FOURCC/W/H/FPS 4개를 넣으면 시작에 6.3~18.9초가 붙는데(set 하나당 2~4.3초)
+    #    read 지연·해상도·fps는 넣든 안 넣든 33ms / 640x480 / 30fps로 **완전히 동일**했다.
+    #    카메라 기본값이 이미 640x480@30이고, MSMF는 set(FOURCC, MJPG)에 False를 반환(무시)한다.
+    #    즉 순수 손해. 해상도를 정말 바꿔야 하면 그때 set 하나만 넣고 시작시간을 재볼 것.
     cap = cv2.VideoCapture(CAM_INDEX)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
-    cap.set(cv2.CAP_PROP_FPS, 30)
 
     filters = {n: OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
                                 beta=FILTER_BETA) for n in CHANNEL_NAMES}

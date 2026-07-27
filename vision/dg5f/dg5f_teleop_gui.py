@@ -14,6 +14,26 @@ UI에서 바꾼 값은 dg5f_angles의 모듈 전역(DG5F_CHANNELS / RATIO_LIMIT 
   / [25..36] 손가락 리치 / [37..51] 손목→끝 / [52..71] 라디안 원값(디버그)
 → Unity Dg5fReceiver(sim)와 dg5f_sdk_bridge(real) 둘 다 그대로 받는다.
 
+────────────────────────── 스레드 구조 (2026-07-27 성능 개편) ──────────────────────────
+예전엔 tick() 하나가 Tk 메인 스레드에서 cap.read()(33ms 블로킹) + MediaPipe(10ms) +
+PhotoImage 생성(5~13ms)을 다 하고 그 위에 after(20)을 더 얹었다. 그동안 Tk 이벤트 루프가
+멈춰서 슬라이더를 드래그하면 콜백이 프레임 뒤에 줄줄이 큐잉됐다(체감 19.5fps).
+지금은 3분할 — 각 단계는 '최신 1개만 유지하는' 슬롯으로 연결되고, 밀린 프레임은 버린다:
+
+  [캡처 스레드]  cap.read() 반복        → frame_slot  ─┐
+  [처리 스레드]  MediaPipe·매핑·필터·UDP송신          ─┤ 둘 다 UI를 막지 않음
+  [메인(Tk)]     결과를 PhotoImage.paste + 판독 갱신  ←┘  프레임당 ~2ms
+
+핵심 규칙 3개:
+  1. tk 변수(StringVar 등)는 **메인 스레드만** 만진다(Tcl 인터프리터가 스레드 안전하지 않음).
+     워커는 _sync_settings()가 만들어 원자적으로 갈아끼우는 불변 _Settings 스냅샷만 읽는다.
+  2. cv2 / mediapipe 임포트는 워커 스레드에서 한다(합쳐 ~4.5초. 최상단에서 하면
+     그만큼 창이 안 뜬다). 준비되면 모듈 전역 cv2 / mp 에 채워진다.
+  3. cap.set() 은 **쓰지 않는다** — 실측 근거는 _capture_loop 주석 참조.
+  4. 송신 경로(sendto)에는 **점4자리 IP만** 넘긴다. 검증은 _sync_settings에서 inet_pton으로
+     끝내둔다 — 그러지 않으면 IP를 타이핑하는 중간 문자열('1','19','192','192.')이 전부
+     DNS 조회로 들어가 한 번 입력에 10.8초를 멈춘다(실측 근거는 _sync_settings 주석).
+
 실행:  <vision venv python> dg5f_teleop_gui.py
 """
 import json
@@ -21,10 +41,9 @@ import os
 import socket
 import struct
 import sys
+import threading
 import time
 
-import cv2
-import mediapipe as mp
 import numpy as np
 from PIL import Image, ImageTk
 
@@ -34,14 +53,29 @@ from tkinter import ttk, filedialog, messagebox
 from one_euro_filter import OneEuroFilter
 import dg5f_angles as A
 
+# cv2(0.6s) + mediapipe(3.9s) = 창이 뜨기까지의 대기시간. 워커 스레드가 임포트해서
+# 여기에 채운다 → 창은 ~1.2초에 뜨고, 그 뒤 백그라운드로 모델이 준비된다.
+# ⚠️ 모듈 최상단으로 되돌리지 말 것(그러면 B/C 개편 효과가 통째로 사라진다).
+cv2 = None
+mp = None
+
 # ------------------------- 기본 설정 (vision_node와 동일 값) -------------------------
 CAM_INDEX = 0
-FRAME_W, FRAME_H = 640, 480
+CAM_BACKEND = None          # None=OpenCV 기본(Windows=MSMF, 실측 640x480@30 그대로 나옴).
+                            # ⚠️ cv2.CAP_DSHOW는 open이 1.2초로 빠르지만 이 웹캠에서
+                            #    read()가 504ms(2fps)로 붕괴한다 — 바꾸려면 반드시 재측정.
 DEF_SIM_IP, DEF_SIM_PORT = "127.0.0.1", 5006      # Unity 트윈
 DEF_REAL_IP, DEF_REAL_PORT = "127.0.0.1", 5007    # 실물 SDK 브리지
 SEND_HZ_CAP = 60
 FILTER_FREQ, FILTER_MIN_CUTOFF, FILTER_BETA = 30.0, 0.6, 0.0005
 TIP_MIN_CUTOFF, TIP_BETA = 0.15, 0.5
+
+DISPLAY_W = 480             # 미리보기 표시 폭(카메라 원본 640 → 세로는 비율 유지).
+                            # 640으로 그리면 Tk 전송이 프레임당 7.7ms, 480이면 1.7ms.
+                            # 각도 계산은 항상 원본 프레임으로 하므로 전송값과 무관.
+UI_HZ = 30                  # UI 리프레시 상한 (카메라 30fps보다 높일 이유 없음)
+READOUT_HZ = 10             # ④ 판독 + 상태바 갱신 주기(문자열 포맷 아끼기)
+UI_PERIOD_MS = 1000.0 / UI_HZ
 
 N = 20
 CH = A.CHANNEL_NAMES                       # 20 채널 이름
@@ -66,6 +100,9 @@ def landmarks_to_xyz(hand_landmarks):
 
 
 # ------------------------- dg5f_angles 전역에 라이브 반영하는 헬퍼 -------------------------
+# 이 함수들은 메인(UI) 스레드에서만 호출된다. 처리 스레드는 같은 전역을 읽지만,
+# 갱신 단위가 '리스트 원소 하나에 튜플 하나를 대입'(GIL 하에서 원자적)이라 찢어진 값이
+# 나올 수는 없다 — 최악의 경우 슬라이더를 놓은 그 한 프레임이 옛 값으로 나갈 뿐이다.
 def _ch_idx(ch):
     return CH.index(ch)
 
@@ -103,6 +140,63 @@ def set_robot_range(ch, lo, hi):
         A.THUMB_OPP_RATIO_MAX_DEG = hi
 
 
+# ------------------------- 스레드 간 핸드오프 -------------------------
+class _LatestSlot:
+    """최신 1개만 유지하는 스레드 간 슬롯. 소비자가 느리면 **오래된 것을 버린다** —
+    텔레오퍼레이션에서 밀린 프레임은 가치가 없고(지연만 늘고), 큐로 쌓으면 지연이 무한정
+    자란다. 생산자는 절대 블로킹되지 않는다."""
+
+    def __init__(self):
+        self._cv = threading.Condition()
+        self._item = None
+        self._seq = 0
+
+    def put(self, item):
+        with self._cv:
+            self._item = item
+            self._seq += 1
+            self._cv.notify_all()
+
+    def wait_new(self, seq, timeout=None):
+        """seq 이후의 새 아이템을 기다려 (새 seq, item)을 준다. 타임아웃이면 (seq, None)."""
+        with self._cv:
+            if self._seq == seq:
+                self._cv.wait(timeout)
+            if self._seq == seq:
+                return seq, None
+            return self._seq, self._item
+
+    def peek(self):
+        """대기 없이 현재 (seq, item). UI 스레드용 — 절대 블로킹되면 안 된다."""
+        with self._cv:
+            return self._seq, self._item
+
+
+class _Settings:
+    """처리 스레드가 읽는 설정 스냅샷(불변). tk 변수를 워커에서 직접 .get() 하면
+    Tcl 인터프리터를 메인 스레드 밖에서 건드리게 되므로, 평범한 파이썬 값으로 복사해 넘긴다.
+    교체는 참조 하나를 대입하는 것으로만 한다(원자적 → 락 불필요)."""
+    __slots__ = ("hand", "mapmode", "overrides", "targets")
+
+    def __init__(self, hand, mapmode, overrides, targets):
+        self.hand = hand
+        self.mapmode = mapmode
+        self.overrides = overrides   # {ch_idx: deg} — 워커는 읽기만
+        self.targets = targets       # ((ip, port), ...) 파싱 완료 → 송신 경로에서 int() 안 함
+
+
+class _Result:
+    """처리 스레드 → UI 스레드로 넘기는 한 프레임분 결과."""
+    __slots__ = ("disp", "detected", "raw", "mapped", "sent")
+
+    def __init__(self, disp, detected, raw, mapped, sent):
+        self.disp = disp             # numpy RGB (표시용 축소 프레임, 랜드마크 그려진 상태)
+        self.detected = detected
+        self.raw = raw               # 20ch 사람 프록시(rad)
+        self.mapped = mapped         # 20ch 로봇 각(deg, 필터 전)
+        self.sent = sent             # 20ch 필터 후(= 실제 UDP 전송값) / None
+
+
 class TeleopGUI:
     def __init__(self, root):
         self.root = root
@@ -117,16 +211,23 @@ class TeleopGUI:
         self.overrides = {}          # {ch_idx: deg}  수동 오버라이드 활성 채널
         self.ov_enabled = tk.BooleanVar(value=False)
         self._loading = False        # 슬라이더 프로그램 세팅 중 콜백 억제
-        self.last_vals = None        # occlusion hold
+        self._ov_rev = 0             # overrides 변경 감지용(스냅샷 재생성 트리거)
+
+        # ---- 처리 스레드 소유 상태 (UI 스레드에서 만지지 말 것) ----
+        self.last_vals = None        # occlusion hold (52ch)
         self.last_raw = [0.0] * N
         self.last_mapped = [0.0] * N
         self.pinch_on = False
-        self.pkt_count = 0
-        self._fps_t = time.time()
-        self._fps_n = 0
-        self.fps = 0.0
+        self._filter_freq = FILTER_FREQ
 
-        # ---- 필터 ----
+        # ---- 스레드 공용(원자적 대입만) ----
+        self.pkt_count = 0
+        self.cam_status = "카메라 준비 중…"
+        self.cam_fps = 0.0
+        self.proc_fps = 0.0
+        self.ui_fps = 0.0
+
+        # ---- 필터 (처리 스레드 전용) ----
         self.filters = {n: OneEuroFilter(FILTER_FREQ, FILTER_MIN_CUTOFF, FILTER_BETA) for n in CH}
         self.tip_filters = [OneEuroFilter(FILTER_FREQ, TIP_MIN_CUTOFF, TIP_BETA) for _ in range(3)]
         self.ftip_filters = [OneEuroFilter(FILTER_FREQ, TIP_MIN_CUTOFF, TIP_BETA)
@@ -139,26 +240,33 @@ class TeleopGUI:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.last_send = 0.0
 
-        # ---- MediaPipe / 카메라 ----
-        self.mp_hands = mp.solutions.hands.Hands(
-            model_complexity=1, max_num_hands=1,
-            min_detection_confidence=0.6, min_tracking_confidence=0.6)
-        self.cap = None
-        self._open_camera()
+        # ---- 스레드 배관 ----
+        self._stop = threading.Event()
+        self._ev_cv2 = threading.Event()     # cv2 임포트 완료 신호(캡처→처리)
+        self.frame_slot = _LatestSlot()      # 캡처 → 처리
+        self.result_slot = _LatestSlot()     # 처리 → UI
+        self._settings = _Settings("right", "ratio", {}, ())
+        self._settings_key = None
+        self._bad_targets = []               # 입력 중/무효인 송신 대상(상태바 경고용)
+        self._cam_req = 1                    # 재연결 요청 카운터(메인 스레드가 증가)
+        self._cam_req_index = CAM_INDEX
+        self._shown_seq = 0
+        self._photo = None
+        self._last_result = None
+        self._last_new_t = time.perf_counter()   # 마지막 새 프레임 시각(정지 감지용)
+        self._slow_t = 0.0
+        self._ui_t, self._ui_n = time.perf_counter(), 0
 
+        # ① 창을 먼저 띄운다 — 무거운 임포트/카메라 오픈은 전부 워커 뒤로.
         self._build_ui()
         self._load_channel_into_sliders(CH[0])
-        self.root.after(10, self.tick)
+        self._sync_settings()
 
-    # ============================ 카메라 ============================
-    def _open_camera(self):
-        if self.cap is not None:
-            self.cap.release()
-        self.cap = cv2.VideoCapture(self.cam_index.get())
-        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_W)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        self._th_cap = threading.Thread(target=self._capture_loop, name="dg5f-capture", daemon=True)
+        self._th_proc = threading.Thread(target=self._process_loop, name="dg5f-process", daemon=True)
+        self._th_cap.start()
+        self._th_proc.start()
+        self.root.after(1, self._ui_tick)
 
     # ============================ UI 구성 ============================
     def _build_ui(self):
@@ -167,7 +275,8 @@ class TeleopGUI:
         main.grid(row=0, column=0, sticky="nsew")
 
         # ---- 좌: 영상 ----
-        self.video = ttk.Label(main)
+        self.video = ttk.Label(main, text="카메라 준비 중…\n(모델 로딩 ~4초)",
+                               anchor="center", padding=40, foreground="#888")
         self.video.grid(row=0, column=0, rowspan=3, sticky="nw", padx=(0, 8))
 
         # ---- 우: 컨트롤 ----
@@ -203,7 +312,7 @@ class TeleopGUI:
         ttk.Radiobutton(f, text="ratio", value="ratio", variable=self.mapmode).grid(row=0, column=5)
         ttk.Label(f, text="cam#").grid(row=1, column=0, pady=(4, 0))
         ttk.Spinbox(f, from_=0, to=8, width=4, textvariable=self.cam_index).grid(row=1, column=1, pady=(4, 0))
-        ttk.Button(f, text="카메라 재연결", command=self._open_camera).grid(row=1, column=2, columnspan=2, pady=(4, 0))
+        ttk.Button(f, text="카메라 재연결", command=self._request_camera).grid(row=1, column=2, columnspan=2, pady=(4, 0))
 
         # (3) 채널 파라미터 편집
         f = ttk.LabelFrame(ctrl, text="③ 채널별 파라미터 (라이브)", padding=6)
@@ -293,12 +402,14 @@ class TeleopGUI:
             self.overrides[i] = self.s_manual.var.get()
         else:
             self.overrides.pop(i, None)
+        self._ov_rev += 1          # 다음 _sync_settings에서 워커 스냅샷 갱신
 
     def _on_manual(self):
         if self._loading:
             return
         if self.ov_enabled.get():
             self.overrides[_ch_idx(self._cur_ch())] = self.s_manual.var.get()
+            self._ov_rev += 1
 
     def reset_channel(self):
         """선택 채널을 dg5f_angles 원본 기본값으로 되돌린다(모듈 재로딩 없이 근사 복원은 어려워 안내만)."""
@@ -306,67 +417,171 @@ class TeleopGUI:
                             "원본 기본값 복원은 프리셋 불러오기로 하거나 프로그램을 재시작하세요.\n"
                             "(현재 세션에서 바꾼 값만 프리셋에 저장됩니다.)")
 
-    # ============================ 메인 루프 ============================
-    def tick(self):
-        t0 = time.time()
-        ok, frame = self.cap.read()
-        if ok:
-            frame = cv2.flip(frame, 1)
-            res = self.mp_hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            detected = bool(res.multi_hand_landmarks)
-            hand = self.hand.get()
-            mode = self.mapmode.get()
+    def _request_camera(self):
+        """카메라 (재)연결 요청만 걸고 즉시 리턴 — 오픈은 캡처 스레드가 한다.
+        (예전엔 이 버튼이 UI 스레드에서 VideoCapture를 열어 6~25초 프리즈였다.)"""
+        self._cam_req_index = self.cam_index.get()
+        self._cam_req += 1
+        self.cam_status = f"cam{self._cam_req_index} 재연결 요청…"
 
+    # ============================ 캡처 스레드 ============================
+    def _capture_loop(self):
+        global cv2
+        import cv2 as _cv2                      # 0.6초 — UI 밖에서
+        cv2 = _cv2
+        self._ev_cv2.set()
+
+        cap = None
+        req = 0
+        fail = 0
+        t_fps, n_fps = time.perf_counter(), 0
+        while not self._stop.is_set():
+            if req != self._cam_req or cap is None:
+                req = self._cam_req
+                if cap is not None:
+                    cap.release()
+                    cap = None
+                idx = self._cam_req_index
+                self.cam_status = f"cam{idx} 여는 중…"
+                t0 = time.perf_counter()
+                # ⚠️ cap.set() 절대 추가하지 말 것. 2026-07-27 실측(4회 반복):
+                #    FOURCC/W/H/FPS 4개를 넣으면 6.3~18.9초를 먹는데(set 하나당 2~4.3초)
+                #    read 지연·해상도·fps는 넣든 안 넣든 33ms / 640x480 / 30fps로 동일했다.
+                #    MSMF는 set(FOURCC, MJPG)에 False를 반환(무시)한다. 즉 순수 손해.
+                #    프레임 지연도 전용 캡처 스레드가 계속 비워주므로 버퍼가 쌓이지 않는다.
+                cap = (cv2.VideoCapture(idx) if CAM_BACKEND is None
+                       else cv2.VideoCapture(idx, CAM_BACKEND))
+                if not cap.isOpened():
+                    self.cam_status = f"cam{idx} 열기 실패 — cam# 확인"
+                    self.cam_fps = 0.0           # 실패 중에 옛 fps를 계속 보여주면 안 된다
+                    cap.release()
+                    cap = None
+                    self._stop.wait(1.5)         # 실패 폭주 방지
+                    continue
+                self.cam_status = f"cam{idx} 연결 ({time.perf_counter() - t0:.1f}s)"
+                fail = 0
+
+            ok, frame = cap.read()
+            if not ok:
+                fail += 1
+                if fail > 30:                    # ~1초간 계속 실패 → 재오픈
+                    self.cam_status = "프레임 끊김 — 재연결 중…"
+                    self.cam_fps = 0.0
+                    cap.release()
+                    cap = None
+                    fail = 0
+                else:
+                    self._stop.wait(0.01)
+                continue
+            fail = 0
+            self.frame_slot.put(frame)
+
+            n_fps += 1
+            t = time.perf_counter()
+            if t - t_fps >= 1.0:
+                self.cam_fps = n_fps / (t - t_fps)
+                t_fps, n_fps = t, 0
+
+        if cap is not None:
+            cap.release()
+
+    # ============================ 처리 스레드 ============================
+    def _process_loop(self):
+        global mp
+        import mediapipe as _mp                 # 3.9초 — 창이 뜬 뒤 백그라운드에서
+        mp = _mp
+        hands = mp.solutions.hands.Hands(
+            model_complexity=0, max_num_hands=1,
+            min_detection_confidence=0.6, min_tracking_confidence=0.6)
+        draw_landmarks = mp.solutions.drawing_utils.draw_landmarks
+        connections = mp.solutions.hands.HAND_CONNECTIONS
+        self._ev_cv2.wait()                     # flip/cvtColor/resize에 cv2 필요
+
+        seq = 0
+        t_prev = None
+        t_fps, n_fps = time.perf_counter(), 0
+        while not self._stop.is_set():
+            seq, frame = self.frame_slot.wait_new(seq, timeout=0.3)
+            if frame is None:                   # 프레임이 안 온다(카메라 실패/재연결 중)
+                self.proc_fps = 0.0             # 상태바가 옛 fps로 거짓말하지 않게
+                t_prev = None                   # 끊긴 구간의 dt로 필터 주파수를 오염시키지 않기
+                continue
+            st = self._settings                 # 참조 한 번만 읽어 프레임 내내 일관되게 사용
+
+            frame = cv2.flip(frame, 1)          # 거울 모드(보기 편의, 각도 계산 무관)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            res = hands.process(rgb)
+            detected = bool(res.multi_hand_landmarks)
+
+            # G: 필터 주파수를 실제 처리 주기에 맞춘다. 고정 30Hz로 두면 루프가 19fps일 때
+            #    OneEuroFilter의 dx 추정이 틀려 추종 지연이 실제보다 커진다.
+            t_now = time.perf_counter()
+            if t_prev is not None:
+                dt = t_now - t_prev
+                if dt > 0:
+                    f = min(max(1.0 / dt, 5.0), 120.0)      # 순간 튐 방어
+                    self._filter_freq += 0.2 * (f - self._filter_freq)
+            t_prev = t_now
+
+            sent = None
             if detected:
-                mp.solutions.drawing_utils.draw_landmarks(
-                    frame, res.multi_hand_landmarks[0], mp.solutions.hands.HAND_CONNECTIONS)
-                xyz = landmarks_to_xyz(res.multi_hand_landmarks[0])
+                lms = res.multi_hand_landmarks[0]
+                draw_landmarks(frame, lms, connections)
+                xyz = landmarks_to_xyz(lms)
                 raw = A.compute_raw(xyz)
-                mapped = A.map_to_dg5f(raw, hand, mode)
+                mapped = A.map_to_dg5f(raw, st.hand, st.mapmode)
                 self.last_raw = list(raw)
                 self.last_mapped = list(mapped)
-                self._pack_and_send(mapped, raw, xyz)
-            elif self.overrides:
+                sent = self._pack_and_send(mapped, raw, xyz, st)
+            elif st.overrides:
                 # 손 없어도 오버라이드가 있으면 중립(0)에 오버라이드만 얹어 송신(장비 단독 테스트)
-                mapped = [0.0] * N
-                self._pack_and_send(mapped, self.last_raw, None)
+                sent = self._pack_and_send([0.0] * N, self.last_raw, None, st)
             elif self.last_vals is not None:
-                self._send_packet(self.last_vals + self.last_raw)   # occlusion hold
+                self._send_packet(self.last_vals + self.last_raw, st)   # occlusion hold
+                sent = self.last_vals[:N]
 
-            self._show_frame(frame, detected)
+            # 표시용 축소는 여기서(워커) 한다 — UI 스레드는 paste만.
+            # 랜드마크가 그려진 BGR을 먼저 줄이고 그 다음 색변환(작은 쪽이 싸다).
+            h, w = frame.shape[:2]
+            if w > DISPLAY_W:
+                frame = cv2.resize(frame, (DISPLAY_W, max(1, round(h * DISPLAY_W / w))))
+            disp = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self.result_slot.put(_Result(disp, detected, self.last_raw, self.last_mapped, sent))
 
-        self._update_readout()
-        # FPS
-        self._fps_n += 1
-        if t0 - self._fps_t >= 1.0:
-            self.fps = self._fps_n / (t0 - self._fps_t)
-            self._fps_t, self._fps_n = t0, 0
-        self.root.after(1, self.tick)
+            n_fps += 1
+            if t_now - t_fps >= 1.0:
+                self.proc_fps = n_fps / (t_now - t_fps)
+                t_fps, n_fps = t_now, 0
 
-    def _pack_and_send(self, mapped, raw, xyz):
-        # 수동 오버라이드 적용
-        for i, deg in self.overrides.items():
+        hands.close()
+
+    def _pack_and_send(self, mapped, raw, xyz, st):
+        """처리 스레드 전용. 반환값 = 필터 후 20채널(= 실제 UDP로 나간 값)."""
+        mapped = list(mapped)
+        for i, deg in st.overrides.items():      # 수동 오버라이드 적용
             mapped[i] = deg
-        vals_ang = [self.filters[n](v) for n, v in zip(CH, mapped)]
+        fr = self._filter_freq
+        vals_ang = [self.filters[n](v, fr) for n, v in zip(CH, mapped)]
 
         if xyz is not None:
             tip, pinch_d = A.compute_thumb_tip(xyz)
             self.pinch_on = (pinch_d < A.PINCH_OFF) if self.pinch_on else (pinch_d < A.PINCH_ON)
             ftips = A.compute_finger_tips(xyz)
             wtips = A.compute_wrist_tip_vectors(xyz)
-            tip_f = [f(v) for f, v in zip(self.tip_filters, tip)]
-            ftips_f = [f(v) for f, v in zip(self.ftip_filters, ftips)]
-            wtips_f = [f(v) for f, v in zip(self.wtip_filters, wtips)]
+            tip_f = [f(v, fr) for f, v in zip(self.tip_filters, tip)]
+            ftips_f = [f(v, fr) for f, v in zip(self.ftip_filters, ftips)]
+            wtips_f = [f(v, fr) for f, v in zip(self.wtip_filters, wtips)]
             vals = (vals_ang + tip_f + [1.0 if self.pinch_on else 0.0]
-                    + [self.pinch_filter(pinch_d)] + ftips_f + wtips_f)
+                    + [self.pinch_filter(pinch_d, fr)] + ftips_f + wtips_f)
         else:
             # 손 없는 오버라이드 송신 — 각도만 채우고 나머지는 0
             vals = vals_ang + [0.0] * 32
 
         self.last_vals = vals
-        self._send_packet(vals + list(raw))
+        self._send_packet(vals + list(raw), st)
+        return vals_ang
 
-    def _send_packet(self, payload72):
+    def _send_packet(self, payload72, st):
         now = time.time()
         if now - self.last_send < 1.0 / SEND_HZ_CAP:
             return
@@ -375,44 +590,130 @@ class TeleopGUI:
             pkt = struct.pack(A.PACKET_FMT, *payload72)
         except struct.error:
             return
-        for on, ip, port in ((self.sim_on.get(), self.sim_ip.get(), self.sim_port.get()),
-                             (self.real_on.get(), self.real_ip.get(), self.real_port.get())):
-            if not on:
-                continue
+        for ip, port in st.targets:              # 파싱은 _sync_settings에서 이미 끝냈다
             try:
-                self.sock.sendto(pkt, (ip.strip(), int(port)))
+                self.sock.sendto(pkt, (ip, port))
                 self.pkt_count += 1
-            except (OSError, ValueError):
+            except OSError:
                 pass
 
-    def _show_frame(self, frame, detected):
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = ImageTk.PhotoImage(Image.fromarray(rgb))
-        self.video.configure(image=img)
-        self.video.image = img
-        tgt = []
-        if self.sim_on.get():
-            tgt.append(f"sim {self.sim_ip.get()}:{self.sim_port.get()}")
-        if self.real_on.get():
-            tgt.append(f"real {self.real_ip.get()}:{self.real_port.get()}")
-        self.status.configure(
-            text=f"{'손 인식' if detected else '미검출(hold)'} | {self.fps:4.1f} fps | "
-                 f"pkt {self.pkt_count} | mode={self.mapmode.get()}/{self.hand.get()} | "
-                 f"→ {', '.join(tgt) or '(대상 없음)'}")
+    # ============================ UI 루프 (메인 스레드) ============================
+    def _sync_settings(self):
+        """tk 변수를 읽어 워커용 불변 스냅샷으로 교체. **메인 스레드에서만** 호출.
+        바뀐 게 없으면 아무것도 안 한다(30Hz로 돌아도 공짜)."""
+        key = (self.hand.get(), self.mapmode.get(),
+               self.sim_on.get(), self.sim_ip.get(), self.sim_port.get(),
+               self.real_on.get(), self.real_ip.get(), self.real_port.get(),
+               self._ov_rev)
+        if key == self._settings_key:
+            return
+        self._settings_key = key
+
+        targets = []
+        bad = []
+        for label, on, ip, port in (("sim", key[2], key[3], key[4]),
+                                    ("real", key[5], key[6], key[7])):
+            if not on:
+                continue
+            ip = ip.strip()
+            try:
+                p = int(port)
+                if not 0 < p < 65536:
+                    raise ValueError
+            except ValueError:                   # 포트 입력 중(빈칸 등)
+                bad.append(f"{label} 포트?")
+                continue
+            # ⚠️ 여기서 반드시 걸러야 한다. 점4자리가 아닌 문자열을 sendto에 넘기면 Windows가
+            #    호스트명으로 보고 DNS 조회를 시도하며 **2.7초 블로킹**한다(2026-07-27 실측).
+            #    IP를 한 글자씩 입력하면 '1','19','192','192.' 넷이 전부 조회로 들어가
+            #    한 번 입력에 누적 10.8초 동안 송신 스레드가 멈췄다 → 미리보기가 얼어붙음.
+            #    inet_pton 검사는 1~3us. 엄격 검사(inet_aton은 '192'를 0.0.0.192로 통과시켜
+            #    엉뚱한 곳으로 쏘므로 쓰지 말 것).
+            try:
+                socket.inet_pton(socket.AF_INET, ip)
+            except OSError:
+                bad.append(f"{label} IP?")       # 입력 완료 전까지 송신 보류(오발신 방지)
+                continue
+            targets.append((ip, p))
+        self._bad_targets = bad
+        self._settings = _Settings(key[0], key[1], dict(self.overrides), tuple(targets))
+
+    def _ui_tick(self):
+        t0 = time.perf_counter()
+        self._sync_settings()
+
+        seq, r = self.result_slot.peek()          # 절대 블로킹 없음
+        if r is not None and seq != self._shown_seq:
+            self._shown_seq = seq
+            self._last_result = r
+            self._last_new_t = time.perf_counter()
+            self._blit(r.disp)
+            self._ui_n += 1
+
+        now = time.perf_counter()
+        if now - self._slow_t >= 1.0 / READOUT_HZ:    # F: 판독/상태바는 10Hz면 충분
+            self._slow_t = now
+            self._update_readout()
+            self._update_status()
+        if now - self._ui_t >= 1.0:
+            self.ui_fps = self._ui_n / (now - self._ui_t)
+            self._ui_t, self._ui_n = now, 0
+
+        # D: 고정 20ms를 덧붙이지 않고 '남은 시간'만 쉰다.
+        left = UI_PERIOD_MS - (time.perf_counter() - t0) * 1000.0
+        self.root.after(max(1, int(left)), self._ui_tick)
+
+    def _blit(self, rgb):
+        """numpy(RGB) → Tk 라벨. 매 프레임 PhotoImage를 새로 만들면 4~13ms + Tk 이미지
+        객체 churn이라, 크기가 같으면 paste로 픽셀만 갈아끼운다(480x360에서 ~1.7ms)."""
+        img = Image.fromarray(rgb)
+        if self._photo is None or (self._photo.width(), self._photo.height()) != img.size:
+            self._photo = ImageTk.PhotoImage(img)
+            self.video.configure(image=self._photo, text="")
+            self.video.image = self._photo       # GC 방지
+        else:
+            self._photo.paste(img)
 
     def _update_readout(self):
         i = self.ch_combo.current()
         ch = CH[i]
-        raw = self.last_raw[i]
-        mapped = self.last_mapped[i]
-        sent = self.filters[ch]._x.last                # 필터 후 = 실제 UDP 전송값
-        sent = float("nan") if sent is None else sent
+        r = self._last_result
+        if r is None:
+            self.lbl_read.configure(text=f"{JOINT_ID[i]} {ch}\n(대기 중…)")
+            return
+        raw = r.raw[i]
+        mapped = r.mapped[i]
+        sent = float("nan") if r.sent is None else r.sent[i]
         ov = f"  [OVERRIDE {self.overrides[i]:+.0f}]" if i in self.overrides else ""
         self.lbl_read.configure(
             text=f"{JOINT_ID[i]} {ch}\n"
                  f"raw   = {raw:+.4f} rad ({np.degrees(raw):+7.1f} deg)\n"
                  f"mapped= {mapped:+7.1f} deg{ov}\n"
                  f"sent  = {sent:+7.1f} deg  (필터후=UDP)")
+
+    def _update_status(self):
+        tgt = []
+        if self.sim_on.get():
+            tgt.append(f"sim {self.sim_ip.get()}:{self.sim_port.get()}")
+        if self.real_on.get():
+            tgt.append(f"real {self.real_ip.get()}:{self.real_port.get()}")
+        if self._bad_targets:
+            tgt.append("⚠ " + "/".join(self._bad_targets) + " 확인 — 송신 보류")
+        r = self._last_result
+        stall = time.perf_counter() - self._last_new_t
+        if r is None:
+            state = self.cam_status
+        elif stall > 1.5:
+            # 처리 스레드가 어딘가에 막혔다는 신호. 이 표시가 보이면 미리보기가 멈춘 게
+            # UI 탓이 아니라 캡처/처리 쪽이 막힌 것 — 원인 좁히기에 쓴다.
+            state = f"영상 정지 {stall:.0f}s — {self.cam_status}"
+        else:
+            state = "손 인식" if r.detected else "미검출(hold)"
+        self.status.configure(
+            text=f"{state} | cam {self.cam_fps:4.1f} / proc {self.proc_fps:4.1f} / ui {self.ui_fps:4.1f} fps | "
+                 f"filt {self._filter_freq:4.1f}Hz | pkt {self.pkt_count} | "
+                 f"mode={self.mapmode.get()}/{self.hand.get()} | "
+                 f"→ {', '.join(tgt) or '(대상 없음)'}")
 
     # ============================ 프리셋 ============================
     def _collect(self):
@@ -455,14 +756,19 @@ class TeleopGUI:
             if ch in CH:
                 set_robot_range(ch, lo, hi)
         self.overrides = {_ch_idx(ch): v for ch, v in d.get("overrides", {}).items() if ch in CH}
+        self._ov_rev += 1
         self._load_channel_into_sliders(self._cur_ch())
+        self._sync_settings()
         messagebox.showinfo("불러오기", f"프리셋 적용됨:\n{path}")
 
     # ============================ 종료 ============================
     def on_close(self):
+        self._stop.set()
+        for th in (self._th_cap, self._th_proc):
+            # 무거운 임포트/카메라 오픈 중이면 안 끝날 수 있다 → daemon이라 프로세스 종료를 막지 않음
+            if th.is_alive():
+                th.join(timeout=1.5)
         try:
-            if self.cap is not None:
-                self.cap.release()
             self.sock.close()
         finally:
             self.root.destroy()
