@@ -18,11 +18,11 @@ ML-Agents 구조에 맞게 전부 새로 작성했다.
 | `success_height = 0.12` | `LiftTargetHeight = 0.10` (커리큘럼 0.05→0.10) | |
 | `slip_grace = 10 steps` | `SlipGraceSeconds = 0.20 s` | |
 | `tilt_fail_deg` 종료 | `ObjectToppled` (`ToppleLimitDegrees = 45°`, −0.3) | 파지 확정 전 전도만 종료하며 `topple_limit_deg`로 조정 |
-| 실린더 Ø0.06 × 0.15 m | Cube 0.035 × 0.09 × 0.035 m | 아래 "학습 Object" 참고 |
+| 실린더 Ø0.06 × 0.15 m | Cube 0.035 × 0.12 × 0.035 m | 아래 "학습 Object" 참고 |
 
 ---
 
-## 결과 — Grasp + Lift 목표 달성
+## 결과 — 0.09 m Grasp + Lift 기준선
 
 학습 run `dg5f_grasp_lift_stability_5m`은 3.2M step에서 수렴을 확인하고
 중단했다. 두 curriculum은 모두 마지막 lesson에 도달했다:
@@ -43,14 +43,19 @@ ML-Agents 구조에 맞게 전부 새로 작성했다.
 난이도 복원이 실제 성능 상승으로 이어졌고, 중간 수치가 아래 설계 결정의
 근거다.
 
-배포 모델은
+이 절에서 평가한 당시 배포 모델은
 `unity/Assets/MLAgents/GraspLift/Models/DG5FGraspLift.onnx`이며 checkpoint
 `DG5FGraspLift-3199988`과 동일하다. SHA-256은
 `6e3eab478cfa95f1a9670db007a9fbddcdb65f00212b03b72371915de2137a66`이다.
-모델은 `GraspLiftTrainingArea.prefab`에 연결됐고, scene의 20개 학습 area가
-이 prefab 설정을 상속한다.
+이후 0.12 m policy가 같은 경로의 배포 모델을 대체했으며, 오늘의 top-down
+fine-tune 후보는 그 모델을 대체하지 않았다. 모델은
+`GraspLiftTrainingArea.prefab`에 연결되고 scene의 20개 학습 area가 이
+prefab 설정을 상속한다. 이 연결은 한동안 저장소의 HEAD에서 빠져 있었지만
+현재는 builder가 배포 ONNX를 직접 할당하며, 20개 area 모두의 model non-null /
+`DeterministicInference = true` / behavior name을 PlayMode test가 검증한다
+(아래 8절).
 
-배포 정책을 학습 조건에서 `--resume --inference`로만 실행한 control
+당시 배포 정책을 학습 조건에서 `--resume --inference`로만 실행한 control
 evaluation(학습 없음)도 결과를 재현했다.
 
 | 조건/config | Success | GraspConfirmed | FinalLiftHeight | Failure/ObjectToppled |
@@ -62,7 +67,7 @@ evaluation(학습 없음)도 결과를 재현했다.
 교체된 직후의 전이 구간(첫 두 summary window)을 제외한 값이다. 대조군 n=23,
 시험군 n=8 window.
 
-**학습용 무게중심 완화가 결과를 부풀린 것이 아니다.** 무게중심 보정이 전혀 없는
+**당시 학습용 무게중심 완화가 결과를 부풀린 것이 아니다.** 무게중심 보정이 전혀 없는
 균일 밀도 블록에서도 96.3%이며 하락폭은 2.6%p다. 전도 실패가 1.11 → 2.43으로
 두 배 늘어난 것이 하락의 대부분을 설명한다 — 전도각이 33°에서 21°로 좁아졌으니
 예상되는 방향이다. 무게중심 커리큘럼은 **학습을 가능하게 하기 위한 장치**였고
@@ -107,8 +112,8 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 
 | 항목 | 값 | 근거 |
 |---|---|---|
-| 크기 | 0.035 × 0.09 × 0.035 m (기본값) | `BlockWidth = 0.035`, `BlockHeight = 0.09`; 폭은 `block_width` 환경 파라미터로 런타임 변경 가능(0.025–0.06) |
-| Mass | `CurrentBlockMass = 폭²×높이×1800 kg/m³` (기본 약 0.198 kg) | `BlockDensity = 1800`; 부피에 비례 — 큰 블록이 자동으로 무거워져 난이도가 실제 물체처럼 스케일된다 |
+| 크기 | 0.035 × 0.12 × 0.035 m (기본값) | `BlockWidth = 0.035`, `BlockHeight = 0.12`; 폭과 높이는 `block_width` / `block_height` 환경 파라미터로 런타임 변경 가능 |
+| Mass | `CurrentBlockMass = 폭²×높이×1800 kg/m³` | `BlockDensity = 1800`; 부피에 비례 — 큰 블록이 자동으로 무거워져 난이도가 실제 물체처럼 스케일된다 |
 | Collider | BoxCollider (primitive Cube 기본) | |
 | Physics material | staticFriction 1.5 / dynamicFriction 1.2, combine **Maximum** | 참고 구현의 object `static_friction = 2.0`과 같은 의도. 패널은 0.8/Average로 남겨서 "밀면 미끄러지고, 잡으면 안 미끄러지게" 분리 |
 | Rigidbody | mass = `CurrentBlockMass`, useGravity, **ContinuousDynamic** | 고정 0.12 kg이 아니며, 손가락이 물리 스텝보다 빠르게 닫힐 때 discrete 검출이 블록을 뚫는 것을 막는다 |
@@ -119,10 +124,11 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 3.1–3.6 cm보다 넓어 파지가 불가능했다. 현재 기본값 `BlockWidth = 0.035`는
 그 실측 범위의 상단에 맞춘 값이다.
 
-**높이 0.09 m**: 손가락이 knuckle부터 ~0.13 m라 납작한 큐브를 테이블 위에
+**높이 0.12 m**: 손가락이 knuckle부터 ~0.13 m라 납작한 큐브를 테이블 위에
 두면 파지 시 손가락이 테이블을 뚫어야 한다. 참고 구현이 굳이 0.15 m 높이
-실린더를 쓴 것과 같은 이유다. 세로로 세운 블록이면 손이 **윗부분만 공중에서**
-감쌀 수 있다.
+실린더를 쓴 것과 같은 이유다. 0.09 m 기준선에서 확인한 패널 drag를 줄이기
+위해 0.12 m를 기본값으로 승격했고, 손이 **윗부분만 공중에서** 감쌀 수 있게
+했다.
 
 ### 닫힌 손 실측 (`GraspLiftHandGeometryProbe`)
 
@@ -149,7 +155,9 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 
 ### 높이
 
-높이를 처음에 0.12 m로 잡았다가 0.10 m, 다시 0.09 m로 낮췄다. 현재
+높이를 처음에 0.12 m로 잡았다가 0.10 m, 다시 0.09 m로 낮춰 기준선을
+학습했다. 이후 패널 drag의 geometry 원인을 확인해 기본값을 0.12 m로 다시
+승격했다. 아래 전도 분석은 0.09 m 기준선에 대한 기록이다.
 0.035 × 0.09 m 블록의 균일 밀도 무게중심은 바닥에서 0.045 m이므로 정적
 전도각은 `atan(0.0175/0.045) ≈ 21.3°`에 불과하다. 실제 probe A의
 `FinalLiftHeight = −0.0216 m`, `MaxObjectTiltDegrees = 95.1°`는 초기 정책이
@@ -159,7 +167,8 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 
 형상과 접촉면은 그대로 두고 Rigidbody의 local `centerOfMass`만 아래로
 내린다. `block_com_height_fraction`은 블록 바닥에서 잰 높이를 전체 높이의
-비율로 표현하며, `0.5`가 균일 밀도, 현재 실제 목표는 `0.30`이다. 정적
+비율로 표현하며, `0.5`가 균일 밀도다. 아래 curriculum의 당시 목표는
+`0.30`이었고 현재 0.12 m 기본 geometry는 `0.20`이다. 정적
 전도각은 `atan(폭/2 ÷ COM 높이)`로 계산한다.
 
 | lesson | `block_com_height_fraction` | COM 높이 | 정적 전도각 | 의도 |
@@ -169,7 +178,7 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 | `uniform_like` | 0.30 | 0.027 m | `atan(0.0175/0.027) = 33.0°` | probe B와 같은 실제 목표 |
 
 `0.15`의 전도각을 약 49°로 적은 초기 계산은 높이 0.10 m를 사용한 값
-(`atan(0.0175/0.015) = 49.4°`)이다. 현재 `BlockHeight = 0.09` 기준으로는
+(`atan(0.0175/0.015) = 49.4°`)이다. 이 표의 `BlockHeight = 0.09` 기준으로는
 52.4°가 맞다.
 
 `topple_limit_deg`는 파지 확정 전 허용 기울기를 정하며 기본값과 장기 학습
@@ -306,7 +315,7 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
 
 **Reset** (`OnEpisodeBegin`):
 
-1. `RefreshGraspStage()` / `RefreshBlockWidth()` / `RefreshToppleLimit()` /
+1. `RefreshGraspStage()` / `RefreshBlockWidth()` / `RefreshBlockHeight()` / `RefreshToppleLimit()` /
    `RefreshBlockCenterOfMass()` — 커리큘럼과 환경 파라미터 반영.
 2. 에피소드 상태 전부 초기화 (closure, dwell, 확정 플래그, hold, slip, 최고 높이, 모든 potential, 종료 사유).
 3. 로봇: 팔 6 + 손 20관절 전부 `xDrive.target` / `jointPosition` / `jointVelocity`를 prefab 초기값으로 되돌림. 그 뒤 팔 지령 재적용 + closure 0으로 손 개방.
@@ -316,15 +325,16 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
 
 ### 환경 파라미터
 
-`Dg5fGraspLiftSpec.cs`에 실제 등록된 환경 파라미터는 8개다. 품질 항 3개를
+`Dg5fGraspLiftSpec.cs`에 실제 등록된 환경 파라미터는 9개다. 품질 항 3개를
 포함해 명시적으로 열거하면 다음과 같다.
 
 | 파라미터 | 기본값 / 범위 | 용도 |
 |---|---|---|
 | `block_width` | 0.035 m / 0.025–0.060 m | 손의 대향 aperture에 맞춰 블록 폭과 부피 기반 질량을 함께 변경 |
+| `block_height` | 0.12 m / 0.06–0.15 m | graspable region 높이와 부피 기반 질량을 함께 변경 |
 | `grasp_stage` | 3 / 1–3 | spawn 반경, lift 목표(0.05→0.08→0.10 m), hold(0.25→0.35→0.50 s) curriculum |
 | `topple_limit_deg` | 45° / 5–180° | 파지 확정 전 전도 종료각; 180°는 진단용 비활성화 |
-| `block_com_height_fraction` | 0.30 / 0.05–0.50 | 블록 바닥 기준 COM 높이와 전도 난이도 조절; 0.50은 균일 밀도 |
+| `block_com_height_fraction` | 0.20 / 0.05–0.50 | 블록 바닥 기준 COM 높이와 전도 난이도 조절; 0.50은 균일 밀도 |
 | `topdown_potential_max` | 0.3 / 0–5 | 0.20 m 안쪽·70° 미만에서만 작동하는 new-best top-down potential 상한 |
 | `action_rate_penalty_scale` | −0.001 / −1–0 | 6개 팔 action의 decision 간 변화율 비용 |
 | `hand_surface_penalty_per_second` | −0.05 / −5–0 | 파지 확정 전 손-패널 접촉 시간 비용 |
@@ -352,7 +362,7 @@ override해 학습 당시 정책의 행동을 그대로 측정한다.
 | scene 생성·build | `Editor/GraspLiftTrainingSceneBuilder.cs`, `Editor/GraspLiftTrainingBuild.cs` |
 | Unity asset | `DG5F_GraspLiftTraining.unity`, `GraspLiftTrainingArea.prefab`, block/panel physics material, `Models/DG5FGraspLift.onnx` |
 | 검증 | `Tests/EditMode/Dg5fGraspLiftSpecTests.cs`, `Tests/PlayMode/GraspLiftSceneTests.cs`, `Tests/PlayMode/GraspLiftHandGeometryProbe.cs` |
-| 학습 | `training/config/dg5f_grasp_lift*.yaml`, `training/scripts/train_dg5f_grasp_lift.sh`, `training/scripts/prepare_dg5f_grasp_lift_transfer.py` |
+| 학습 | `training/config/dg5f_grasp_lift*.yaml`, `training/scripts/train_dg5f_grasp_lift.sh`, `training/scripts/evaluate_dg5f_grasp_lift_topdown.sh`, `training/scripts/prepare_dg5f_grasp_lift_transfer.py` |
 | 문서 | `docs/DG5F_GRASP_LIFT.md` |
 
 표의 Unity 상대 경로는 모두
@@ -421,10 +431,42 @@ shape이 같은 이유는 코드 재사용이 아니라 pre-grasp checkpoint 전
    이 local optimum을 제거했지만, 해결책 자체가 새 벽이 됐다.
    `ObjectToppled`가 지배적인 종료가 됐고 `GraspConfirmed`는 0.158에서
    0.062로 붕괴했으며 에피소드는 약 11초에 끝났다.
+8. **committed scene에 brain이 연결되지 않았다.** HEAD의 training prefab은
+   `m_Model: {fileID: 0}`였고 `GraspLiftTrainingSceneBuilder`도 ONNX를
+   할당하지 않았다. `BehaviorType.Default`에서 model도 trainer도 없으면
+   ML-Agents는 조용히 heuristic policy로 fallback하며, 이 heuristic은 zero
+   action을 쓴다. fresh checkout에서 Play를 눌렀을 때 떨림 없는 부드러운
+   화면이 보이더라도 학습 policy가 실행된 증거가 아니었다.
+
+   builder가 이제
+   `Assets/MLAgents/GraspLift/Models/DG5FGraspLift.onnx`를 직접 할당하고,
+   없으면 기대 경로를 명시한 warning을 남긴다. prefab의 model reference도
+   저장했으며 PlayMode test는 20개 area 전부에서 model non-null,
+   `DeterministicInference = true`, behavior name `DG5FGraspLift`를
+   검증한다. `ModelAsset`을 참조하기 위해 Editor와 PlayModeTests asmdef에
+   `Unity.InferenceEngine`도 추가했다. **교훈은 움직임을 눈으로 해석하기
+   전에 실제 model reference와 행동 출력을 검증해야 하며, scene 재생성
+   불변식은 사람의 기억이 아니라 builder와 test가 소유해야 한다는 것이다.**
+9. **`BlockSpawnsUprightAndRestingOnThePanel`이 physics settling을 spawn
+   계약으로 잘못 검사했다.** test는 block을 release한 뒤 fixed update 8회를
+   기다리고, 그 상태에 정확한 spawn predicate `IsValidSpawn`의 block-bottom
+   tolerance 1e-5 m를 적용했다. 정상 settling 뒤 측정 offset은 6.0e-5 m여서
+   실제 spawn 결함 없이 실패했다. 이번 변경을 stash한 상태에서도 재현해
+   pre-existing임을 확인했다.
+
+   test는 object release 전에 spawn geometry를 검사하도록 고쳤고 tolerance는
+   완화하지 않았다. **교훈은 초기화 계약을 검증할 때 물리가 상태를 바꾸기
+   전에 관찰해야 하며, 서로 다른 시점의 계약을 tolerance 확대로 섞으면 안
+   된다는 것이다.**
+10. **검증 상태:** GraspLift EditMode 55/55, GraspLift PlayMode 7/7이다.
+    project-wide PlayMode에는 별개의 pre-existing failure
+    `GraspTrainingSceneTests.TrainingSceneLoadsWithV1ContractAndSingleDriveOwner`
+    (`Dg5fFingerIK` enabled)가 하나 남아 있다. GraspLift 변경과 무관하고 이번
+    범위에서는 고치지 않았다.
 
 ---
 
-## 모션 품질 조사 — 성공률과 별개의 미해결 목표
+## 모션 품질 조사 — 0.09 m 기준선에서 시작한 별도 목표
 
 과제를 해결한 뒤 사람이 policy를 관찰하면서 기존 지표에는 보이지 않던 두
 결함을 발견했다. 접근 중 팔이 떨렸고, 측면 접근에서 엄지가 패널을 긁었다.
@@ -465,18 +507,21 @@ inference한 기준선이다.
 
 ### 판정
 
-1. **자세는 reward fine-tune으로 고칠 수 없었다.** penalty를 3배
+1. **자세 penalty만으로는 자세를 고칠 수 없었다.** penalty를 3배
    (−0.1 → −0.3)로 키워도 개선은 사실상 같은 1.2°였고, return만
    10.62에서 9.86으로 떨어졌다. 수렴한 policy가 비용을 흡수했으며 측면
-   파지는 fine-tune으로 빠져나오지 못하는 깊은 local optimum이다. 자세
-   요구는 grasp 학습 시작부터 reward에 있어야 한다.
+   파지는 이 penalty fine-tune으로 빠져나오지 못하는 깊은 local optimum이었다.
 
-   `TopDownAlignmentPotential`도 대안이 아니다. 이 항은 물체 0.20 m 안쪽,
-   진입각 70° 미만에서만 new-best potential을 지급한다. 실제 grasp 자세는
-   73°라 활성 영역 밖이고 gradient가 정확히 0이다.
-   `topdown_potential_max`를 올려도 아무 효과가 없으므로 이 조합에 run을
-   낭비하면 안 된다.
-2. **scraping은 나쁜 습관이 아니라 현재 해법의 일부다.** penalty는 파지
+   **여기서 내렸던 `TopDownAlignmentPotential` 판정은 0.09 m geometry에만
+   맞았고, 일반 결론으로는 틀렸다.** 이 항은 물체 0.20 m 안쪽, 진입각 70°
+   미만에서만 new-best potential을 지급한다. 당시 grasp 자세 72.8°는 활성
+   영역 밖이라 gradient가 정확히 0이었으므로, 그 geometry에서
+   `topdown_potential_max`를 올리는 run을 피하라는 판단은 맞았다. 그러나
+   승격한 0.12 m geometry의 배포 policy는 66.52°로 gate 안에 들어왔다.
+   따라서 같은 weight 증가는 이제 자세를 66.52° → 62.35°(1.5) →
+   57.39°(2.25) → 54.37°(3.0)로 강하고 단조롭게 이동시킨다. 앞선 penalty
+   sweep의 약 1.2°와 다른 효과다. 아래 실험은 이 조건 변화 때문에 수행했다.
+2. **scraping은 나쁜 습관이 아니라 0.09 m 당시 해법의 일부였다.** penalty는 파지
    확정 전에만 부과되고, 3.4 s 접촉은 접근과 손 닫기 내내 손이 패널 위에
    있다는 뜻이다. 수평에 가까운 손바닥으로 테이블 위 3.5 cm 폭 블록을
    잡으려면 손가락이 블록 중간보다 아래까지 내려가야 한다. policy 입장에서는
@@ -496,24 +541,91 @@ inference한 기준선이다.
    [`DEBUG_OSCILLATION_20260708.md`](DEBUG_OSCILLATION_20260708.md)에
    기록된 대로 이미 해결됐다.
 
+### 0.12 m top-down potential fine-tune
+
+배포된 0.12 m policy에서 `topdown_potential_max`를 1.5(T1), 3.0(T2),
+2.25(T3)로 올려 각각 600k step fine-tune했다. T4는 T1을 같은 1.5로 계속
+학습해 총 1.2M step에 도달한 run이다. 모두 learning rate 1e-4이며 학습 중
+`grasp_posture_penalty_scale = -0.1`,
+`hand_surface_penalty_per_second = -0.5`도 함께 켰다.
+
+같은 배포 policy의 grasp posture는 0.12 m 승격 당시 측정에서 67.1°였고,
+이번 nominal inference window(n=17)에서는 66.52°였다. 서로 다른 측정
+window에서 나온 값이며, 그 사이 배포 모델을 교체한 것이 아니다. 아래 비교는
+후보들과 같은 방식으로 다시 잰 66.52°를 baseline으로 쓴다.
+
+| 조건 | training RUN_ID |
+|---|---|
+| T1 1.5 / 600k | `dg5f_grasp_lift_t1_topdown150` |
+| T2 3.0 / 600k | `dg5f_grasp_lift_t2_topdown300` |
+| T3 2.25 / 600k | `dg5f_grasp_lift_t3_topdown225` |
+| T4 1.5 / 1.2M total | `dg5f_grasp_lift_t4_topdown150_long` |
+
+nominal evaluation copy의 RUN_ID는 각각
+`dg5f_grasp_lift_eval_t1_topdown150`,
+`dg5f_grasp_lift_eval_t2_topdown300`,
+`dg5f_grasp_lift_eval_t3_topdown225`,
+`dg5f_grasp_lift_eval_t4_topdown150_long`이고, COM 0.50 copy는 각각
+`dg5f_grasp_lift_eval_t1_com050`, `dg5f_grasp_lift_eval_t2_com050`,
+`dg5f_grasp_lift_eval_t3_com050`, `dg5f_grasp_lift_eval_t4_com050`이다.
+
+평가는 policy update 없이 품질 penalty를 모두 0으로, 비교용
+`topdown_potential_max`를 기본값 0.3으로 되돌린 뒤 nominal COM 0.20과
+균일 밀도 COM 0.50에서 수행했다. 아래 값은 resume 직후 전이 구간을 제외한
+summary window mean이다. Success의 `±`는 window 표본 표준편차이고,
+Dropped/Toppled는 5k-step summary bucket당 평균 발생 수다.
+
+| COM | policy | n | Success ± SD | posture | topdown | contact | best | hold | reward | Dropped | Toppled |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.20 | Deployed | 17 | 99.413% ±0.891%p | 66.52° | 78.73° | 1.076 s | 0.1435 m | 0.4971 s | 11.201 | 0.176 | 0.059 |
+| 0.20 | T1 1.5 | 535 | 99.426% ±0.836%p | 62.35° | 75.83° | 1.055 s | 0.1444 m | 0.4971 s | 11.200 | 0.361 | 0.030 |
+| 0.20 | T3 2.25 | 41 | 98.336% ±1.357%p | 57.39° | 71.71° | 1.117 s | 0.1433 m | 0.4917 s | 11.115 | 1.024 | 0.195 |
+| 0.20 | T4 1.5 long | 41 | 98.947% ±1.089%p | 58.65° | 73.55° | 1.076 s | 0.1442 m | 0.4947 s | 11.187 | 0.854 | 0 |
+| 0.20 | T2 3.0 | 538 | 96.269% ±2.115%p | 54.37° | 68.46° | 1.075 s | 0.1402 m | 0.4813 s | 10.970 | 2.736 | 0.117 |
+| 0.50 | Deployed | 515 | 99.240% ±0.959%p | 66.46° | 79.37° | 1.113 s | 0.1435 m | 0.4962 s | 11.189 | 0.437 | 0.155 |
+| 0.50 | T1 1.5 | 41 | 98.713% ±1.410%p | 62.24° | 75.68° | 1.065 s | 0.1421 m | 0.4936 s | 11.146 | 0.829 | 0.195 |
+| 0.50 | T3 2.25 | 41 | 97.164% ±1.818%p | 57.04° | 71.27° | 1.130 s | 0.1403 m | 0.4858 s | 11.036 | 1.976 | 0.268 |
+| 0.50 | T4 1.5 long | 41 | 97.683% ±1.405%p | 58.80° | 73.45° | 1.069 s | 0.1409 m | 0.4884 s | 11.095 | 1.732 | 0.122 |
+| 0.50 | T2 3.0 | 41 | 95.842% ±2.313%p | 54.57° | 68.16° | 1.049 s | 0.1368 m | 0.4792 s | 10.930 | 3.024 | 0.195 |
+
+**window 길이 주의:** deployed nominal은 n=17뿐인 반면, evaluator 수정 전에
+끝없이 실행된 T1/T2 nominal은 n=535/538이다. 따라서 nominal COM 유의성
+비교가 가장 약하고, 같은 n=41로 맞춘 COM 0.50 window가 가장 깨끗한 비교다.
+
+Welch 비교에서 T1은 deployed보다 COM 0.50 Success가 −0.527%p
+(`p ≈ 0.023`)였다. T3는 nominal −1.077%p(`p ≈ 0.00090`), COM 0.50
+−2.075%p(`p < 1e-8`)였다. T4는 nominal −0.465%p(`p ≈ 0.099`)로
+구별되지 않았지만 COM 0.50에서는 −1.556%p(`p < 1e-8`)였다. T4를 T1과
+직접 비교하면 posture는 nominal/COM 0.50에서 −3.69°/−3.44° 더 내려갔지만
+Success도 −0.479%p(`p ≈ 0.0086`)/−1.029%p(`p ≈ 0.0014`) 내려갔다.
+
+판정은 다음과 같다.
+
+1. potential weight가 커질수록 자세는 단조롭게 개선되지만 robustness를
+   지불한다. 자세 곡선의 diminishing-return knee는 약 2.25지만 safety
+   knee는 1.5 이하에 있다.
+2. 두 COM의 Success, Failure/Dropped, lift height, hold time을 모두 놓고
+   deployed를 지배하는 설정은 없다. **배포 모델은 교체하지 않았다.**
+3. T4는 1.5에서 학습을 늘리면 자세가 plateau하지 않고 계속 내려가지만,
+   Success와 drop도 함께 악화됨을 보였다. 안전 weight에서 step을 늘리는
+   것도 공짜가 아니다.
+4. 3.0에서도 posture는 약 54.4°로 목표 35°보다 약 19° 높고, Success는
+   약 3%p 낮아졌다. 3.0 초과 weight는 시험하지 않았으므로 이 방법으로
+   35°가 불가능하다고 증명한 것은 아니지만 reliability 추세는 추가 sweep을
+   지지하지 않는다.
+
 ## 남은 문제
 
-- **측면 파지와 패널 drag는 고쳐지지 않았다.** grasp 시 손바닥은 약 73°로
-  목표 ≤35°를 크게 벗어나고, 손은 episode당 약 3.4 s 패널을 끈다.
-  hardware에서는 문제가 될 수 있다.
-- 권장 수정은 reward가 아니라 **기하 변경**이다. 블록 높이를 0.09 m에서
-  0.12 m 쪽으로 올려 graspable region이 테이블을 벗어나게 해야 한다.
-  손가락은 약 0.13 m이고 참고 구현은 높이 0.15 m cylinder를 썼다. 높이를
-  0.09 m까지 줄인 것은 전도 대응 때문이었지만, 이제 낮춘 COM과
-  `ObjectToppled` terminal이 그 문제를 별도로 다룬다.
-
-  trade-off는 키가 큰 블록이 더 쉽게 넘어진다는 점이다. 높이 0.12 m에서는
-  `block_com_height_fraction = 0.20`까지 더 내려야 정적 전도각이 약 36°가
-  된다. pedestal 위 spawn은 scene을 바꾸고 실제 cell과 달라지므로 더 나쁘다.
-  블록을 좁히는 대안도 3.0 cm probe가 Success 0%였으므로 기각했다.
-- top-down을 강제하려면 pre-grasp checkpoint에서 자세 penalty를 step 0부터
-  켜고 약 3M-step을 다시 학습해야 한다. 그렇게 해도 현재 98.7% 성공률을
-  회복한다는 보장은 없다.
+- **측면 파지는 고쳐지지 않았다.** 배포 policy의 grasp posture는 nominal
+  66.52°, 균일 COM 66.46°로 목표 ≤35°를 크게 벗어난다. potential
+  fine-tune은 자세를 움직였지만 모든 자세 이득이 robustness 비용을 동반했다.
+- 배포 모델은 **변경하지 않는다.** 두 COM Success, Failure/Dropped, lift
+  height, hold time을 함께 보존하면서 자세를 개선한 후보가 없기 때문이다.
+- 권장 다음 단계는 pre-grasp checkpoint에서 **잡기를 처음 배우는 순간부터**
+  자세를 채점하는 from-scratch grasp retrain이다. 0.12 m geometry가 potential
+  gate를 열어 준 사실은 확인했지만, 이미 수렴한 grasp를 뒤늦게 미는 방식은
+  목표 35°에 닿기 전에 reliability를 잃었다. 이 재학습도 현재 배포 성능을
+  회복한다는 보장은 없으므로 별도 후보로 평가해야 한다.
 
 ---
 
@@ -583,8 +695,23 @@ CONFIG=training/config/dg5f_grasp_lift_stability_curriculum.yaml \
 | `training/config/dg5f_grasp_lift_s2_posture030.yaml` | S2 자세 penalty −0.3 sweep |
 | `training/config/dg5f_grasp_lift_s3_scrape050.yaml` | S3 scraping −0.5/s sweep |
 | `training/config/dg5f_grasp_lift_s4_rate005.yaml` | S4 action-rate −0.05 sweep |
-| `training/config/dg5f_grasp_lift_eval_com030.yaml` | 배포 policy의 COM 0.30 inference-only control |
-| `training/config/dg5f_grasp_lift_eval_com050.yaml` | 배포 policy의 COM 0.50 inference-only robustness 평가 |
+| `training/config/dg5f_grasp_lift_eval_com030.yaml` | 이전 0.09 m policy의 COM 0.30 inference-only control |
+| `training/config/dg5f_grasp_lift_eval_com050.yaml` | 이전 0.09 m policy의 COM 0.50 inference-only robustness 평가 |
+| `training/config/dg5f_grasp_lift_h012_topdown.yaml` | 0.12 m geometry 승격 fine-tune |
+| `training/config/dg5f_grasp_lift_eval_deployed.yaml` | 현재 0.12 m 배포 policy의 COM 0.20 inference-only control |
+| `training/config/dg5f_grasp_lift_eval_h012_com050.yaml` | 현재 0.12 m 배포 policy의 COM 0.50 inference-only robustness 평가 |
+| `training/config/dg5f_grasp_lift_t1_topdown150.yaml` | T1: 0.12 m policy에서 top-down 1.5, 600k fine-tune |
+| `training/config/dg5f_grasp_lift_t2_topdown300.yaml` | T2: top-down 3.0, 600k fine-tune |
+| `training/config/dg5f_grasp_lift_t3_topdown225.yaml` | T3: top-down 2.25, 600k fine-tune |
+| `training/config/dg5f_grasp_lift_t4_topdown150_long.yaml` | T4: T1을 top-down 1.5로 총 1.2M step까지 계속 학습 |
+| `training/config/dg5f_grasp_lift_eval_t1_topdown150.yaml` | T1의 COM 0.20 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t1_com050.yaml` | T1의 COM 0.50 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t2_topdown300.yaml` | T2의 COM 0.20 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t2_com050.yaml` | T2의 COM 0.50 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t3_topdown225.yaml` | T3의 COM 0.20 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t3_com050.yaml` | T3의 COM 0.50 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t4_topdown150_long.yaml` | T4의 COM 0.20 inference-only 평가 |
+| `training/config/dg5f_grasp_lift_eval_t4_com050.yaml` | T4의 COM 0.50 inference-only 평가 |
 
 성공 run의 PPO YAML은 57/7 pre-grasp checkpoint와 호환되도록
 `normalize: false`, hidden 256 × 3 layer를 유지한다. PPO는
@@ -605,20 +732,30 @@ player는 `training/builds/DG5FGraspLift/DG5FGraspLift.x86_64`다.
 해당 copy에 대해 `resume --inference`를 실행한다. `--inference` 때문에 PPO
 update는 일어나지 않는다.
 
-```bash
-cp -a training/results/dg5f_grasp_lift_stability_5m \
-  training/results/dg5f_grasp_lift_eval_com030
+**이 ML-Agents version에서는 `--inference`가 YAML의 `max_steps`를
+존중하지 않는다.** 따라서 inference evaluation은 스스로 종료하지 않는다.
+T1 평가는 800k에서 멈춰야 했지만 3.27M step까지 실행됐고 script의 두 번째
+phase가 시작되지 않았다. 과거 `dg5f_grasp_lift_eval_h012_com050`에
+`max_steps = 1700000`인데도 3,999,946까지 checkpoint가 남은 것도 같은
+함정으로 설명된다. 그 session은 수동으로 종료됐고 당시 trap은 기록되지
+않았다.
 
-RUN_ID=dg5f_grasp_lift_eval_com030 \
-CONFIG=training/config/dg5f_grasp_lift_eval_com030.yaml \
-TIME_SCALE=20 TORCH_DEVICE=cpu \
-  training/scripts/train_dg5f_grasp_lift.sh resume --inference
+top-down 실험은 `training/scripts/evaluate_dg5f_grasp_lift_topdown.sh`로
+평가한다. script는 resume 지점 이후 명시적인 inference step budget
+(기본 200k)과 wall-clock timeout을 동시에 적용하고, 각 phase를 독립 process
+group으로 실행한다. budget 도달 시 그 group 전체를 종료하며, 목표 전에
+process가 끝나거나 timeout이면 nonzero로 종료해 다음 phase를 성공처럼
+진행하지 않는다. **교훈은 inference-only 여부와 실행 종료 조건은 별개이며,
+evaluator가 직접 step·시간 경계를 소유해야 한다는 것이다.**
+
+```bash
+# T1의 COM 0.20과 COM 0.50을 각각 bounded inference로 평가
+training/scripts/evaluate_dg5f_grasp_lift_topdown.sh \
+  dg5f_grasp_lift_t1_topdown150 both
 ```
 
-균일 밀도 평가는 copy의 RUN_ID와 config를
-`dg5f_grasp_lift_eval_com050` /
-`training/config/dg5f_grasp_lift_eval_com050.yaml`로 바꿔 같은 방식으로
-실행한다.
+직접 `train_dg5f_grasp_lift.sh resume --inference`를 실행하면 위 종료
+경계가 없으므로, top-down 후보 평가는 반드시 bounded evaluator를 통한다.
 
 ### 관찰할 지표
 

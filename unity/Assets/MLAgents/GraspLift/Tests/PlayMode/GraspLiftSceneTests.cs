@@ -21,10 +21,11 @@ namespace KDT.GraspLiftTraining.PlayModeTests
     {
         const string SceneName = "DG5F_GraspLiftTraining";
 
-        static IEnumerator LoadScene()
+        static IEnumerator LoadScene(bool waitForSettling = true)
         {
             SceneManager.LoadScene(SceneName);
             yield return null;
+            if (!waitForSettling) yield break;
             // Let the agents resolve, reset, and release their blocks (the release
             // happens two fixed steps after OnEpisodeBegin).
             for (int i = 0; i < 8; i++) yield return new WaitForFixedUpdate();
@@ -48,8 +49,17 @@ namespace KDT.GraspLiftTraining.PlayModeTests
                 Assert.That(agent.graspObject.transform.IsChildOf(area), Is.True,
                     "each area must own its own block");
                 Assert.That(agent.pedestal.IsChildOf(area), Is.True);
-                Assert.That(agent.GetComponent<BehaviorParameters>().BehaviorName,
+                var behavior = agent.GetComponent<BehaviorParameters>();
+                Assert.That(behavior, Is.Not.Null,
+                    $"{area.name} must have behavior parameters");
+                Assert.That(behavior.BehaviorName,
                     Is.EqualTo(Dg5fGraspLiftSpec.BehaviorName));
+                Assert.That(behavior.BehaviorName, Is.EqualTo("DG5FGraspLift"),
+                    $"{area.name} must use the deployed behavior name");
+                Assert.That(behavior.Model, Is.Not.Null,
+                    $"{area.name} must reference the deployed model");
+                Assert.That(behavior.DeterministicInference, Is.True,
+                    $"{area.name} must use deterministic inference");
             }
         }
 
@@ -101,7 +111,9 @@ namespace KDT.GraspLiftTraining.PlayModeTests
         [UnityTest]
         public IEnumerator BlockSpawnsUprightAndRestingOnThePanel()
         {
-            yield return LoadScene();
+            // This is a spawn-geometry contract. Inspect the reset pose before the
+            // two-step release, physics settling, or a policy decision can alter it.
+            yield return LoadScene(waitForSettling: false);
 
             foreach (var agent in Object.FindObjectsByType<Dg5fGraspLiftAgent>(
                          FindObjectsSortMode.None))

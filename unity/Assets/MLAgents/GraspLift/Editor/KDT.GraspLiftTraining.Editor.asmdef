@@ -4,6 +4,7 @@
   "references": [
     "KDT.GraspLiftTraining",
     "Unity.ML-Agents",
+    "Unity.InferenceEngine",
     "KDT.MLAgents.Editor"
   ],
   "includePlatforms": ["Editor"],

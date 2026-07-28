@@ -1,0 +1,51 @@
+# DG5F GraspLift uniform-density inference evaluation of the 1.5 fine-tune.
+#
+# Run with --resume --inference so no learning occurs. The evaluation restores
+# topdown_potential_max to its 0.3 default so return remains comparable with the
+# deployed baseline instead of being inflated by the experiment's 1.5 weight.
+# All motion-quality penalties are disabled; COM 0.50 is the robustness change.
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 20480
+      learning_rate: 0.0001
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    # Byte-for-byte field match with dg5f_grasp_lift_quality_v2.yaml is required
+    # for the solved 57/7 checkpoint.
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    keep_checkpoints: 10
+    checkpoint_interval: 100000
+    # The fine-tune's final checkpoint is step 600,038, so max_steps must exceed
+    # it or ML-Agents has no inference budget after --resume.
+    max_steps: 800000
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  block_height: 0.12
+  block_com_height_fraction: 0.50
+  grasp_stage: 3.0
+  topple_limit_deg: 45.0
+  topdown_potential_max: 0.3
+  grasp_posture_penalty_scale: 0
+  hand_surface_penalty_per_second: 0
+  action_rate_penalty_scale: 0

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KDT.GraspLiftTraining;
+using Unity.InferenceEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;
@@ -22,6 +23,7 @@ namespace KDT.GraspLiftTraining.Editor
         const string TrainingRoot = "Assets/MLAgents/GraspLift";
         const string TrainingPrefabPath = TrainingRoot + "/GraspLiftTrainingArea.prefab";
         const string TrainingScenePath = TrainingRoot + "/DG5F_GraspLiftTraining.unity";
+        const string DeployedModelPath = TrainingRoot + "/Models/DG5FGraspLift.onnx";
         const string BlockMaterialPath = TrainingRoot + "/GraspLiftBlock.mat";
         const string PanelPhysicsMaterialPath = TrainingRoot + "/GraspLiftPanel.physicMaterial";
         const string BlockPhysicsMaterialPath = TrainingRoot + "/GraspLiftBlock.physicMaterial";
@@ -93,6 +95,14 @@ namespace KDT.GraspLiftTraining.Editor
             if (behavior == null) behavior = robot.AddComponent<BehaviorParameters>();
             behavior.BehaviorName = Dg5fGraspLiftSpec.BehaviorName;
             behavior.BehaviorType = BehaviorType.Default;
+            var deployedModel = AssetDatabase.LoadAssetAtPath<ModelAsset>(DeployedModelPath);
+            behavior.Model = deployedModel;
+            if (deployedModel == null)
+            {
+                // Heuristic fallback produces smooth zero actions and can look valid by eye.
+                Debug.LogWarning(
+                    $"[GraspLiftTrainingSceneBuilder] Missing deployed model: {DeployedModelPath}");
+            }
             // Sampling during inference is visible as arm tremble; regenerated
             // scenes must retain deterministic action selection.
             behavior.DeterministicInference = true;

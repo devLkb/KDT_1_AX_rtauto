@@ -1,0 +1,55 @@
+# DG5F GraspLift long-horizon continuation of the completed T1 1.5 run.
+#
+# Hypothesis: another 600k steps at the safe 1.5 potential continues improving
+# grasp posture without the success loss caused by increasing the weight.
+#
+# Decision rule:
+#   GraspLift/Success must remain >= 0.993, while
+#   GraspLift/GraspPostureAngleDegrees falls below T1's 62.3 deg.
+# Falsification: success below 0.993, posture at/above 62.3 deg, or no further
+# posture improvement over steps 600k-1.2M falsifies the longer-training path.
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 20480
+      learning_rate: 0.0001
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    # Byte-for-byte field match with dg5f_grasp_lift_quality_v2.yaml is required
+    # for the solved 57/7 checkpoint.
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    keep_checkpoints: 15
+    checkpoint_interval: 100000
+    # This copied T1 run resumes near 600,038; training-mode max_steps bounds
+    # the continuation to about 600k additional environment steps.
+    max_steps: 1200000
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  block_height: 0.12
+  block_com_height_fraction: 0.20
+  grasp_stage: 3.0
+  topple_limit_deg: 45.0
+  topdown_potential_max: 1.5
+  grasp_posture_penalty_scale: -0.1
+  hand_surface_penalty_per_second: -0.5
+  action_rate_penalty_scale: 0

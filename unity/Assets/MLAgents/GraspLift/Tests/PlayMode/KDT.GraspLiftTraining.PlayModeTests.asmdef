@@ -3,7 +3,8 @@
   "rootNamespace": "KDT.GraspLiftTraining.PlayModeTests",
   "references": [
     "KDT.GraspLiftTraining",
-    "Unity.ML-Agents"
+    "Unity.ML-Agents",
+    "Unity.InferenceEngine"
   ],
   "optionalUnityReferences": ["TestAssemblies"],
   "includePlatforms": [],
