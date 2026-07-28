@@ -34,8 +34,13 @@ PhotoImage 생성(5~13ms)을 다 하고 그 위에 after(20)을 더 얹었다. �
      끝내둔다 — 그러지 않으면 IP를 타이핑하는 중간 문자열('1','19','192','192.')이 전부
      DNS 조회로 들어가 한 번 입력에 10.8초를 멈춘다(실측 근거는 _sync_settings 주석).
 
+────────────────────────── 로그 (2026-07-28 추가) ──────────────────────────
+⑤ 체크박스를 켜면 logs/teleop_<초단위>.csv 에 **한 프레임 = 한 행**으로 파이프라인 4개 층을
+전부 남긴다(랜드마크 → 사람각 → 로봇각 → UDP 송신값). 상세는 _TeleopLogger 참조.
+
 실행:  <vision venv python> dg5f_teleop_gui.py
 """
+import collections
 import json
 import os
 import socket
@@ -51,6 +56,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from one_euro_filter import OneEuroFilter
+from dg5f_paths import unique_log_path
 import dg5f_angles as A
 
 # cv2(0.6s) + mediapipe(3.9s) = 창이 뜨기까지의 대기시간. 워커 스레드가 임포트해서
@@ -81,6 +87,19 @@ N = 20
 CH = A.CHANNEL_NAMES                       # 20 채널 이름
 JOINT_ID = [f"{i // 4 + 1}_{i % 4 + 1}" for i in range(N)]   # 1_1 .. 5_4
 
+# MediaPipe Hands 모델 정확도(0=경량/빠름, 1=정확/느림).
+# ★2026-07-27: 0 → 1. **반드시 probe_landmarks.py·calibrate_dg5f.py·vision_node_dg5f.py와 같아야 한다.**
+#   여기만 0이었던 탓에 보정·프로브 녹화(전부 complexity=1)로 뽑은 상수가 라이브와 안 맞았다.
+#   실측 차이(같은 사람·같은 자세, 엄지끝↔소지MCP 거리):
+#     펴짐    complexity=1: 1.019/1.058  vs  complexity=0: 1.054/1.012   (거의 동일)
+#     완전대향 complexity=1: 0.227/0.247  vs  complexity=0: 0.512/0.476   (**2배 차이**)
+#   → 경량 모델은 엄지를 손바닥 안쪽까지 깊게 넣지 못한다. 그 결과 THUMB_OPP_D_FULL=0.25가
+#     라이브에서 도달 불가가 되어 대향 풀스케일 도달률 0.0%, 명령이 64~68°에서 멈췄다.
+#     오른손이 특히 심했던 건 거리 상단이 max 2.006까지 튀어(왼손 1.312) 사각지대가 넓었기 때문.
+#   ⚠️ 속도가 문제되면 0으로 내려도 되지만, **그 경우 그 모델로 전부 재보정**해야 한다
+#     (보정 파일과 THUMB_OPP_D_* 둘 다). 모델만 바꾸고 상수를 두면 오늘 같은 증상이 재발한다.
+MP_MODEL_COMPLEXITY = 1
+
 
 def _base_dir():
     """exe(frozen)면 실행파일 폴더, 아니면 스크립트 폴더 — 프리셋 저장/로드 기준."""
@@ -92,11 +111,9 @@ def _base_dir():
 PRESET_PATH = os.path.join(_base_dir(), "dg5f_gui_preset.json")
 
 
-def landmarks_to_xyz(hand_landmarks):
-    pts = np.zeros((21, 3), dtype=np.float64)
-    for i, lm in enumerate(hand_landmarks.landmark):
-        pts[i] = (lm.x, lm.y, lm.z)
-    return pts
+# landmarks_to_xyz는 dg5f_angles가 소유한다(2026-07-28 통합) — 종횡비 등방 보정 포함.
+#   ⚠️ 여기에 사본을 되살리지 말 것. 보정(calibrate)과 라이브가 다른 좌표계를 쓰게 된다
+#   (한 곳만 값이 달라 어긋났던 07-27 MP_MODEL_COMPLEXITY 사고와 같은 구조).
 
 
 # ------------------------- dg5f_angles 전역에 라이브 반영하는 헬퍼 -------------------------
@@ -197,6 +214,136 @@ class _Result:
         self.sent = sent             # 20ch 필터 후(= 실제 UDP 전송값) / None
 
 
+class _TeleopLogger:
+    """텔레옵 파이프라인 전 구간을 한 CSV에 남기는 로거 (2026-07-28 신설).
+
+    왜 만들었나:
+      이 GUI에는 신설(07-23) 이래 로깅이 **아예 없었다**. 그래서 라이브 세션을 사후 분석하려면
+      Unity가 받은 rx/act(unity_dg5f_*.csv)만 봐야 했는데, 거기서 이상이 보여도 원인이
+      ①랜드마크 노이즈인지 ②프록시 수식인지 ③매핑 상수인지 가릴 수가 없다. 실제로 07-28
+      벌림 crosstalk 분석(5_2가 굽힘과 r=0.95)에서 여기서 막혀 결론을 못 냈다.
+      → 같은 프레임의 네 층을 한 행에 남겨 층간 책임을 가른다.
+
+    열 구성 (한 행 = 처리 스레드 한 프레임):
+      t_unix,detected,hand,mapmode,tx        메타. t_unix는 UTC 초 — Unity 로거와 같은 시계라
+                                             unity_dg5f_*.csv / rad_dg5f_*.csv 와 그대로 조인된다.
+      lm0_x..lm20_z   (63)  ① MediaPipe 랜드마크 원값(이미지 정규화 좌표, 미검출이면 공란)
+      raw_<채널>      (20)  ② 사람 관절 프록시[rad] — A.compute_raw 출력
+      mapped_<채널>   (20)  ③ 로봇 관절각[deg] — A.map_to_dg5f 출력(오버라이드·필터 **전**)
+      sent_<채널>     (20)  ④ 실제 패킷에 실린 값 — 오버라이드 적용 + OneEuro 필터 **후**
+      ※ tx=1은 이 프레임에 sendto가 실제로 나갔다는 뜻. SEND_HZ_CAP(60Hz) 때문에 값은
+        준비됐어도 송신은 걸러질 수 있어 sent_*와 별도 열로 둔다.
+      ※ 미검출 프레임의 raw_*는 occlusion hold로 **실제 사용된** 직전 값이다(공란 아님).
+        그 프레임이 hold인지는 detected=0으로 구분한다.
+
+    스레드 규칙:
+      처리 스레드는 deque.append만 한다(포맷·디스크 접촉 없음). 포맷과 flush는 쓰기 전담
+      스레드가 맡는다 — 07-27 성능 개편의 "워커는 UI/디스크에 막히지 않는다"를 깨지 않기 위함.
+      백로그가 MAX_BACKLOG를 넘으면 **오래된 행부터 버린다**. 로그 때문에 텔레옵이 느려지는
+      것보다 로그에 구멍이 나는 편이 낫다(_LatestSlot과 같은 철학). 버린 수는 UI에 표시한다.
+      두 스레드가 같은 deque에 popleft를 하지만 append/popleft는 GIL 하에서 원자적이라
+      깨지지 않는다 — 경합해도 '어느 행이 버려지는가'만 달라진다.
+
+    파일 경로는 dg5f_paths.unique_log_path가 소유(초 단위 + 중복 시 접미사, 덮어쓰기 불가).
+    켜고 끌 때마다 새 파일이 열린다 — 껐다 켜서 앞 세션을 덮는 사고를 원천 차단.
+
+    용량: 30fps × 123열 ≈ 1.2KB/행 → 분당 약 2MB. 길게 켜두고 돌릴 때 참고.
+    """
+
+    MAX_BACKLOG = 600      # ≈20초분(30fps). 넘으면 오래된 행부터 폐기.
+    FLUSH_EVERY = 100
+
+    def __init__(self):
+        self.active = False
+        self.path = None
+        self.count = 0
+        self.dropped = 0
+        self._q = collections.deque()
+        self._wake = threading.Event()
+        self._stop = threading.Event()
+        self._th = None
+
+    def start(self):
+        """새 CSV를 열고 쓰기 스레드를 띄운다. 실패는 OSError로 올린다(호출자가 UI에 알림)."""
+        if self.active:
+            return self.path
+        path = unique_log_path("teleop")        # 디렉터리 생성·중복 회피·자리 선점까지 끝냄
+        f = open(path, "w", encoding="utf-8", newline="")
+        f.write(",".join(
+            ["t_unix", "detected", "hand", "mapmode", "tx"]
+            + [f"lm{i}_{a}" for i in range(21) for a in "xyz"]
+            + [f"raw_{n}" for n in CH]
+            + [f"mapped_{n}" for n in CH]
+            + [f"sent_{n}" for n in CH]) + "\n")
+        self.path, self.count, self.dropped = path, 0, 0
+        self._q.clear()
+        self._stop.clear()
+        self._wake.clear()
+        self._th = threading.Thread(target=self._writer, args=(f,), name="dg5f-log", daemon=True)
+        self.active = True                      # log()가 큐에 넣기 시작하는 시점 = 스레드 뜬 뒤
+        self._th.start()
+        return path
+
+    def log(self, t, detected, hand, mapmode, tx, xyz, raw, mapped, sent):
+        """처리 스레드 전용. 절대 블로킹하지 않는다."""
+        if not self.active:
+            return
+        q = self._q
+        if len(q) >= self.MAX_BACKLOG:
+            try:
+                q.popleft()
+                self.dropped += 1
+            except IndexError:                  # 쓰기 스레드가 먼저 비웠다 — 버릴 게 없으니 그냥 넣는다
+                pass
+        q.append((t, detected, hand, mapmode, tx, xyz, raw, mapped, sent))
+        self._wake.set()
+
+    def stop(self):
+        if not self.active:
+            return
+        self.active = False                     # 새 행 유입 차단 → 남은 큐만 비우면 끝
+        self._stop.set()
+        self._wake.set()
+        if self._th is not None:
+            self._th.join(timeout=2.0)          # 파일 close는 쓰기 스레드가 finally에서 한다
+            self._th = None
+
+    def _writer(self, f):
+        try:
+            while True:
+                if not self._q:
+                    if self._stop.is_set():
+                        break
+                    self._wake.wait(0.2)
+                    self._wake.clear()
+                    continue
+                try:
+                    rec = self._q.popleft()
+                except IndexError:              # 처리 스레드의 오버플로 폐기와 경합 — 무해
+                    continue
+                f.write(self._fmt(rec))
+                self.count += 1
+                if self.count % self.FLUSH_EVERY == 0:
+                    f.flush()
+        finally:
+            try:
+                f.flush()
+            finally:
+                f.close()
+
+    @staticmethod
+    def _fmt(rec):
+        t, detected, hand, mapmode, tx, xyz, raw, mapped, sent = rec
+        cols = [f"{t:.3f}", "1" if detected else "0", hand, mapmode, "1" if tx else "0"]
+        # 미검출 프레임엔 랜드마크가 없다 → 공란(분석 시 NaN). 0으로 채우면 원점에 손이
+        # 있었던 것처럼 보여 통계가 오염된다.
+        cols += [""] * 63 if xyz is None else [f"{v:.5f}" for v in xyz.reshape(-1)]
+        cols += [""] * N if raw is None else [f"{v:.5f}" for v in raw]
+        cols += [""] * N if mapped is None else [f"{v:.3f}" for v in mapped]
+        cols += [""] * N if sent is None else [f"{v:.3f}" for v in sent]
+        return ",".join(cols) + "\n"
+
+
 class TeleopGUI:
     def __init__(self, root):
         self.root = root
@@ -219,6 +366,10 @@ class TeleopGUI:
         self.last_mapped = [0.0] * N
         self.pinch_on = False
         self._filter_freq = FILTER_FREQ
+        self._tx_ok = False          # 이 프레임에 sendto가 실제로 나갔나(SEND_HZ_CAP에 걸리면 False)
+
+        # ---- 로거 (메인이 켜고 끄고, 처리 스레드가 넣고, 전용 스레드가 쓴다) ----
+        self.logger = _TeleopLogger()
 
         # ---- 스레드 공용(원자적 대입만) ----
         self.pkt_count = 0
@@ -336,7 +487,8 @@ class TeleopGUI:
         self.s_manual = self._mk_scale(f, 6, "수동 각도 (deg)", -160, 160, 1, self._on_manual)
 
         ttk.Label(f, text="※ '로봇 lo/hi'는 direct=clamp범위·ratio=정규화범위 양쪽에 반영. "
-                          "엄지 1_1은 lo=접힘/hi=벌림, 1_2는 hi=대향최대(음수).",
+                          "엄지 1_1은 lo=접힘/hi=벌림, 1_2는 hi=대향최대(음수). "
+                          "1_1 값은 항상 왼손 기준 — right 모드에선 자동 반전돼 적용된다.",
                   foreground="#666", wraplength=340).grid(row=7, column=0, columnspan=4, sticky="w", pady=(3, 0))
 
         # (4) 라이브 판독
@@ -345,9 +497,23 @@ class TeleopGUI:
         self.lbl_read = ttk.Label(f, text="-", font=("Consolas", 10))
         self.lbl_read.pack(anchor="w")
 
-        # (5) 프리셋 저장/불러오기
-        f = ttk.Frame(ctrl)
+        # (5) 로그 기록
+        f = ttk.LabelFrame(ctrl, text="⑤ 로그 기록 (CSV)", padding=6)
         f.grid(row=4, column=0, sticky="ew", pady=3)
+        self.log_on = tk.BooleanVar(value=False)
+        ttk.Checkbutton(f, text="랜드마크 → 사람각 → 로봇각 → 송신값 전 구간 기록",
+                        variable=self.log_on,
+                        command=self._on_log_toggle).grid(row=0, column=0, sticky="w")
+        self.lbl_log = ttk.Label(f, text="꺼짐 — 켜면 logs/teleop_<시각>.csv 새로 생성",
+                                 foreground="#666", wraplength=340)
+        self.lbl_log.grid(row=1, column=0, sticky="w")
+        ttk.Label(f, text="※ 껐다 켜면 항상 새 파일(덮어쓰기 없음). 약 2MB/분. "
+                          "t_unix가 Unity 로그와 같은 시계라 그대로 대조 가능.",
+                  foreground="#666", wraplength=340).grid(row=2, column=0, sticky="w", pady=(3, 0))
+
+        # (6) 프리셋 저장/불러오기
+        f = ttk.Frame(ctrl)
+        f.grid(row=5, column=0, sticky="ew", pady=3)
         ttk.Button(f, text="프리셋 저장", command=self.save_preset).pack(side="left", padx=2)
         ttk.Button(f, text="프리셋 불러오기", command=self.load_preset).pack(side="left", padx=2)
         ttk.Button(f, text="채널 리셋", command=self.reset_channel).pack(side="left", padx=2)
@@ -416,6 +582,22 @@ class TeleopGUI:
         messagebox.showinfo("채널 리셋",
                             "원본 기본값 복원은 프리셋 불러오기로 하거나 프로그램을 재시작하세요.\n"
                             "(현재 세션에서 바꾼 값만 프리셋에 저장됩니다.)")
+
+    def _on_log_toggle(self):
+        """메인 스레드 전용. 켜면 새 파일, 끄면 남은 큐를 비우고 닫는다."""
+        if self.log_on.get():
+            try:
+                path = self.logger.start()
+            except OSError as e:
+                self.log_on.set(False)
+                self.lbl_log.configure(text=f"로그 파일 열기 실패: {e}")
+                messagebox.showerror("로그", f"로그 파일을 열 수 없습니다:\n{e}")
+                return
+            self.lbl_log.configure(text=f"기록 중 → {path}")
+        else:
+            self.logger.stop()
+            self.lbl_log.configure(
+                text=f"중지 — {self.logger.count}행 저장됨: {self.logger.path}")
 
     def _request_camera(self):
         """카메라 (재)연결 요청만 걸고 즉시 리턴 — 오픈은 캡처 스레드가 한다.
@@ -491,7 +673,7 @@ class TeleopGUI:
         import mediapipe as _mp                 # 3.9초 — 창이 뜬 뒤 백그라운드에서
         mp = _mp
         hands = mp.solutions.hands.Hands(
-            model_complexity=0, max_num_hands=1,
+            model_complexity=MP_MODEL_COMPLEXITY, max_num_hands=1,
             min_detection_confidence=0.6, min_tracking_confidence=0.6)
         draw_landmarks = mp.solutions.drawing_utils.draw_landmarks
         connections = mp.solutions.hands.HAND_CONNECTIONS
@@ -524,21 +706,30 @@ class TeleopGUI:
             t_prev = t_now
 
             sent = None
+            xyz = None                          # 로그용 — 미검출 프레임은 랜드마크가 없다
+            mapped = None
+            self._tx_ok = False                 # _send_packet이 실제로 보내면 True로 바꾼다
             if detected:
                 lms = res.multi_hand_landmarks[0]
                 draw_landmarks(frame, lms, connections)
-                xyz = landmarks_to_xyz(lms)
+                xyz = A.landmarks_to_xyz(lms, rgb.shape)   # rgb = 표시용 축소 전 원본
                 raw = A.compute_raw(xyz)
-                mapped = A.map_to_dg5f(raw, st.hand, st.mapmode)
+                mapped = list(A.map_to_dg5f(raw, st.hand, st.mapmode))
                 self.last_raw = list(raw)
-                self.last_mapped = list(mapped)
+                self.last_mapped = mapped       # 오버라이드·필터 전 값(_pack_and_send는 사본을 쓴다)
                 sent = self._pack_and_send(mapped, raw, xyz, st)
             elif st.overrides:
                 # 손 없어도 오버라이드가 있으면 중립(0)에 오버라이드만 얹어 송신(장비 단독 테스트)
-                sent = self._pack_and_send([0.0] * N, self.last_raw, None, st)
+                mapped = [0.0] * N
+                sent = self._pack_and_send(mapped, self.last_raw, None, st)
             elif self.last_vals is not None:
                 self._send_packet(self.last_vals + self.last_raw, st)   # occlusion hold
                 sent = self.last_vals[:N]
+
+            # 로그: 위 분기가 실제로 쓴 값을 그대로 남긴다(raw는 hold 시 직전 값 = 실사용값).
+            # time.time()은 UTC 초 — Unity 로거와 같은 시계라야 사후 조인이 된다.
+            self.logger.log(time.time(), detected, st.hand, st.mapmode, self._tx_ok,
+                            xyz, self.last_raw, mapped, sent)
 
             # 표시용 축소는 여기서(워커) 한다 — UI 스레드는 paste만.
             # 랜드마크가 그려진 BGR을 먼저 줄이고 그 다음 색변환(작은 쪽이 싸다).
@@ -594,6 +785,7 @@ class TeleopGUI:
             try:
                 self.sock.sendto(pkt, (ip, port))
                 self.pkt_count += 1
+                self._tx_ok = True               # 로그 tx 열 — 이 프레임 값이 실제로 나갔다
             except OSError:
                 pass
 
@@ -709,6 +901,10 @@ class TeleopGUI:
             state = f"영상 정지 {stall:.0f}s — {self.cam_status}"
         else:
             state = "손 인식" if r.detected else "미검출(hold)"
+        if self.logger.active:
+            drop = f", 유실 {self.logger.dropped}" if self.logger.dropped else ""
+            self.lbl_log.configure(
+                text=f"기록 중 {self.logger.count}행{drop} → {os.path.basename(self.logger.path)}")
         self.status.configure(
             text=f"{state} | cam {self.cam_fps:4.1f} / proc {self.proc_fps:4.1f} / ui {self.ui_fps:4.1f} fps | "
                  f"filt {self._filter_freq:4.1f}Hz | pkt {self.pkt_count} | "
@@ -768,6 +964,8 @@ class TeleopGUI:
             # 무거운 임포트/카메라 오픈 중이면 안 끝날 수 있다 → daemon이라 프로세스 종료를 막지 않음
             if th.is_alive():
                 th.join(timeout=1.5)
+        # 처리 스레드를 먼저 세운 뒤 로거를 닫아야 남은 큐가 유실 없이 파일로 나간다.
+        self.logger.stop()
         try:
             self.sock.close()
         finally:

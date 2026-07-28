@@ -30,7 +30,7 @@ import mediapipe as mp
 import numpy as np
 
 from one_euro_filter import OneEuroFilter
-from dg5f_angles import (compute_raw, map_to_dg5f, compute_thumb_tip,
+from dg5f_angles import (compute_raw, map_to_dg5f, compute_thumb_tip, landmarks_to_xyz,
                          compute_finger_tips, compute_wrist_tip_vectors,
                          CHANNEL_NAMES, PINCH_ON, PINCH_OFF,
                          PACKET_FMT, TIP_FINGERS, WRIST_TIP_FINGERS)
@@ -68,11 +68,9 @@ ANGLE_Z_FLIP = False
 # --------------------------------------------------------
 
 
-def landmarks_to_xyz(hand_landmarks):
-    pts = np.zeros((21, 3), dtype=np.float64)
-    for i, lm in enumerate(hand_landmarks.landmark):
-        pts[i] = (lm.x, lm.y, lm.z)
-    return pts
+# landmarks_to_xyz는 dg5f_angles가 소유한다(2026-07-28 통합) — 종횡비 등방 보정 포함.
+#   ⚠️ 여기에 사본을 되살리지 말 것. 보정(calibrate)과 라이브가 다른 좌표계를 쓰게 된다
+#   (한 곳만 값이 달라 어긋났던 07-27 MP_MODEL_COMPLEXITY 사고와 같은 구조).
 
 
 def main():
@@ -159,11 +157,12 @@ def main():
             mp.solutions.drawing_utils.draw_landmarks(
                 frame, res.multi_hand_landmarks[0],
                 mp.solutions.hands.HAND_CONNECTIONS)
-            xyz = landmarks_to_xyz(res.multi_hand_landmarks[0])
+            xyz = landmarks_to_xyz(res.multi_hand_landmarks[0], frame.shape)
             # 각도 계산 전용 랜드마크: world면 깊이 정확(핀치·리치·그리기는 이미지 xyz 유지).
             xyz_ang = xyz
             if USE_WORLD_LANDMARKS and res.multi_hand_world_landmarks:
-                xyz_ang = landmarks_to_xyz(res.multi_hand_world_landmarks[0])
+                # world는 미터 단위 손 중심 좌표 — 종횡비 왜곡이 없어 보정 대상이 아니다
+                xyz_ang = landmarks_to_xyz(res.multi_hand_world_landmarks[0], None)
                 if ANGLE_Z_FLIP:
                     xyz_ang = xyz_ang.copy(); xyz_ang[:, 2] *= -1.0
             raw = compute_raw(xyz_ang)                      # 라디안 원값(프록시 출력)
