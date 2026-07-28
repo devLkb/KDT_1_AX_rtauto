@@ -714,43 +714,229 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 632198174325860396, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7390737460852937303}
+    - targetCorrespondingSourceObject: {fileID: 2698015599259636406, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6099473541111097624}
+    - targetCorrespondingSourceObject: {fileID: 6275149937504552617, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7772188313094487757}
+    - targetCorrespondingSourceObject: {fileID: 7369952404669704525, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8096032196723711897}
+    - targetCorrespondingSourceObject: {fileID: 808695855447551050, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7954002977577944711}
     - targetCorrespondingSourceObject: {fileID: 8182093264858922611, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7640885608468962207}
+    - targetCorrespondingSourceObject: {fileID: 8182093264858922611, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4827974814468676909}
     - targetCorrespondingSourceObject: {fileID: 6562418356388060368, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8862921097969209068}
+    - targetCorrespondingSourceObject: {fileID: 6562418356388060368, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7220109580858741655}
+    - targetCorrespondingSourceObject: {fileID: 3007469630199933536, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3924588741162142268}
+    - targetCorrespondingSourceObject: {fileID: 206106338045294383, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6732262561714752368}
+    - targetCorrespondingSourceObject: {fileID: 8473412782559755872, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8960219113308640274}
+    - targetCorrespondingSourceObject: {fileID: 2540729825192024633, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6726856374657853483}
+    - targetCorrespondingSourceObject: {fileID: 6112370374962913225, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5683032396528041943}
+    - targetCorrespondingSourceObject: {fileID: 7978607361928928842, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4829545375492655445}
+    - targetCorrespondingSourceObject: {fileID: 3852915541365138774, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7728630969092800467}
+    - targetCorrespondingSourceObject: {fileID: 242997068484847471, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8385029243572805652}
     - targetCorrespondingSourceObject: {fileID: 4944434131176343895, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6712742568028856006}
+    - targetCorrespondingSourceObject: {fileID: 4944434131176343895, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3578700300724751479}
     - targetCorrespondingSourceObject: {fileID: 1482522807897543, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7211455473921328018}
+    - targetCorrespondingSourceObject: {fileID: 1482522807897543, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7948855362616473544}
+    - targetCorrespondingSourceObject: {fileID: 3788294210270275444, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 160580240318771492}
+    - targetCorrespondingSourceObject: {fileID: 8715061649095885658, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6347058994754596026}
+    - targetCorrespondingSourceObject: {fileID: 3201113820837225110, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6869993831847176354}
+    - targetCorrespondingSourceObject: {fileID: 4037208517622491246, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3909988529047786967}
+    - targetCorrespondingSourceObject: {fileID: 6466973536374233818, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 214377742527464110}
+    - targetCorrespondingSourceObject: {fileID: 6550271071668502764, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7600543784559574744}
+    - targetCorrespondingSourceObject: {fileID: 7428746297821762460, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3797999291980766449}
+    - targetCorrespondingSourceObject: {fileID: 4016834438168521755, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 146126936651699210}
     - targetCorrespondingSourceObject: {fileID: 2526952745415002897, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5060676956429645133}
+    - targetCorrespondingSourceObject: {fileID: 2526952745415002897, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3041190040111181529}
     - targetCorrespondingSourceObject: {fileID: 5324027605699799726, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7312699093885265243}
+    - targetCorrespondingSourceObject: {fileID: 5324027605699799726, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4060295616819847068}
+    - targetCorrespondingSourceObject: {fileID: 5201440389868390915, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7670488330656385358}
+    - targetCorrespondingSourceObject: {fileID: 1504636709701170707, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6498279330929725945}
+    - targetCorrespondingSourceObject: {fileID: 1889013043358425162, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3546229669386225033}
+    - targetCorrespondingSourceObject: {fileID: 1592464804207895764, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6450262556307728078}
+    - targetCorrespondingSourceObject: {fileID: 3692069281976991134, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4387371064807867236}
+    - targetCorrespondingSourceObject: {fileID: 7269900379427893369, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3533844750231728682}
+    - targetCorrespondingSourceObject: {fileID: 2579478068075736236, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6963249996261472745}
+    - targetCorrespondingSourceObject: {fileID: 5036540401713132034, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7593472987144364503}
     - targetCorrespondingSourceObject: {fileID: 6535576275365940440, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2332228878333341210}
+    - targetCorrespondingSourceObject: {fileID: 6535576275365940440, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6441783383297986031}
     - targetCorrespondingSourceObject: {fileID: 8601821960302213783, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 34193376188322646}
+    - targetCorrespondingSourceObject: {fileID: 8601821960302213783, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 794161049140934890}
+    - targetCorrespondingSourceObject: {fileID: 6368795746573019195, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5445753176672488897}
+    - targetCorrespondingSourceObject: {fileID: 7623778746531295460, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7947698892331957059}
+    - targetCorrespondingSourceObject: {fileID: 57243305820668433, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8748906344975231966}
+    - targetCorrespondingSourceObject: {fileID: 2304216688504101644, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2315453143406935865}
+    - targetCorrespondingSourceObject: {fileID: 5166469312280947928, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1282046465592168843}
+    - targetCorrespondingSourceObject: {fileID: 7458810302409731621, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8546501681191014690}
+    - targetCorrespondingSourceObject: {fileID: 6544042126637336515, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3447051582827596190}
+    - targetCorrespondingSourceObject: {fileID: 8255252441135746510, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1223597287975450172}
     - targetCorrespondingSourceObject: {fileID: 4778207820132932683, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1604424181596721863}
+    - targetCorrespondingSourceObject: {fileID: 4778207820132932683, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4448411239373123492}
     - targetCorrespondingSourceObject: {fileID: 1267498880082488064, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6892091310740739433}
+    - targetCorrespondingSourceObject: {fileID: 1267498880082488064, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5852984917763436360}
+    - targetCorrespondingSourceObject: {fileID: 6640332785676563942, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5884162998498092812}
+    - targetCorrespondingSourceObject: {fileID: 8951259123008487473, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5983264810346925794}
+    - targetCorrespondingSourceObject: {fileID: 116484080847112003, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7284202849281893836}
+    - targetCorrespondingSourceObject: {fileID: 4870398536695288953, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8274695200544651799}
+    - targetCorrespondingSourceObject: {fileID: 8569546864938259281, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5020958155280871467}
+    - targetCorrespondingSourceObject: {fileID: 2764456230153743121, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6047710869905754070}
+    - targetCorrespondingSourceObject: {fileID: 6542938751462291844, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5525193949957051273}
+    - targetCorrespondingSourceObject: {fileID: 7909725856876580084, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1424356316264107996}
     - targetCorrespondingSourceObject: {fileID: 5175981225580080495, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1815921724406846236}
+    - targetCorrespondingSourceObject: {fileID: 5175981225580080495, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5728541093503471672}
     - targetCorrespondingSourceObject: {fileID: 3969816219918789092, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5346662895703090322}
+    - targetCorrespondingSourceObject: {fileID: 3969816219918789092, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5643453649591601736}
   m_SourcePrefab: {fileID: 100100000, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+--- !u!1 &20281545882791590 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 206106338045294383, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6732262561714752368
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 20281545882791590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &128404286835186439 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 242101941935620750, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -792,7 +978,7 @@ MonoBehaviour:
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
-  m_DeterministicInference: 0
+  m_DeterministicInference: 1
   m_ObservableAttributeHandling: 0
 --- !u!114 &7662924107055770126
 MonoBehaviour:
@@ -847,6 +1033,63 @@ MonoBehaviour:
   - {fileID: 5170792363965197258}
   - {fileID: 3080279656554122473}
   - {fileID: 7390737460852937303}
+  handSurfaceSensors:
+  - {fileID: 6099473541111097624}
+  - {fileID: 7772188313094487757}
+  - {fileID: 8096032196723711897}
+  - {fileID: 7954002977577944711}
+  - {fileID: 4827974814468676909}
+  - {fileID: 7220109580858741655}
+  - {fileID: 3924588741162142268}
+  - {fileID: 6732262561714752368}
+  - {fileID: 8960219113308640274}
+  - {fileID: 6726856374657853483}
+  - {fileID: 5683032396528041943}
+  - {fileID: 4829545375492655445}
+  - {fileID: 7728630969092800467}
+  - {fileID: 8385029243572805652}
+  - {fileID: 3578700300724751479}
+  - {fileID: 7948855362616473544}
+  - {fileID: 160580240318771492}
+  - {fileID: 6347058994754596026}
+  - {fileID: 6869993831847176354}
+  - {fileID: 3909988529047786967}
+  - {fileID: 214377742527464110}
+  - {fileID: 7600543784559574744}
+  - {fileID: 3797999291980766449}
+  - {fileID: 146126936651699210}
+  - {fileID: 3041190040111181529}
+  - {fileID: 4060295616819847068}
+  - {fileID: 7670488330656385358}
+  - {fileID: 6498279330929725945}
+  - {fileID: 3546229669386225033}
+  - {fileID: 6450262556307728078}
+  - {fileID: 4387371064807867236}
+  - {fileID: 3533844750231728682}
+  - {fileID: 6963249996261472745}
+  - {fileID: 7593472987144364503}
+  - {fileID: 6441783383297986031}
+  - {fileID: 794161049140934890}
+  - {fileID: 5445753176672488897}
+  - {fileID: 7947698892331957059}
+  - {fileID: 8748906344975231966}
+  - {fileID: 2315453143406935865}
+  - {fileID: 1282046465592168843}
+  - {fileID: 8546501681191014690}
+  - {fileID: 3447051582827596190}
+  - {fileID: 1223597287975450172}
+  - {fileID: 4448411239373123492}
+  - {fileID: 5852984917763436360}
+  - {fileID: 5884162998498092812}
+  - {fileID: 5983264810346925794}
+  - {fileID: 7284202849281893836}
+  - {fileID: 8274695200544651799}
+  - {fileID: 5020958155280871467}
+  - {fileID: 6047710869905754070}
+  - {fileID: 5525193949957051273}
+  - {fileID: 1424356316264107996}
+  - {fileID: 5728541093503471672}
+  - {fileID: 5643453649591601736}
   useDeterministicSpawns: 0
   spawnSeed: 12345
   armDeltaDegPerDecision: 2
@@ -866,6 +1109,42 @@ MonoBehaviour:
   DecisionPeriod: 5
   DecisionStep: 0
   TakeActionsBetweenDecisions: 0
+--- !u!1 &129335423464095462 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 242997068484847471, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8385029243572805652
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 129335423464095462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &170977431912864664 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 57243305820668433, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8748906344975231966
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 170977431912864664}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &185057919549936718 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1482522807897543, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -885,6 +1164,55 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 4
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &7948855362616473544
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 185057919549936718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &218957629178961610 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 116484080847112003, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7284202849281893836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 218957629178961610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &697250843593520579 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 808695855447551050, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7954002977577944711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697250843593520579}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &743715754765218213 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 632198174325860396, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -923,6 +1251,73 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 1
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &5852984917763436360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1370007904319845001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &1481019242067017053 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1592464804207895764, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6450262556307728078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1481019242067017053}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &1618404664279281562 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1504636709701170707, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6498279330929725945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618404664279281562}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &1775313465993787843 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1889013043358425162, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3546229669386225033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1775313465993787843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &1827551986851058345 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2002120184858577696, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -947,11 +1342,47 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1949192345806685472, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
   m_PrefabInstance: {fileID: 185827816920816009}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2120643145571222149 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2304216688504101644, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2315453143406935865
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2120643145571222149}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!4 &2233056393089873861 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2047266046820937292, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
   m_PrefabInstance: {fileID: 185827816920816009}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2402693254075331877 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2579478068075736236, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6963249996261472745
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2402693254075331877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &2415542693239935640 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2526952745415002897, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -971,6 +1402,37 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 3
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &3041190040111181529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2415542693239935640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &2438221162794976176 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2540729825192024633, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6726856374657853483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2438221162794976176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &2479818082093887228 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2377377244478207861, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -995,11 +1457,119 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2776978327255169636, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
   m_PrefabInstance: {fileID: 185827816920816009}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2650758850472211096 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2764456230153743121, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6047710869905754070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2650758850472211096}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &2874835391744494399 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2698015599259636406, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6099473541111097624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2874835391744494399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &3109908011341329385 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3007469630199933536, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3924588741162142268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3109908011341329385}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &3384619382745021215 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3201113820837225110, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6869993831847176354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3384619382745021215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!4 &3526369579866067645 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3631061392646900532, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
   m_PrefabInstance: {fileID: 185827816920816009}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &3578369497921037335 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3692069281976991134, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4387371064807867236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3578369497921037335}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &3831042424376178066 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4016834438168521755, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &146126936651699210
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3831042424376178066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &3856118926121660525 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3969816219918789092, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1019,6 +1589,73 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 0
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &5643453649591601736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3856118926121660525}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &3892949464014896893 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3788294210270275444, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &160580240318771492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3892949464014896893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &4029735607643487455 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3852915541365138774, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7728630969092800467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4029735607643487455}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &4220781784069206503 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4037208517622491246, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3909988529047786967
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4220781784069206503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &4415299490293385437 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4598872395935453524, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1057,11 +1694,60 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 1
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &4448411239373123492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4673517984658474434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &4684606454730952176 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4870398536695288953, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8274695200544651799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4684606454730952176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!4 &4969652092092379588 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5072162954577897549, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
   m_PrefabInstance: {fileID: 185827816920816009}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &4982895563738838353 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5166469312280947928, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1282046465592168843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4982895563738838353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &4990259873925641446 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5175981225580080495, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1081,6 +1767,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 0
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &5728541093503471672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4990259873925641446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &5046874711366488286 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4944434131176343895, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1100,11 +1799,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 4
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &3578700300724751479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5046874711366488286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!4 &5099245214015360930 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4922462891619948075, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
   m_PrefabInstance: {fileID: 185827816920816009}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &5147987820382530443 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5036540401713132034, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7593472987144364503
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5147987820382530443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &5198515999483781028 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5382056263659669037, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1124,6 +1854,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftSurfaceContactSensor
   agent: {fileID: 7662924107055770126}
   unsafeSurface: {fileID: 9110163104651971427}
+--- !u!1 &5384909959417435018 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5201440389868390915, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7670488330656385358
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5384909959417435018}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &5437691433650729767 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5324027605699799726, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1143,6 +1891,37 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 3
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &4060295616819847068
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5437691433650729767}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6161486092394929952 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6275149937504552617, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7772188313094487757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6161486092394929952}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &6165511127040735398 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6270271675393679663, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1162,6 +1941,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftSurfaceContactSensor
   agent: {fileID: 7662924107055770126}
   unsafeSurface: {fileID: 9110163104651971427}
+--- !u!1 &6217132504155588160 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6112370374962913225, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5683032396528041943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6217132504155588160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &6352105812728206673 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6535576275365940440, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1181,6 +1978,73 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 2
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &6441783383297986031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6352105812728206673}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6360537114217193034 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6544042126637336515, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3447051582827596190
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6360537114217193034}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6366120969311854605 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6542938751462291844, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5525193949957051273
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6366120969311854605}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6373453013824182629 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6550271071668502764, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7600543784559574744
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6373453013824182629}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &6450937884755150169 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6562418356388060368, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1200,6 +2064,217 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 5
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &7220109580858741655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6450937884755150169}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6554620469221487026 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6368795746573019195, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5445753176672488897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6554620469221487026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6569484397786137427 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6466973536374233818, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &214377742527464110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6569484397786137427}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &6823800156732927087 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6640332785676563942, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5884162998498092812
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6823800156732927087}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &7265262499911184580 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7369952404669704525, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8096032196723711897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7265262499911184580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &7284349306517354412 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7458810302409731621, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8546501681191014690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7284349306517354412}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &7317227944841677333 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7428746297821762460, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3797999291980766449
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7317227944841677333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &7383632393199249904 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7269900379427893369, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3533844750231728682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7383632393199249904}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &7735261159516285293 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7623778746531295460, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7947698892331957059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7735261159516285293}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &7795032171095558083 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7978607361928928842, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4829545375492655445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7795032171095558083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &8021135959769372029 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7909725856876580084, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1424356316264107996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8021135959769372029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &8071784451880850503 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8255252441135746510, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1223597287975450172
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8071784451880850503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!4 &8259839713603052734 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8085343549417782583, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1224,6 +2299,37 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 5
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &4827974814468676909
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8293540425562302458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &8392761449638169304 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8569546864938259281, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5020958155280871467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8392761449638169304}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &8488157291609334558 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8601821960302213783, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1243,6 +2349,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftObjectContactSensor
   contactIndex: 2
   targetObject: {fileID: 8895980955243255763}
+--- !u!114 &794161049140934890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8488157291609334558}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
 --- !u!1 &8530208207342038524 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8427732718200943733, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
@@ -1262,3 +2381,57 @@ MonoBehaviour:
   m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftSurfaceContactSensor
   agent: {fileID: 7662924107055770126}
   unsafeSurface: {fileID: 9110163104651971427}
+--- !u!1 &8575888752454002665 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8473412782559755872, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8960219113308640274
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575888752454002665}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &8819788661807520467 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8715061649095885658, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6347058994754596026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8819788661807520467}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}
+--- !u!1 &9128079379079289272 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8951259123008487473, guid: 8a29760024d28904caa5f2ebc7e32344, type: 3}
+  m_PrefabInstance: {fileID: 185827816920816009}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5983264810346925794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9128079379079289272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2366aa2af0644cf4a74fab091cf923d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: KDT.GraspLiftTraining::KDT.GraspLiftTraining.GraspLiftHandSurfaceSensor
+  surface: {fileID: 9110163104651971427}

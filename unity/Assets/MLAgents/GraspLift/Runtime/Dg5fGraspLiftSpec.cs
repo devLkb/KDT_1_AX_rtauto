@@ -54,25 +54,17 @@ namespace KDT.GraspLiftTraining
         public const float MaximumSpawnRadius = 0.55f;
 
         // --- block geometry -----------------------------------------------------
-        // 0.055 m cross section: the DG5F index/middle/ring knuckles span ~0.049 m
-        // (URDF lj_dg_2_1..lj_dg_4_1), so a 5.5 cm face sits right at the
-        // three-finger span — wide enough that the fingers must actually wrap it,
-        // narrow enough that they can.
-        // 0.10 m tall: the fingers are ~0.13 m long, so a flat cube on the panel
-        // would force the fingertips through the table. A tall block lets the hand
-        // close around its upper half in free space — the same reason the Isaac Lab
-        // reference grasps a 0.06 x 0.15 m cylinder instead of a flat cube. The
-        // 0.055:0.10 aspect ratio tips at ~29 deg, which survives the incidental
-        // brushes an early policy inflicts (a 0.05:0.12 block tipped at ~23 deg and
-        // fell over constantly during smoke runs).
+        // 0.035 m square cross section: GraspLiftHandGeometryProbe measured the
+        // closed-hand thumb-to-finger opposition aperture at 3.1-3.6 cm, so the
+        // original 5.5 cm face could not be opposed at all.
+        // 0.09 m tall: with ~0.13 m fingers, this keeps the graspable volume off the
+        // table so the hand can close around the block without driving the fingertips
+        // through the surface.
         //
         // The width is a *default*: the real value comes from the `block_width`
-        // environment parameter (see CurrentBlockWidth). Measurements from
-        // GraspLiftHandGeometryProbe show the closed hand's thumb-to-finger opposition
-        // aperture bottoms out near 3.1-3.6 cm, so the first guess of 5.5 cm was wider
-        // than the hand can actually oppose and was never retained. Making the width a
-        // runtime parameter lets a training run measure which size the policy can
-        // really grasp instead of it being baked into the player.
+        // environment parameter (see CurrentBlockWidth). Making the width a runtime
+        // parameter lets a training run measure which size the policy can really
+        // grasp instead of it being baked into the player.
         public const float BlockWidth = 0.035f;
         public const float BlockHeight = 0.09f;
         public const float MinimumBlockWidth = 0.025f;
@@ -82,9 +74,9 @@ namespace KDT.GraspLiftTraining
         //
         // Density raised from 400 to 1800 kg/m^3 (0.035 m block => ~0.20 kg, in line
         // with the Isaac Lab reference's 0.3 kg object). At 400 kg/m^3 the block
-        // weighed 32 g and any incidental fingertip brush sent it skidding, so the
-        // policy learned that closing its hand near the block ended the episode and
-        // settled on hovering with the hand open (measured: ContactCount 1.25,
+        // weighed about 44 g and any incidental fingertip brush sent it skidding, so
+        // the policy learned that closing its hand near the block ended the episode
+        // and settled on hovering with the hand open (measured: ContactCount 1.25,
         // FinalClosure 0.3, zero lift). A heavier block resists being nudged while
         // still being well within what 20 N finger drives can hold through friction.
         public const float BlockDensity = 1800f;
@@ -159,7 +151,7 @@ namespace KDT.GraspLiftTraining
         // The approach target is not the block centre: for a top-down power grasp the
         // palm sits above the top face and the fingers cage the upper half, so aiming
         // the palm grasp-volume centre at the geometric centre would drive the palm
-        // into the block. +2.5 cm puts it 2.5 cm below the top face.
+        // into the block. +2.5 cm puts it 2.0 cm below the top face.
         public const float GraspTargetHeightOffset = 0.025f;
 
         // --- approach shaping ---------------------------------------------------
@@ -242,7 +234,7 @@ namespace KDT.GraspLiftTraining
         // Softened from -1.0, and the distance widened from 0.15 m. Grasping requires
         // driving the fingers into contact, which always nudges the block a little; a
         // -1.0 terminal cliff at 15 cm made the expected value of ever closing the
-        // hand negative (closing can earn at most +0.5), so the policy learned to
+        // hand negative (closing can earn at most +1.0), so the policy learned to
         // hover with an open hand and never grasp. The rule now only fires when the
         // block has genuinely been bulldozed across the panel.
         public const float PushAwayPenalty = -0.5f;
@@ -273,6 +265,59 @@ namespace KDT.GraspLiftTraining
         public const float NearObjectControlClearance = 0.08f;
         public const float NearObjectActionPenaltyScale = -0.002f;
         public const float NearObjectArmDeltaScale = 0.35f;
+        // Small global rate cost targets direction reversals during the full approach
+        // without making ordinary arm motion expensive.
+        public const float ActionRatePenaltyScale = -0.001f;
+        // Runtime tuning is needed to sweep smoothness against grasp success without
+        // rebuilding the inference player.
+        public const string ActionRatePenaltyScaleParameterName =
+            "action_rate_penalty_scale";
+        // A sustained hand-panel scrape should matter, while a brief brush remains
+        // negligible and never terminates the episode.
+        public const float HandSurfacePenaltyPerSecond = -0.05f;
+        // Runtime tuning is needed to balance scrape avoidance against reaching low
+        // enough to grasp without rebuilding the inference player.
+        public const string HandSurfacePenaltyPerSecondParameterName =
+            "hand_surface_penalty_per_second";
+
+        static float _actionRatePenaltyScale = ActionRatePenaltyScale;
+        static float _handSurfacePenaltyPerSecond = HandSurfacePenaltyPerSecond;
+
+        /// Action-rate weight for the current episode.
+        public static float CurrentActionRatePenaltyScale => _actionRatePenaltyScale;
+
+        public static void RefreshActionRatePenaltyScale()
+        {
+            SetActionRatePenaltyScale(Academy.Instance.EnvironmentParameters.GetWithDefault(
+                ActionRatePenaltyScaleParameterName,
+                ActionRatePenaltyScale));
+        }
+
+        public static void SetActionRatePenaltyScale(float scale)
+        {
+            _actionRatePenaltyScale = IsFinite(scale)
+                ? Mathf.Clamp(scale, -0.02f, 0f)
+                : ActionRatePenaltyScale;
+        }
+
+        /// Hand-panel contact weight for the current episode, expressed per second.
+        public static float CurrentHandSurfacePenaltyPerSecond =>
+            _handSurfacePenaltyPerSecond;
+
+        public static void RefreshHandSurfacePenaltyPerSecond()
+        {
+            SetHandSurfacePenaltyPerSecond(
+                Academy.Instance.EnvironmentParameters.GetWithDefault(
+                    HandSurfacePenaltyPerSecondParameterName,
+                    HandSurfacePenaltyPerSecond));
+        }
+
+        public static void SetHandSurfacePenaltyPerSecond(float scale)
+        {
+            _handSurfacePenaltyPerSecond = IsFinite(scale)
+                ? Mathf.Clamp(scale, -1f, 0f)
+                : HandSurfacePenaltyPerSecond;
+        }
 
         // Palm-local centre of the full-hand grasp volume (same anchor the reach
         // policy was trained against).
@@ -824,6 +869,23 @@ namespace KDT.GraspLiftTraining
             return NearObjectActionPenaltyScale
                 * Mathf.Max(0f, sumSquaredArmActions)
                 / ArmJointCount;
+        }
+
+        public static float ArmActionRatePenalty(float sumSquaredArmActionDeltas)
+        {
+            if (!IsFinite(sumSquaredArmActionDeltas)) return 0f;
+            return _actionRatePenaltyScale
+                * Mathf.Max(0f, sumSquaredArmActionDeltas)
+                / ArmJointCount;
+        }
+
+        public static float HandSurfaceContactPenalty(
+            float contactSeconds,
+            bool graspConfirmed)
+        {
+            if (graspConfirmed || !IsFinite(contactSeconds) || contactSeconds <= 0f)
+                return 0f;
+            return _handSurfacePenaltyPerSecond * contactSeconds;
         }
 
         /// Terminal penalties. Timeout and NonFinitePhysics add nothing: the shaping

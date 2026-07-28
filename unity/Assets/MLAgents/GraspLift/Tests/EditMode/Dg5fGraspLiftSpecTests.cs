@@ -14,6 +14,10 @@ namespace KDT.GraspLiftTraining.Tests
             Dg5fGraspLiftSpec.SetToppleLimit(Dg5fGraspLiftSpec.ToppleLimitDegrees);
             Dg5fGraspLiftSpec.SetBlockComHeightFraction(
                 Dg5fGraspLiftSpec.BlockComHeightFraction);
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(
+                Dg5fGraspLiftSpec.ActionRatePenaltyScale);
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(
+                Dg5fGraspLiftSpec.HandSurfacePenaltyPerSecond);
         }
 
         // --- block size parameter -------------------------------------------
@@ -414,6 +418,120 @@ namespace KDT.GraspLiftTraining.Tests
         }
 
         // --- penalties / termination ------------------------------------------
+
+        [Test]
+        public void ArmActionRatePenaltyIsProportionalAndNormalisedByArmJointCount()
+        {
+            Assert.AreEqual(0f, Dg5fGraspLiftSpec.ArmActionRatePenalty(0f), 1e-6f);
+
+            float onePerJoint =
+                Dg5fGraspLiftSpec.ArmActionRatePenalty(Dg5fGraspLiftSpec.ArmJointCount);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.ActionRatePenaltyScale,
+                onePerJoint,
+                1e-6f);
+            Assert.AreEqual(
+                onePerJoint * 2f,
+                Dg5fGraspLiftSpec.ArmActionRatePenalty(
+                    Dg5fGraspLiftSpec.ArmJointCount * 2f),
+                1e-6f);
+            Assert.Less(onePerJoint, 0f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.ArmActionRatePenalty(float.NaN),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.ArmActionRatePenalty(float.PositiveInfinity),
+                1e-6f);
+        }
+
+        [Test]
+        public void ActionRatePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled()
+        {
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(-1f);
+            Assert.AreEqual(
+                -0.02f,
+                Dg5fGraspLiftSpec.CurrentActionRatePenaltyScale,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(1f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.CurrentActionRatePenaltyScale,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(0f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.ArmActionRatePenalty(
+                    Dg5fGraspLiftSpec.ArmJointCount),
+                1e-6f);
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(float.PositiveInfinity);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.ActionRatePenaltyScale,
+                Dg5fGraspLiftSpec.CurrentActionRatePenaltyScale,
+                1e-6f);
+        }
+
+        [Test]
+        public void HandSurfaceContactPenaltyOnlyChargesPreGraspPositiveFiniteTime()
+        {
+            float oneSecond = Dg5fGraspLiftSpec.HandSurfaceContactPenalty(1f, false);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.HandSurfacePenaltyPerSecond,
+                oneSecond,
+                1e-6f);
+            Assert.AreEqual(
+                oneSecond * 2f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(2f, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(1f, true),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(0f, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(-1f, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(float.NaN, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(
+                    float.PositiveInfinity,
+                    false),
+                1e-6f);
+        }
+
+        [Test]
+        public void HandSurfacePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled()
+        {
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(-5f);
+            Assert.AreEqual(
+                -1f,
+                Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(1f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(0f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.HandSurfaceContactPenalty(1f, false),
+                1e-6f);
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(float.NegativeInfinity);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.HandSurfacePenaltyPerSecond,
+                Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
+                1e-6f);
+        }
 
         [Test]
         public void ClosedEmptyHandAscentIsFlaggedOnlyWithoutAGrasp()

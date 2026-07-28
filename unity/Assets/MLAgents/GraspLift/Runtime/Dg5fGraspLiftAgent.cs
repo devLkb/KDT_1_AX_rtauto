@@ -39,6 +39,8 @@ namespace KDT.GraspLiftTraining
             Array.Empty<GraspLiftObjectContactSensor>();
         public GraspLiftSurfaceContactSensor[] safetySensors =
             Array.Empty<GraspLiftSurfaceContactSensor>();
+        public GraspLiftHandSurfaceSensor[] handSurfaceSensors =
+            Array.Empty<GraspLiftHandSurfaceSensor>();
 
         [Header("Episode")]
         public bool useDeterministicSpawns;
@@ -77,10 +79,17 @@ namespace KDT.GraspLiftTraining
         float _slipSeconds;
         float _bestLiftHeight;
         float _maxObjectTiltDeg;
+        float _handSurfaceContactSeconds;
+        float _handSurfaceContactSecondsSinceDecision;
+        float _sumSquaredArmActionDeltas;
+        int _armActionDecisionCount;
         int _contactCount;
         Vector3 _contactCentroid;
+        readonly float[] _previousArmActions =
+            new float[Dg5fGraspLiftSpec.ArmJointCount];
 
         int _objectReleaseFixedSteps;
+        bool _hasPreviousArmAction;
         bool _episodeActive;
         bool _graspConfirmed;
         bool _unsafeSurfaceContact;
@@ -211,8 +220,11 @@ namespace KDT.GraspLiftTraining
 
         void ResolveSafetySensors()
         {
-            if (safetySensors != null && safetySensors.Length > 0) return;
-            safetySensors = GetComponentsInChildren<GraspLiftSurfaceContactSensor>(true);
+            if (safetySensors == null || safetySensors.Length == 0)
+                safetySensors = GetComponentsInChildren<GraspLiftSurfaceContactSensor>(true);
+            if (handSurfaceSensors == null || handSurfaceSensors.Length == 0)
+                handSurfaceSensors =
+                    GetComponentsInChildren<GraspLiftHandSurfaceSensor>(true);
         }
 
         static ArticulationBody FindBody(IEnumerable<ArticulationBody> bodies, string name)
@@ -265,6 +277,14 @@ namespace KDT.GraspLiftTraining
             if (safetySensors == null || safetySensors.Length == 0)
                 throw new InvalidOperationException(
                     "[Dg5fGraspLiftAgent] Moving arm-link panel safety sensors are required.");
+            // Old generated scenes do not contain these non-terminal sensors yet.
+            // Warn instead of throwing so the currently built scene remains usable
+            // until the orchestrator regenerates it.
+            if (handSurfaceSensors == null || handSurfaceSensors.Length == 0)
+                Debug.LogWarning(
+                    "[Dg5fGraspLiftAgent] No hand-panel contact sensors were resolved; "
+                    + "the scrape penalty and contact-time stat will remain zero.",
+                    this);
         }
 
         // ------------------------------------------------------------------ episode
@@ -277,6 +297,8 @@ namespace KDT.GraspLiftTraining
             Dg5fGraspLiftSpec.RefreshBlockWidth();
             Dg5fGraspLiftSpec.RefreshToppleLimit();
             Dg5fGraspLiftSpec.RefreshBlockCenterOfMass();
+            Dg5fGraspLiftSpec.RefreshActionRatePenaltyScale();
+            Dg5fGraspLiftSpec.RefreshHandSurfacePenaltyPerSecond();
 
             _closure = 0f;
             _episodeSeconds = 0f;
@@ -285,6 +307,12 @@ namespace KDT.GraspLiftTraining
             _slipSeconds = 0f;
             _bestLiftHeight = 0f;
             _maxObjectTiltDeg = 0f;
+            _handSurfaceContactSeconds = 0f;
+            _handSurfaceContactSecondsSinceDecision = 0f;
+            _sumSquaredArmActionDeltas = 0f;
+            _armActionDecisionCount = 0;
+            Array.Clear(_previousArmActions, 0, _previousArmActions.Length);
+            _hasPreviousArmAction = false;
             _graspConfirmed = false;
             _unsafeSurfaceContact = false;
             _contactCount = 0;
@@ -300,6 +328,8 @@ namespace KDT.GraspLiftTraining
             foreach (var sensor in contactSensors)
                 if (sensor != null) sensor.ResetContacts();
             foreach (var sensor in safetySensors)
+                if (sensor != null) sensor.ResetContacts();
+            foreach (var sensor in handSurfaceSensors)
                 if (sensor != null) sensor.ResetContacts();
 
             _previousApproachPotential = Dg5fGraspLiftSpec.DirectionalApproachPotential(
@@ -536,21 +566,41 @@ namespace KDT.GraspLiftTraining
             // Time cost: every decision spent not progressing is slightly negative.
             AddReward(Dg5fGraspLiftSpec.DecisionTimePenalty);
             ScoreApproachProgress();
+            float handSurfaceContactSeconds = _handSurfaceContactSecondsSinceDecision;
+            _handSurfaceContactSecondsSinceDecision = 0f;
+            AddReward(Dg5fGraspLiftSpec.HandSurfaceContactPenalty(
+                handSurfaceContactSeconds,
+                _graspConfirmed));
 
             // Arm: integrate bounded joint deltas, damped near the block so the hand
             // does not punt it across the panel.
             bool nearObject = Dg5fGraspLiftSpec.UsesNearObjectControl(GraspDistance());
             float actionScale = nearObject ? Dg5fGraspLiftSpec.NearObjectArmDeltaScale : 1f;
             float sumSquaredArmActions = 0f;
+            float sumSquaredArmActionDeltas = 0f;
             for (int i = 0; i < _armTargetDeg.Length; i++)
             {
                 float action = Mathf.Clamp(continuous[i], -1f, 1f);
                 sumSquaredArmActions += action * action;
+                if (_hasPreviousArmAction)
+                {
+                    float actionDelta = action - _previousArmActions[i];
+                    sumSquaredArmActionDeltas += actionDelta * actionDelta;
+                }
+                _previousArmActions[i] = action;
                 _armTargetDeg[i] = Mathf.Clamp(
                     _armTargetDeg[i] + action * armDeltaDegPerDecision * actionScale,
                     Dg5fGraspLiftSpec.ArmSafeMinDeg[i],
                     Dg5fGraspLiftSpec.ArmSafeMaxDeg[i]);
             }
+            if (_hasPreviousArmAction)
+            {
+                AddReward(Dg5fGraspLiftSpec.ArmActionRatePenalty(
+                    sumSquaredArmActionDeltas));
+                _sumSquaredArmActionDeltas += sumSquaredArmActionDeltas;
+            }
+            _hasPreviousArmAction = true;
+            _armActionDecisionCount++;
             if (nearObject)
                 AddReward(Dg5fGraspLiftSpec.NearObjectActionPenalty(sumSquaredArmActions));
             ApplyArmTargets();
@@ -669,6 +719,11 @@ namespace KDT.GraspLiftTraining
             }
 
             _episodeSeconds += Time.fixedDeltaTime;
+            if (HasHandSurfaceContact())
+            {
+                _handSurfaceContactSeconds += Time.fixedDeltaTime;
+                _handSurfaceContactSecondsSinceDecision += Time.fixedDeltaTime;
+            }
             UpdateContacts();
 
             if (!_graspConfirmed)
@@ -860,6 +915,14 @@ namespace KDT.GraspLiftTraining
             return false;
         }
 
+        bool HasHandSurfaceContact()
+        {
+            if (handSurfaceSensors == null) return false;
+            foreach (var sensor in handSurfaceSensors)
+                if (sensor != null && sensor.IsTouching) return true;
+            return false;
+        }
+
         public void NotifyUnsafeSurfaceContact(Collider surface)
         {
             if (surface == pedestalCollider) _unsafeSurfaceContact = true;
@@ -903,6 +966,18 @@ namespace KDT.GraspLiftTraining
             _stats.Add("GraspLift/CompletionSeconds", _episodeSeconds,
                 StatAggregationMethod.Average);
             _stats.Add("GraspLift/FinalClosure", _closure, StatAggregationMethod.Average);
+            _stats.Add("GraspLift/HandSurfaceContactSeconds", _handSurfaceContactSeconds,
+                StatAggregationMethod.Average);
+            _stats.Add(
+                "GraspLift/TopDownAngleDegrees",
+                Dg5fGraspLiftSpec.TopDownAngleDegrees(TopDownAlignment()),
+                StatAggregationMethod.Average);
+            _stats.Add(
+                "GraspLift/MeanArmActionRate",
+                _armActionDecisionCount > 0
+                    ? _sumSquaredArmActionDeltas / _armActionDecisionCount
+                    : 0f,
+                StatAggregationMethod.Average);
             _stats.Add("Curriculum/GraspStage", Dg5fGraspLiftSpec.CurrentGraspStage,
                 StatAggregationMethod.Average);
             _stats.Add("Curriculum/BlockWidth", Dg5fGraspLiftSpec.CurrentBlockWidth,
@@ -913,7 +988,7 @@ namespace KDT.GraspLiftTraining
 
         // ------------------------------------------------------------------ geometry
 
-        /// Where the palm grasp volume should end up: on the block axis, 2.5 cm below
+        /// Where the palm grasp volume should end up: on the block axis, 2.0 cm below
         /// its top face rather than at its geometric centre (see the spec constant).
         /// Offset along the robot vertical, not the block's own axis, so a tipped
         /// block cannot swing the target around.

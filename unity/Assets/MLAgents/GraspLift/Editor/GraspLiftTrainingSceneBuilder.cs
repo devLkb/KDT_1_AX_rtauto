@@ -83,14 +83,19 @@ namespace KDT.GraspLiftTraining.Editor
             agent.graspPoint = graspPoint;
             agent.fingerTips = tips;
             agent.contactSensors = ConfigureObjectContactSensors(palm, tips, block);
+            Collider panelCollider = pedestal.GetComponent<Collider>();
             agent.safetySensors = ConfigureSafetySensors(
-                robot, pedestal.GetComponent<Collider>(), agent);
+                robot, panelCollider, agent);
+            agent.handSurfaceSensors = ConfigureHandSurfaceSensors(robot, panelCollider);
             agent.MaxStep = 0;
 
             var behavior = robot.GetComponent<BehaviorParameters>();
             if (behavior == null) behavior = robot.AddComponent<BehaviorParameters>();
             behavior.BehaviorName = Dg5fGraspLiftSpec.BehaviorName;
             behavior.BehaviorType = BehaviorType.Default;
+            // Sampling during inference is visible as arm tremble; regenerated
+            // scenes must retain deterministic action selection.
+            behavior.DeterministicInference = true;
             behavior.BrainParameters.VectorObservationSize = Dg5fGraspLiftSpec.ObservationSize;
             behavior.BrainParameters.NumStackedVectorObservations = 1;
             behavior.BrainParameters.ActionSpec =
@@ -292,6 +297,40 @@ namespace KDT.GraspLiftTraining.Editor
                     return true;
             }
             return false;
+        }
+
+        /// Instruments exactly the hand colliders excluded from terminal panel
+        /// safety. Link and collider GameObjects are both included because imported
+        /// URDF collision callbacks are delivered to the collider child.
+        static GraspLiftHandSurfaceSensor[] ConfigureHandSurfaceSensors(
+            GameObject robot,
+            Collider panel)
+        {
+            var targets = new HashSet<GameObject>();
+            foreach (Collider collider in robot.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || !collider.enabled || collider.isTrigger) continue;
+                ArticulationBody body = collider.GetComponentInParent<ArticulationBody>();
+                if (body == null || body.isRoot || !IsHandCollider(collider.transform)) continue;
+
+                targets.Add(body.gameObject);
+                targets.Add(collider.gameObject);
+            }
+
+            if (targets.Count == 0)
+                throw new InvalidOperationException(
+                    "No hand colliders were available for panel contact reporting.");
+
+            var sensors = new List<GraspLiftHandSurfaceSensor>(targets.Count);
+            foreach (GameObject target in targets)
+            {
+                var sensor = target.GetComponent<GraspLiftHandSurfaceSensor>();
+                if (sensor == null)
+                    sensor = target.AddComponent<GraspLiftHandSurfaceSensor>();
+                sensor.surface = panel;
+                sensors.Add(sensor);
+            }
+            return sensors.ToArray();
         }
 
         static GameObject CreatePanel(Transform parent, PhysicsMaterial material)
