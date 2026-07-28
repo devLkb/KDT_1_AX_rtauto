@@ -1,0 +1,57 @@
+# DG5F GraspLift inference-only geometry probe from DG5FGraspLift-3199988.
+#
+# Hypothesis: restoring a 0.12 m block moves the graspable upper region clear of the
+# panel, reducing the solved policy's side-grasp posture and panel scraping even
+# before retraining. This probe disables all three motion-quality penalties so only
+# geometry changes.
+#
+# Decision rule:
+#   GraspLift/Success must recover to >= 0.90, while
+#   GraspLift/GraspPostureAngleDegrees (baseline 72.8 deg) and
+#   GraspLift/HandSurfaceContactSeconds (baseline 3.45 s) must fall substantially.
+# Falsification: if success recovers but posture and scraping do not move, block
+# height was not the cause and the side grasp is intrinsic to this hand/object pair.
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 20480
+      learning_rate: 0.0001
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    # Byte-for-byte field match with dg5f_grasp_lift_quality_v2.yaml is required
+    # for the solved 57/7 checkpoint.
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    keep_checkpoints: 10
+    checkpoint_interval: 100000
+    # A `--resume --inference` run resumes at step 3,199,988, so max_steps must be
+    # above that checkpoint step or ML-Agents has no remaining inference budget.
+    max_steps: 3400000
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  block_height: 0.12
+  block_com_height_fraction: 0.50
+  grasp_stage: 3.0
+  topple_limit_deg: 45.0
+  grasp_posture_penalty_scale: 0
+  hand_surface_penalty_per_second: 0
+  action_rate_penalty_scale: 0

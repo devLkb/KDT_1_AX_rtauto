@@ -79,10 +79,10 @@ namespace KDT.GraspLiftTraining.Tests
         }
 
         [Test]
-        public void DefaultBlockHeightMatchesTheExistingGeometry()
+        public void DefaultBlockHeightMatchesThePromotedGeometry()
         {
             Dg5fGraspLiftSpec.SetBlockHeight(Dg5fGraspLiftSpec.BlockHeight);
-            Assert.AreEqual(0.09f, Dg5fGraspLiftSpec.CurrentBlockHeight, 1e-6f);
+            Assert.AreEqual(0.12f, Dg5fGraspLiftSpec.CurrentBlockHeight, 1e-6f);
             Assert.AreEqual(
                 Dg5fGraspLiftSpec.GraspTargetHeightOffset,
                 Dg5fGraspLiftSpec.CurrentGraspTargetHeightOffset,

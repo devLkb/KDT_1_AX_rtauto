@@ -57,15 +57,30 @@ namespace KDT.GraspLiftTraining
         // 0.035 m square cross section: GraspLiftHandGeometryProbe measured the
         // closed-hand thumb-to-finger opposition aperture at 3.1-3.6 cm, so the
         // original 5.5 cm face could not be opposed at all.
-        // Height defaults to 0.09 m for checkpoint compatibility, but is runtime
-        // configurable up to the 0.15 m Isaac Lab reference scale so geometry
-        // experiments do not require rebuilding the player.
+        //
+        // Height now defaults to 0.12 m. The earlier 98.7% training-condition and
+        // 96.3% uniform-density results used the old 0.09 m height / 0.30 COM pair.
+        // At that height the roughly 0.13 m fingers had to reach below the block
+        // midpoint, making panel contact a precondition of success: a -0.5/s surface
+        // penalty reduced contact by only 1.5%. At 0.12 m the graspable region clears
+        // the panel, matching the original design rationale and moving toward the
+        // Isaac Lab reference's 0.15 m cylinder. The retrained 0.12 m / 0.20 COM
+        // policy measured 99.75% success versus 98.95% for the deployed 0.09 m
+        // policy, and 99.24% versus 96.32% on uniform density despite a harsher
+        // 16 deg topple limit versus 21 deg. It also improved GraspConfirmed
+        // (99.79% vs 99.39%), FinalLiftHeight (0.1456 m vs 0.142 m; 0.1432 m on
+        // uniform density), HandSurfaceContactSeconds (1.05 s vs 3.45 s),
+        // GraspPostureAngleDegrees (67.1 deg vs 72.8 deg), ObjectToppled
+        // (1.0 vs 1.11), and Dropped (1.0 vs 1.2).
+        //
+        // Height remains runtime configurable up to the 0.15 m reference scale so
+        // geometry experiments do not require rebuilding the player.
         //
         // Width and height are defaults: the live values come from the `block_width`
         // and `block_height` environment parameters (see CurrentBlockWidth and
         // CurrentBlockHeight).
         public const float BlockWidth = 0.035f;
-        public const float BlockHeight = 0.09f;
+        public const float BlockHeight = 0.12f;
         public const float MinimumBlockWidth = 0.025f;
         public const float MaximumBlockWidth = 0.060f;
         public const float MinimumBlockHeight = 0.06f;
@@ -73,29 +88,33 @@ namespace KDT.GraspLiftTraining
         // Mass follows volume, so a wider or taller block is also heavier and
         // difficulty scales the way a real object would.
         //
-        // Density raised from 400 to 1800 kg/m^3 (0.035 m block => ~0.20 kg, in line
-        // with the Isaac Lab reference's 0.3 kg object). At 400 kg/m^3 the block
-        // weighed about 44 g and any incidental fingertip brush sent it skidding, so
-        // the policy learned that closing its hand near the block ended the episode
-        // and settled on hovering with the hand open (measured: ContactCount 1.25,
-        // FinalClosure 0.3, zero lift). A heavier block resists being nudged while
-        // still being well within what 20 N finger drives can hold through friction.
+        // Density raised from 400 to 1800 kg/m^3 (the 0.035 x 0.12 m default is
+        // ~0.265 kg, in line with the Isaac Lab reference's 0.3 kg object). At
+        // 400 kg/m^3 the old 0.09 m block weighed about 44 g and any incidental
+        // fingertip brush sent it skidding, so the policy learned that closing its
+        // hand near the block ended the episode and settled on hovering with the
+        // hand open (measured: ContactCount 1.25, FinalClosure 0.3, zero lift). A
+        // heavier block resists being nudged while still being well within what 20 N
+        // finger drives can hold through friction.
         public const float BlockDensity = 1800f;
         public const float BlockHalfHeight = BlockHeight * 0.5f;
         public const string BlockWidthParameterName = "block_width";
         public const string BlockHeightParameterName = "block_height";
 
-        // A 0.035 x 0.09 m block standing on the panel tips at atan(0.0175/0.045) =
-        // ~21 deg, which any incidental fingertip brush during the descent exceeds.
-        // Measured consequence across four runs: FinalLiftHeight settled at -0.021 m,
-        // almost exactly the -0.0275 m a toppled block's centre drops, i.e. the block
-        // was on its side by the end of nearly every episode.
+        // A uniform-density 0.035 x 0.09 m block standing on the panel tips at
+        // atan(0.0175/0.045) = ~21 deg, which any incidental fingertip brush during
+        // the descent exceeds. Measured consequence across four runs:
+        // FinalLiftHeight settled at -0.021 m, almost exactly the -0.0275 m a toppled
+        // block's centre drops, i.e. the block was on its side by the end of nearly
+        // every episode.
         //
         // Dropping the centre of mass toward the base is the same trick a weighted
         // desk object uses: the static tip angle becomes atan(halfWidth / comHeight),
-        // so 0.30 raises it from ~21 deg to ~33 deg without changing the geometry the
-        // hand has to grasp. Expressed as a fraction of the block height measured from
-        // its base; 0.5 is the neutral (uniform-density) value.
+        // so the old 0.30 fraction raised it from ~21 deg to ~33 deg without changing
+        // the geometry the hand has to grasp. The earlier 98.7% training-condition
+        // and 96.3% uniform-density results were measured with that old 0.09 m /
+        // 0.30 pair. Expressed as a fraction of the block height measured from its
+        // base; 0.5 is the neutral (uniform-density) value.
         //
         // Candidate-height trade-off for a 0.035 m wide block, using
         // tipAngle = atan(halfWidth / comHeight) and
@@ -103,9 +122,15 @@ namespace KDT.GraspLiftTraining
         // * height 0.09 m, fraction 0.30 -> ~33 deg
         // * height 0.12 m, fraction 0.30 -> ~26 deg
         // * height 0.12 m, fraction 0.20 -> ~36 deg
-        // A taller block therefore needs a lower centre-of-mass fraction to remain
-        // approximately as stable against tipping.
-        public const float BlockComHeightFraction = 0.30f;
+        // The 0.12 m default therefore uses 0.20: its ~36 deg static tip angle
+        // preserves rather than trades away the old pair's ~33 deg stability. With
+        // centre-of-mass lowering plus the ObjectToppled terminal, the retrained
+        // policy improved every measured comparison listed in the height rationale:
+        // 99.75%/99.24% success, 99.79% GraspConfirmed, 0.1456 m lift (0.1432 m
+        // uniform density), 1.05 s panel contact, 67.1 deg posture, and 1.0 for both
+        // ObjectToppled and Dropped. This is what makes the taller geometry viable
+        // without returning to the old toppling local optimum.
+        public const float BlockComHeightFraction = 0.20f;
         public const string BlockComHeightFractionParameterName = "block_com_height_fraction";
         public const float MinimumBlockComHeightFraction = 0.05f;
         public const float MaximumBlockComHeightFraction = 0.50f;
@@ -184,10 +209,11 @@ namespace KDT.GraspLiftTraining
         // The approach target is not the block centre: for a top-down power grasp the
         // palm sits above the top face and the fingers cage the upper half, so aiming
         // the palm grasp-volume centre at the geometric centre would drive the palm
-        // into the block. +2.5 cm puts it 2.0 cm below the top face.
-        public const float GraspTargetHeightOffset = 0.025f;
+        // into the block. At the 0.12 m default, +4.0 cm puts it 2.0 cm below the
+        // top face.
+        public const float GraspTargetHeightOffset = 0.040f;
         // Preserve the same top-face inset as block height changes. Written as a
-        // delta from the default so the default path returns the existing constant
+        // delta from the default so the default path returns the promoted constant
         // exactly.
         public static float CurrentGraspTargetHeightOffset =>
             GraspTargetHeightOffset + (CurrentBlockHeight - BlockHeight) * 0.5f;
