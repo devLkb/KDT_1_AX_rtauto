@@ -17,8 +17,8 @@ ML-Agents 구조에 맞게 전부 새로 작성했다.
 | 스크립트 lift (`lift_delta_deg` 보간) | **없음** — 정책이 직접 팔을 올린다 | 스크립트 상승은 "파지 후 들어올리기"를 학습시키지 못한다 |
 | `success_height = 0.12` | `LiftTargetHeight = 0.10` (커리큘럼 0.05→0.10) | |
 | `slip_grace = 10 steps` | `SlipGraceSeconds = 0.20 s` | |
-| `tilt_fail_deg` 종료 | 사용 안 함 | 대신 `ObjectPushedAway` / `Dropped` 로 커버 |
-| 실린더 Ø0.06 × 0.15 m | Cube 0.055 × 0.10 × 0.055 m | 아래 "학습 Object" 참고 |
+| `tilt_fail_deg` 종료 | `ObjectToppled` (`ToppleLimitDegrees = 45°`, −0.3) | 파지 확정 전 전도만 종료하며 `topple_limit_deg`로 조정 |
+| 실린더 Ø0.06 × 0.15 m | Cube 0.035 × 0.09 × 0.035 m | 아래 "학습 Object" 참고 |
 
 ---
 
@@ -61,19 +61,19 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 
 | 항목 | 값 | 근거 |
 |---|---|---|
-| 크기 | 0.04 × 0.09 × 0.04 m (기본값) | 아래. 폭은 `block_width` 환경 파라미터로 런타임 변경 가능(0.025–0.06) |
-| Mass | 폭²×높이×400 kg/m³ (기본 0.058 kg) | 부피에 비례 — 큰 블록이 자동으로 무거워져 난이도가 실제 물체처럼 스케일된다 |
+| 크기 | 0.035 × 0.09 × 0.035 m (기본값) | `BlockWidth = 0.035`, `BlockHeight = 0.09`; 폭은 `block_width` 환경 파라미터로 런타임 변경 가능(0.025–0.06) |
+| Mass | `CurrentBlockMass = 폭²×높이×1800 kg/m³` (기본 약 0.198 kg) | `BlockDensity = 1800`; 부피에 비례 — 큰 블록이 자동으로 무거워져 난이도가 실제 물체처럼 스케일된다 |
 | Collider | BoxCollider (primitive Cube 기본) | |
 | Physics material | staticFriction 1.5 / dynamicFriction 1.2, combine **Maximum** | 참고 구현의 object `static_friction = 2.0`과 같은 의도. 패널은 0.8/Average로 남겨서 "밀면 미끄러지고, 잡으면 안 미끄러지게" 분리 |
-| Rigidbody | mass 0.12, useGravity, **ContinuousDynamic** | 손가락이 물리 스텝보다 빠르게 닫히면 discrete 검출은 5 cm 블록을 뚫는다 |
+| Rigidbody | mass = `CurrentBlockMass`, useGravity, **ContinuousDynamic** | 고정 0.12 kg이 아니며, 손가락이 물리 스텝보다 빠르게 닫힐 때 discrete 검출이 블록을 뚫는 것을 막는다 |
 | 초기화 범위 | robot-base local 반경 0.35–0.55 m 환형(면적 균등), Y축 랜덤 yaw, 패널 위 | reach 과제(0.35–0.70)보다 좁힘 — 파지는 난도가 훨씬 높다 |
 
-**단면 0.055 m**: DG5F URDF의 검지/중지/약지 knuckle이 y = −0.027 /
-−0.0025 / +0.022 (`lj_dg_2_1`..`lj_dg_4_1`)로 약 0.049 m를 차지한다. 5.5 cm
-면은 세 손가락 span과 거의 같아서, 손가락이 실제로 감싸야만 잡히고 감싸면
-잡히는 크기다.
+**단면 0.035 m**: 최초 0.055 m는 DG5F URDF의 검지/중지/약지 knuckle span
+약 0.049 m를 근거로 골랐지만, 아래 실측에서 확인된 대향 가능 폭
+3.1–3.6 cm보다 넓어 파지가 불가능했다. 현재 기본값 `BlockWidth = 0.035`는
+그 실측 범위의 상단에 맞춘 값이다.
 
-**높이 0.10 m**: 손가락이 knuckle부터 ~0.13 m라 납작한 큐브를 테이블 위에
+**높이 0.09 m**: 손가락이 knuckle부터 ~0.13 m라 납작한 큐브를 테이블 위에
 두면 파지 시 손가락이 테이블을 뚫어야 한다. 참고 구현이 굳이 0.15 m 높이
 실린더를 쓴 것과 같은 이유다. 세로로 세운 블록이면 손이 **윗부분만 공중에서**
 감쌀 수 있다.
@@ -92,7 +92,7 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 두 가지가 확정됐다.
 
 1. **대향 가능 폭은 약 3.1–3.6 cm다.** 5.5 cm 블록은 손가락이 마주 볼 수조차 없다.
-   따라서 기본 폭을 4 cm로 낮추고, `block_width` 파라미터로 실측 비교가 가능하게 했다.
+   따라서 기본 폭을 3.5 cm로 낮추고, `block_width` 파라미터로 실측 비교가 가능하게 했다.
 2. **closure 1.0은 0.75보다 나쁜 그립이다.** 완전히 쥐면 손가락이 서로 지나쳐
    간격이 다시 벌어진다(0.036 → 0.063 m). 그래서 폐합 보상을 closure에 단순 비례로
    주면 안 되고, 최적 그립 closure에서 포화시켜야 한다
@@ -103,9 +103,33 @@ prefab의 열린 자세로 고정되며(`enablePolicyClosure = false`), 7번째 
 
 ### 높이
 
-높이를 처음에 0.12 m로 잡았다가 0.10 m, 다시 0.09 m로 낮췄다. 0.055:0.10 비율은 약 29°에서
-전도되는데, 0.05:0.12는 약 23°라 smoke run에서 초기 정책이 스치기만 해도
-계속 넘어졌다(실측: `FinalLiftHeight ≈ −0.03`, 즉 무게중심이 내려앉음).
+높이를 처음에 0.12 m로 잡았다가 0.10 m, 다시 0.09 m로 낮췄다. 현재
+0.035 × 0.09 m 블록의 균일 밀도 무게중심은 바닥에서 0.045 m이므로 정적
+전도각은 `atan(0.0175/0.045) ≈ 21.3°`에 불과하다. 실제 probe A의
+`FinalLiftHeight = −0.0216 m`, `MaxObjectTiltDegrees = 95.1°`는 초기 정책이
+블록을 거의 매 에피소드 옆으로 눕혔음을 확인했다.
+
+### 전도 안정성 커리큘럼
+
+형상과 접촉면은 그대로 두고 Rigidbody의 local `centerOfMass`만 아래로
+내린다. `block_com_height_fraction`은 블록 바닥에서 잰 높이를 전체 높이의
+비율로 표현하며, `0.5`가 균일 밀도, 현재 실제 목표는 `0.30`이다. 정적
+전도각은 `atan(폭/2 ÷ COM 높이)`로 계산한다.
+
+| lesson | `block_com_height_fraction` | COM 높이 | 정적 전도각 | 의도 |
+|---|---:|---:|---:|---|
+| `stable_base` | 0.05 | 0.05×0.09 = 0.0045 m | `atan(0.0175/0.0045) = 75.6°` | 초기 접촉에도 거의 넘어지지 않게 해 파지·상승을 먼저 학습 |
+| `semi_stable` | 0.15 | 0.0135 m | `atan(0.0175/0.0135) = 52.4°` | 안정성 보조를 중간 수준으로 제거 |
+| `uniform_like` | 0.30 | 0.027 m | `atan(0.0175/0.027) = 33.0°` | probe B와 같은 실제 목표 |
+
+`0.15`의 전도각을 약 49°로 적은 초기 계산은 높이 0.10 m를 사용한 값
+(`atan(0.0175/0.015) = 49.4°`)이다. 현재 `BlockHeight = 0.09` 기준으로는
+52.4°가 맞다.
+
+`topple_limit_deg`는 파지 확정 전 허용 기울기를 정하며 기본값과 장기 학습
+설정 모두 45°다(유효 범위 5–180°, 180°는 진단용 비활성화). 기울기가
+한계에 도달하면 `ObjectToppled`로 −0.3을 받고 종료한다. 파지 확정 뒤에는
+손이 물체를 재배향할 수 있도록 이 판정을 적용하지 않는다.
 
 ---
 
@@ -169,15 +193,16 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
 |---|---|---|
 | 시간 비용 | `-0.001` / decision | 제자리 진동이 공짜가 되지 않게 |
 | 접근 potential | `Δφ`, `φ = 1·(1 − clamp01(d/0.85))`, 손바닥이 물체를 향할 때만 | potential-based shaping이라 최적 정책을 바꾸지 않으면서 접근을 학습 가능하게 만든다. 손바닥 반대편에서 다가가는 것은 파지로 이어지지 않으므로 게이트 |
-| top-down potential | `Δmax φ`, `φ = 0.3·p²`, `p = (70° − angle)/(70° − 35°)`, 물체 15→20 cm 이내 & 물체보다 위일 때만 | 손바닥이 아래를 향해야 파지가 가능. reach 과제에선 주 목표였지만 여기선 보조라 가중치를 0.5 → 0.3으로 낮췄다. 신기록 갱신분만 지급해 왕복 farming 차단 |
+| 미세 접근 potential | `Δφ`, `φ = 1.5·(1 − clamp01(d/0.12))`, 손바닥이 물체를 향할 때만 | `FineApproachPotentialMaximum = 1.5`, `FineApproachDistance = 0.12`; coarse 항이 거의 평평한 마지막 12 cm에 파지 가능한 정밀 접근 gradient를 준다 |
+| top-down potential | `Δmax φ`, `φ = 0.3·p²`, `p = (70° − angle)/(70° − 35°)`, 물체 20 cm 이내 & 물체보다 위일 때만 | `TopDownAlignmentRewardDistance = 0.20`; 손바닥이 아래를 향해야 파지가 가능. reach 과제에선 주 목표였지만 여기선 보조라 가중치를 0.5 → 0.3으로 낮췄다. 신기록 갱신분만 지급해 왕복 farming 차단 |
 | 근접 제어 페널티 | `-0.002 · Σa²/6` (물체 8 cm 이내) | 물체 옆에서 팔을 거칠게 쓰면 블록을 쳐낸다 |
 
 ### 파지
 
 | 항 | 식 | 이유 |
 |---|---|---|
-| 폐합 potential | `Δmax φ`, `φ = 0.5 × closure` (물체 10 cm 이내일 때만) | **"손가락을 닫는 행동 자체"에 보상을 주지 않기 위한 핵심 장치.** 물체 근처에서 닫을 때만 지급. **신기록분만** 지급하므로 에피소드당 총액이 0.5로 묶인다 — 여는 동작이 공짜이므로 평범한 per-step delta였다면 손을 폈다 쥐었다 반복하는 무한 farming loop가 된다(실제로 초기 구현의 버그였다. 왕복 1회당 +0.5, 20초에 약 +4로 실제 파지보다 쉽게 벌린다) |
-| 폐합 원거리 페널티 | `Δclosure⁺ × (−0.25)` (물체 10 cm 밖) | 공중에서 주먹을 쥐는 전형적인 degenerate 행동. 페널티는 왕복으로 farming할 수 없으므로 이쪽은 per-step delta로 둔다. 여는 동작은 항상 0 |
+| 폐합 potential | `Δmax φ`, `φ = 1.0 × clamp01(closure/0.75)` (물체 4.5 cm 이내일 때만) | `CloseNearObjectReward = 1.0`, `GraspReadyDistance = 0.045`; 실측 최적 closure 0.75에서 포화한다. **신기록분만** 지급하므로 에피소드당 총액은 1.0이고 손을 폈다 쥐는 farming은 불가능하다 |
+| 폐합 원거리 페널티 | `Δclosure⁺ × (−0.25)` (물체 4.5 cm 밖) | 공중에서 주먹을 쥐는 전형적인 degenerate 행동. 페널티는 왕복으로 farming할 수 없으므로 이쪽은 per-step delta로 둔다. 여는 동작은 항상 0 |
 | 접촉 potential | `Δmax φ`, `φ = 0.4·clamp01(n/3)` | 손가락을 실제로 블록에 올리는 것에 dense credit. 신기록분만 지급 → 툭툭 치기 farming 불가 |
 | grasp 진행 potential | `Δmax (1.0 × dwell/0.3 s)` | 유효 파지를 유지하는 것에 부분 점수. 신기록분만 지급하므로 확정까지 총 지급액이 정확히 `GraspConfirmReward = 1.0` |
 
@@ -194,7 +219,8 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
 |---|---|---|
 | `UnsafeSurfaceContact` | −2.0, 종료 | 움직이는 **팔 링크**가 패널에 충돌 |
 | `Dropped` | −1.0, 종료 | 파지 확정 후 0.2 s 넘게 접촉 상실 **그리고** 최고 높이의 30% 아래로 낙하 |
-| `ObjectPushedAway` | −1.0, 종료 | 파지 전 블록이 스폰 위치에서 수평 15 cm 이상 밀림 |
+| `ObjectPushedAway` | −0.5, 종료 | `PushAwayPenalty = −0.5`; 파지 전 블록이 스폰 위치에서 수평 `PushAwayDistance = 0.30 m` 초과 밀림 |
+| `ObjectToppled` | −0.3, 종료 | 파지 확정 전 기울기 ≥ `ToppleLimitDegrees = 45°`; `topple_limit_deg`로 조정 가능 |
 | `ObjectOutOfBounds` | −1.0, 종료 | 블록이 패널 밖으로 떨어지거나 작업공간(0.85 m) 이탈 |
 | 닫힌 빈손 상승 | −0.004 / decision | `!grasp && closure ≥ 0.3 && graspPoint가 패널 위 15 cm 초과`. **"Grasp 없이 팔만 상승"** 대책. 절벽형 페널티 대신 지속적인 소액이라 가치함수를 불안정하게 만들지 않는다 |
 | `Timeout`, `NonFinitePhysics` | 0 | shaping이 이미 도달 정도를 반영한다. 여기에 절벽을 더하면 "아예 시도하지 않는" 정책이 최적이 되어버린다 |
@@ -210,7 +236,8 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
 2. **대향(force-closure proxy)** — 블록 중심에서 각 접촉점으로의 방향 중
    가장 벌어진 쌍의 각도 ≥ 90°. 이게 없으면 세 손가락으로 한쪽 면만 찌르는
    것도 파지로 오판된다.
-3. **기하 구속** — 블록 중심과 접촉점 centroid 거리 ≤ 7 cm. 케이지 가장자리에
+3. **기하 구속** — 블록 중심과 접촉점 centroid 거리 ≤ 5 cm
+   (`GraspCenterMaxDistance = 0.05`). 케이지 가장자리에
    걸친 것이 아니라 블록이 케이지 **안**에 있어야 한다.
 4. **closure ≥ 0.3** — 손가락이 실제로 굽혀져 있어야 한다.
 
@@ -226,11 +253,12 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
 연속 유지. 던져 올린 블록은 "들고 있는" 것이 아니므로 속도 조건을 넣었다.
 
 **실패**: `UnsafeSurfaceContact` / `Dropped` / `ObjectPushedAway` /
-`ObjectOutOfBounds` / `NonFinitePhysics` / `Timeout`(20 s).
+`ObjectToppled` / `ObjectOutOfBounds` / `NonFinitePhysics` / `Timeout`(20 s).
 
 **Reset** (`OnEpisodeBegin`):
 
-1. `RefreshGraspStage()` — 커리큘럼 lesson 반영.
+1. `RefreshGraspStage()` / `RefreshBlockWidth()` / `RefreshToppleLimit()` /
+   `RefreshBlockCenterOfMass()` — 커리큘럼과 환경 파라미터 반영.
 2. 에피소드 상태 전부 초기화 (closure, dwell, 확정 플래그, hold, slip, 최고 높이, 모든 potential, 종료 사유).
 3. 로봇: 팔 6 + 손 20관절 전부 `xDrive.target` / `jointPosition` / `jointVelocity`를 prefab 초기값으로 되돌림. 그 뒤 팔 지령 재적용 + closure 0으로 손 개방.
 4. 블록: 유효 스폰을 최대 32회 재추첨 → `isKinematic = true`, `useGravity = false`, 선/각속도 0, 위치·**Y축 yaw만** 랜덤 회전(항상 똑바로 서서 시작), `Physics.SyncTransforms()`.
@@ -267,6 +295,48 @@ decision period 5, fixed step 0.02 s → 0.1 s마다 결정, 20 s 에피소드 =
    출력 head가 임의값이다. 그대로 로드하면 grip 축을 사실상 탐색하지 않는다.
    → `prepare_dg5f_grasp_lift_transfer.py`가 grip mean head를 0으로 만들고
    log_sigma를 팔 −0.7 / grip 0.0으로 재설정한다. 원본 파일은 수정하지 않는다.
+7. **넘어진 블록이 파지 보상을 수집하는 local optimum이 있었다.** 파지 확정
+   전 기울기 종료가 없을 때는 옆으로 누운 블록도 contact/opposition/cage 계약을
+   만족한다. 따라서 폐합 `+1.0`, 접촉 `+0.4`, 파지 진행 `+1.0`은 받을 수 있지만
+   lift potential은 구조적으로 0에 머문다. 이것이 앞선 네 run이 누적 보상
+   약 1.75, lift 0에서 함께 plateau한 원인이었다.
+
+   같은 transferred pre-grasp 체크포인트에서 두 환경 파라미터만 바꾼
+   150k-step probe의 tail mean은 다음과 같다. 원본 run은
+   `training/results/dg5f_grasp_lift_probeA_tilt`와
+   `training/results/dg5f_grasp_lift_probeB_fix`에 있다.
+
+   | metric | probe A (`topple_limit_deg=180`, `block_com_height_fraction=0.5`) | probe B (`45`, `0.30`) |
+   |---|---:|---:|
+   | `GraspLift/MaxObjectTiltDegrees` | 95.1 | 42.8 |
+   | `GraspLift/ObjectTiltDegrees` (final) | 83.9 | 40.7 |
+   | `GraspLift/FinalLiftHeight` | −0.0216 | +0.0008 |
+   | `GraspLift/FinalDistanceMeters` | 0.0885 | 0.0550 |
+   | `GraspLift/ContactCount` | 1.24 | 1.16 |
+   | `GraspLift/FinalClosure` | 0.32 | 0.21 |
+   | `GraspLift/GraspConfirmed` | 0.158 | 0.062 (0.106 → 0.023으로 하락) |
+   | `GraspLift/BestLiftHeight` | 0.0002 | 0.0003 |
+   | `GraspLift/Success` | 0.0 | 0.0 |
+   | `Failure/ObjectToppled` (5000-step window당) | 1.4 | 36.4 |
+   | `Failure/Timeout` | 20.0 | 6.0 |
+   | `Environment/Episode Length` | 약 179 | 110 |
+
+   probe A의 최대 95.1°/종료 83.9°는 블록이 사실상 매 에피소드 옆으로
+   누웠음을 입증한다. probe B는 `FinalLiftHeight`를 처음으로 양수로 만들며
+   이 local optimum을 제거했지만, 해결책 자체가 새 벽이 됐다.
+   `ObjectToppled`가 지배적인 종료가 됐고 `GraspConfirmed`는 0.158에서
+   0.062로 붕괴했으며 에피소드는 약 11초에 끝났다.
+
+### 남은 문제
+
+파지와 들어올리기는 아직 해결되지 않았다. probe B도 success 0%이고
+`BestLiftHeight = 0.0003 m`에 불과하다. 손의 대향 aperture가 3.1–3.6 cm,
+블록 폭이 3.5 cm라서 블록을 밀어 넘어뜨리지 않고 손을 둘러 내리는 정밀도가
+거의 여유 없이 필요하지만 현재 정책에는 그 정밀도가 없다.
+
+`dg5f_grasp_lift_stability_curriculum.yaml`은 COM을 0.05 → 0.15 → 0.30으로
+올려 초기에는 전도를 억제하고, 실제 안정성 조건을 lift 계약 강화보다 먼저
+복원한다. 이것은 다음 장기 run의 가설이지 성공 증거가 아니다.
 
 ---
 
@@ -302,18 +372,28 @@ Unity 메뉴 **Tools > ML-Agents > Build DG5F Grasp Lift Linux Player**,
 ### 학습
 
 ```bash
-# pre-grasp reach 정책에서 전이 (권장)
+# 안정성 커리큘럼 + pre-grasp reach 정책에서 전이 (권장 장기 run)
+RUN_ID=dg5f_grasp_lift_stability_5m \
+CONFIG=training/config/dg5f_grasp_lift_stability_curriculum.yaml \
+TIME_SCALE=20 TORCH_DEVICE=cpu \
+  training/scripts/train_dg5f_grasp_lift.sh start --transfer
+
+# 기존 grasp_stage-only config에서 전이
 RUN_ID=dg5f_grasp_lift_5m TIME_SCALE=20 TORCH_DEVICE=cpu \
   training/scripts/train_dg5f_grasp_lift.sh start --transfer
 
 # 처음부터
-RUN_ID=dg5f_grasp_lift_scratch training/scripts/train_dg5f_grasp_lift.sh start
+RUN_ID=dg5f_grasp_lift_stability_scratch \
+CONFIG=training/config/dg5f_grasp_lift_stability_curriculum.yaml \
+  training/scripts/train_dg5f_grasp_lift.sh start
 
 # 중단된 run 재개
-RUN_ID=dg5f_grasp_lift_5m training/scripts/train_dg5f_grasp_lift.sh resume
+RUN_ID=dg5f_grasp_lift_stability_5m \
+CONFIG=training/config/dg5f_grasp_lift_stability_curriculum.yaml \
+  training/scripts/train_dg5f_grasp_lift.sh resume
 ```
 
-config: `training/config/dg5f_grasp_lift.yaml`
+config: `training/config/dg5f_grasp_lift_stability_curriculum.yaml`
 player: `training/builds/DG5FGraspLift/DG5FGraspLift.x86_64`
 
 ### 관찰할 지표
@@ -321,4 +401,7 @@ player: `training/builds/DG5FGraspLift/DG5FGraspLift.x86_64`
 `GraspLift/GraspConfirmed` → `GraspLift/BestLiftHeight` → `GraspLift/Success`
 순서로 올라와야 한다. `Failure/ObjectPushedAway`가 줄지 않으면 접근이
 거칠다는 뜻이고, `GraspLift/FinalClosure`가 0에 머물면 grip 탐색이 다시
-붕괴한 것이다.
+붕괴한 것이다. `GraspLift/ObjectTiltDegrees`는 종료 시 기울기,
+`GraspLift/MaxObjectTiltDegrees`는 에피소드 중 최대 기울기다. 둘 다 0°가
+직립, 90°가 옆으로 누운 상태이며 `Failure/ObjectToppled`와 함께 안정성
+커리큘럼이 단순히 에피소드를 조기 종료시키는지 확인해야 한다.
