@@ -85,3 +85,22 @@ training/scripts/run_dg5f_grasp_point_reach_evaluation.sh
 
 성공률 90% 이상과 모든 정밀 잠금 조건, 패널 접촉/조기 하강/clearance/물리/workspace
 안전 조건을 validator가 함께 검사한다.
+
+## DG5F Grasp + Lift (`DG5FGraspLift`)
+
+파지 후 들어올리기까지 학습하는 새 behavior. 설계·보상·판정 근거는
+[`docs/DG5F_GRASP_LIFT.md`](../docs/DG5F_GRASP_LIFT.md).
+
+- Behavior/spec: `DG5FGraspLift` / `1.0.0`
+- observations/actions: `57/7` (팔 6축 + 손 closure 1축)
+- 대상: Cube 0.055 × 0.10 × 0.055 m, 0.12 kg
+- config: `config/dg5f_grasp_lift.yaml`
+- trainer: `scripts/train_dg5f_grasp_lift.sh`
+- 전이 준비: `scripts/prepare_dg5f_grasp_lift_transfer.py`
+- Linux player: `builds/DG5FGraspLift/DG5FGraspLift.x86_64`
+
+```bash
+source vision/.vision/bin/activate
+RUN_ID=dg5f_grasp_lift_5m TIME_SCALE=20 TORCH_DEVICE=cpu \
+  training/scripts/train_dg5f_grasp_lift.sh start --transfer
+```

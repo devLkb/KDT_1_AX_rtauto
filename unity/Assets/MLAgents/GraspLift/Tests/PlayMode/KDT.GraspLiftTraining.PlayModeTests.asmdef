@@ -1,0 +1,11 @@
+{
+  "name": "KDT.GraspLiftTraining.PlayModeTests",
+  "rootNamespace": "KDT.GraspLiftTraining.PlayModeTests",
+  "references": [
+    "KDT.GraspLiftTraining",
+    "Unity.ML-Agents"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": [],
+  "autoReferenced": false
+}

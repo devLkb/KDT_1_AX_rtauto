@@ -1,0 +1,11 @@
+{
+  "name": "KDT.GraspLiftTraining.Editor",
+  "rootNamespace": "KDT.GraspLiftTraining.Editor",
+  "references": [
+    "KDT.GraspLiftTraining",
+    "Unity.ML-Agents",
+    "KDT.MLAgents.Editor"
+  ],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
