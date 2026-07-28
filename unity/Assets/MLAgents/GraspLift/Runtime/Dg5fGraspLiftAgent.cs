@@ -297,6 +297,7 @@ namespace KDT.GraspLiftTraining
             _episodeActive = false;
             Dg5fGraspLiftSpec.RefreshGraspStage();
             Dg5fGraspLiftSpec.RefreshBlockWidth();
+            Dg5fGraspLiftSpec.RefreshBlockHeight();
             Dg5fGraspLiftSpec.RefreshToppleLimit();
             Dg5fGraspLiftSpec.RefreshBlockCenterOfMass();
             Dg5fGraspLiftSpec.RefreshTopDownAlignmentPotentialMax();
@@ -389,11 +390,11 @@ namespace KDT.GraspLiftTraining
             for (int attempt = 0; attempt < 32 && !sampled; attempt++)
             {
                 localPosition = Dg5fGraspLiftSpec.SpawnBlockLocalPosition(
-                    Next01(), Next01(), Next01(), Dg5fGraspLiftSpec.BlockHeight);
+                    Next01(), Next01(), Next01(), Dg5fGraspLiftSpec.CurrentBlockHeight);
                 sampled = Dg5fGraspLiftSpec.IsValidSpawn(
                     localPosition,
                     Dg5fGraspLiftSpec.CurrentBlockWidth,
-                    Dg5fGraspLiftSpec.BlockHeight);
+                    Dg5fGraspLiftSpec.CurrentBlockHeight);
             }
             if (!sampled)
                 throw new InvalidOperationException(
@@ -423,13 +424,13 @@ namespace KDT.GraspLiftTraining
             _objectReleaseFixedSteps = 2;
         }
 
-        /// Applies the current `block_width` lesson to the block's scale and mass.
-        /// Mass tracks volume so a wider block is proportionally heavier.
+        /// Applies the current block-size lesson to the block's scale and mass.
+        /// Mass tracks volume so wider or taller blocks are proportionally heavier.
         void ApplyBlockSize()
         {
             float width = Dg5fGraspLiftSpec.CurrentBlockWidth;
             graspObject.transform.localScale =
-                new Vector3(width, Dg5fGraspLiftSpec.BlockHeight, width);
+                new Vector3(width, Dg5fGraspLiftSpec.CurrentBlockHeight, width);
             graspObject.mass = Dg5fGraspLiftSpec.CurrentBlockMass;
             // Rigidbody COM uses the unit cube's unscaled local space.
             graspObject.centerOfMass = Dg5fGraspLiftSpec.CurrentBlockCenterOfMassLocal;
@@ -720,7 +721,7 @@ namespace KDT.GraspLiftTraining
             if (Dg5fGraspLiftSpec.IsOutOfBounds(
                     objectLocalPosition,
                     Dg5fGraspLiftSpec.SupportTopHeight,
-                    Dg5fGraspLiftSpec.BlockHalfHeight))
+                    Dg5fGraspLiftSpec.CurrentBlockHalfHeight))
             {
                 FinishEpisode(false, "ObjectOutOfBounds");
                 return;
@@ -1012,6 +1013,8 @@ namespace KDT.GraspLiftTraining
                 StatAggregationMethod.Average);
             _stats.Add("Curriculum/BlockWidth", Dg5fGraspLiftSpec.CurrentBlockWidth,
                 StatAggregationMethod.Average);
+            _stats.Add("Curriculum/BlockHeight", Dg5fGraspLiftSpec.CurrentBlockHeight,
+                StatAggregationMethod.Average);
             if (!success)
                 _stats.Add($"Failure/{reason}", 1f, StatAggregationMethod.Sum);
         }
@@ -1026,7 +1029,8 @@ namespace KDT.GraspLiftTraining
         {
             if (graspObject == null) return Vector3.zero;
             Vector3 up = robotBase != null ? robotBase.up : Vector3.up;
-            return graspObject.position + up * Dg5fGraspLiftSpec.GraspTargetHeightOffset;
+            return graspObject.position
+                + up * Dg5fGraspLiftSpec.CurrentGraspTargetHeightOffset;
         }
 
         float GraspDistance()

@@ -57,20 +57,21 @@ namespace KDT.GraspLiftTraining
         // 0.035 m square cross section: GraspLiftHandGeometryProbe measured the
         // closed-hand thumb-to-finger opposition aperture at 3.1-3.6 cm, so the
         // original 5.5 cm face could not be opposed at all.
-        // 0.09 m tall: with ~0.13 m fingers, this keeps the graspable volume off the
-        // table so the hand can close around the block without driving the fingertips
-        // through the surface.
+        // Height defaults to 0.09 m for checkpoint compatibility, but is runtime
+        // configurable up to the 0.15 m Isaac Lab reference scale so geometry
+        // experiments do not require rebuilding the player.
         //
-        // The width is a *default*: the real value comes from the `block_width`
-        // environment parameter (see CurrentBlockWidth). Making the width a runtime
-        // parameter lets a training run measure which size the policy can really
-        // grasp instead of it being baked into the player.
+        // Width and height are defaults: the live values come from the `block_width`
+        // and `block_height` environment parameters (see CurrentBlockWidth and
+        // CurrentBlockHeight).
         public const float BlockWidth = 0.035f;
         public const float BlockHeight = 0.09f;
         public const float MinimumBlockWidth = 0.025f;
         public const float MaximumBlockWidth = 0.060f;
-        // Mass follows volume, so a wider block is also heavier and difficulty scales
-        // the way a real object would.
+        public const float MinimumBlockHeight = 0.06f;
+        public const float MaximumBlockHeight = 0.15f;
+        // Mass follows volume, so a wider or taller block is also heavier and
+        // difficulty scales the way a real object would.
         //
         // Density raised from 400 to 1800 kg/m^3 (0.035 m block => ~0.20 kg, in line
         // with the Isaac Lab reference's 0.3 kg object). At 400 kg/m^3 the block
@@ -82,6 +83,7 @@ namespace KDT.GraspLiftTraining
         public const float BlockDensity = 1800f;
         public const float BlockHalfHeight = BlockHeight * 0.5f;
         public const string BlockWidthParameterName = "block_width";
+        public const string BlockHeightParameterName = "block_height";
 
         // A 0.035 x 0.09 m block standing on the panel tips at atan(0.0175/0.045) =
         // ~21 deg, which any incidental fingertip brush during the descent exceeds.
@@ -94,19 +96,34 @@ namespace KDT.GraspLiftTraining
         // so 0.30 raises it from ~21 deg to ~33 deg without changing the geometry the
         // hand has to grasp. Expressed as a fraction of the block height measured from
         // its base; 0.5 is the neutral (uniform-density) value.
+        //
+        // Candidate-height trade-off for a 0.035 m wide block, using
+        // tipAngle = atan(halfWidth / comHeight) and
+        // comHeight = fraction * height:
+        // * height 0.09 m, fraction 0.30 -> ~33 deg
+        // * height 0.12 m, fraction 0.30 -> ~26 deg
+        // * height 0.12 m, fraction 0.20 -> ~36 deg
+        // A taller block therefore needs a lower centre-of-mass fraction to remain
+        // approximately as stable against tipping.
         public const float BlockComHeightFraction = 0.30f;
         public const string BlockComHeightFractionParameterName = "block_com_height_fraction";
         public const float MinimumBlockComHeightFraction = 0.05f;
         public const float MaximumBlockComHeightFraction = 0.50f;
 
         static float _blockWidth = BlockWidth;
+        static float _blockHeight = BlockHeight;
         static float _blockComHeightFraction = BlockComHeightFraction;
 
         /// Edge length of the block's square cross section for the current episode.
         public static float CurrentBlockWidth => _blockWidth;
 
+        /// Height of the block for the current episode.
+        public static float CurrentBlockHeight => _blockHeight;
+
+        public static float CurrentBlockHalfHeight => _blockHeight * 0.5f;
+
         public static float CurrentBlockMass =>
-            _blockWidth * _blockWidth * BlockHeight * BlockDensity;
+            _blockWidth * _blockWidth * _blockHeight * BlockDensity;
 
         public static void RefreshBlockWidth()
         {
@@ -122,13 +139,29 @@ namespace KDT.GraspLiftTraining
                 : BlockWidth;
         }
 
+        public static void RefreshBlockHeight()
+        {
+            SetBlockHeight(Academy.Instance.EnvironmentParameters.GetWithDefault(
+                BlockHeightParameterName,
+                BlockHeight));
+        }
+
+        public static void SetBlockHeight(float height)
+        {
+            _blockHeight = IsFinite(height)
+                ? Mathf.Clamp(height, MinimumBlockHeight, MaximumBlockHeight)
+                : BlockHeight;
+        }
+
         /// Height of the block's centre of mass as a fraction of its height, measured
         /// from the base. See BlockComHeightFraction.
         public static float CurrentBlockComHeightFraction => _blockComHeightFraction;
 
         /// Rigidbody.centerOfMass for the block. The block is a unit primitive cube
         /// scaled by (width, height, width), so its local space spans -0.5..0.5 and the
-        /// offset is expressed in those unscaled units.
+        /// offset is expressed in those unscaled units. This needs no block-height
+        /// adjustment because Rigidbody.centerOfMass is in the cube's unscaled local
+        /// space.
         public static Vector3 CurrentBlockCenterOfMassLocal =>
             new Vector3(0f, _blockComHeightFraction - 0.5f, 0f);
 
@@ -153,6 +186,11 @@ namespace KDT.GraspLiftTraining
         // the palm grasp-volume centre at the geometric centre would drive the palm
         // into the block. +2.5 cm puts it 2.0 cm below the top face.
         public const float GraspTargetHeightOffset = 0.025f;
+        // Preserve the same top-face inset as block height changes. Written as a
+        // delta from the default so the default path returns the existing constant
+        // exactly.
+        public static float CurrentGraspTargetHeightOffset =>
+            GraspTargetHeightOffset + (CurrentBlockHeight - BlockHeight) * 0.5f;
 
         // --- approach shaping ---------------------------------------------------
         // Coarse term, calibrated to the whole workspace: it gets the hand into the

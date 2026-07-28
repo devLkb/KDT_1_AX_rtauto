@@ -11,6 +11,7 @@ namespace KDT.GraspLiftTraining.Tests
         {
             Dg5fGraspLiftSpec.SetGraspStage(Dg5fGraspLiftSpec.FinalGraspStage);
             Dg5fGraspLiftSpec.SetBlockWidth(Dg5fGraspLiftSpec.BlockWidth);
+            Dg5fGraspLiftSpec.SetBlockHeight(Dg5fGraspLiftSpec.BlockHeight);
             Dg5fGraspLiftSpec.SetToppleLimit(Dg5fGraspLiftSpec.ToppleLimitDegrees);
             Dg5fGraspLiftSpec.SetBlockComHeightFraction(
                 Dg5fGraspLiftSpec.BlockComHeightFraction);
@@ -41,16 +42,68 @@ namespace KDT.GraspLiftTraining.Tests
         }
 
         [Test]
+        public void BlockHeightIsClampedAndRejectsNonFiniteValues()
+        {
+            Dg5fGraspLiftSpec.SetBlockHeight(0.001f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.MinimumBlockHeight,
+                Dg5fGraspLiftSpec.CurrentBlockHeight,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetBlockHeight(10f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.MaximumBlockHeight,
+                Dg5fGraspLiftSpec.CurrentBlockHeight,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetBlockHeight(float.NaN);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.BlockHeight,
+                Dg5fGraspLiftSpec.CurrentBlockHeight,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetBlockHeight(float.PositiveInfinity);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.BlockHeight,
+                Dg5fGraspLiftSpec.CurrentBlockHeight,
+                1e-6f);
+        }
+
+        [Test]
+        public void CurrentBlockHalfHeightTracksCurrentBlockHeight()
+        {
+            Dg5fGraspLiftSpec.SetBlockHeight(0.12f);
+            Assert.AreEqual(0.06f, Dg5fGraspLiftSpec.CurrentBlockHalfHeight, 1e-6f);
+            Assert.AreEqual(
+                0.04f,
+                Dg5fGraspLiftSpec.CurrentGraspTargetHeightOffset,
+                1e-6f,
+                "the grasp target must retain its 2 cm inset below the top face");
+        }
+
+        [Test]
+        public void DefaultBlockHeightMatchesTheExistingGeometry()
+        {
+            Dg5fGraspLiftSpec.SetBlockHeight(Dg5fGraspLiftSpec.BlockHeight);
+            Assert.AreEqual(0.09f, Dg5fGraspLiftSpec.CurrentBlockHeight, 1e-6f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.GraspTargetHeightOffset,
+                Dg5fGraspLiftSpec.CurrentGraspTargetHeightOffset,
+                0f);
+        }
+
+        [Test]
         public void BlockMassFollowsBlockVolume()
         {
             Dg5fGraspLiftSpec.SetBlockWidth(0.03f);
-            float small = Dg5fGraspLiftSpec.CurrentBlockMass;
+            Dg5fGraspLiftSpec.SetBlockHeight(0.09f);
+            float smallWidthAndHeight = Dg5fGraspLiftSpec.CurrentBlockMass;
             Dg5fGraspLiftSpec.SetBlockWidth(0.05f);
-            float large = Dg5fGraspLiftSpec.CurrentBlockMass;
-            Assert.Greater(large, small);
+            float largeWidth = Dg5fGraspLiftSpec.CurrentBlockMass;
+            Assert.Greater(largeWidth, smallWidthAndHeight);
+            Dg5fGraspLiftSpec.SetBlockHeight(0.12f);
+            float largeWidthAndHeight = Dg5fGraspLiftSpec.CurrentBlockMass;
+            Assert.Greater(largeWidthAndHeight, largeWidth);
             Assert.AreEqual(
-                0.05f * 0.05f * Dg5fGraspLiftSpec.BlockHeight * Dg5fGraspLiftSpec.BlockDensity,
-                large,
+                0.05f * 0.05f * 0.12f * Dg5fGraspLiftSpec.BlockDensity,
+                largeWidthAndHeight,
                 1e-6f);
         }
 
@@ -806,6 +859,23 @@ namespace KDT.GraspLiftTraining.Tests
                         $"stage {stage} sample {u} produced an invalid spawn {spawn}");
                 }
             }
+        }
+
+        [Test]
+        public void TallerBlockSpawnStillValidates()
+        {
+            Dg5fGraspLiftSpec.SetBlockHeight(0.12f);
+            Vector3 spawn = Dg5fGraspLiftSpec.SpawnBlockLocalPosition(
+                0.5f, 0.1f, 0.3f, Dg5fGraspLiftSpec.CurrentBlockHeight);
+            Assert.IsTrue(Dg5fGraspLiftSpec.IsValidSpawn(
+                spawn,
+                Dg5fGraspLiftSpec.CurrentBlockWidth,
+                Dg5fGraspLiftSpec.CurrentBlockHeight));
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.SupportTopHeight
+                    + Dg5fGraspLiftSpec.CurrentBlockHalfHeight,
+                spawn.y,
+                1e-5f);
         }
 
         [Test]

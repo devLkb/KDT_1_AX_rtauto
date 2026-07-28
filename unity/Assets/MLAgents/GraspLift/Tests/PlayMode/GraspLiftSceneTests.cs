@@ -92,7 +92,7 @@ namespace KDT.GraspLiftTraining.PlayModeTests
             var box = (BoxCollider)collider;
             Vector3 size = Vector3.Scale(box.size, block.transform.lossyScale);
             Assert.That(size.x, Is.EqualTo(Dg5fGraspLiftSpec.CurrentBlockWidth).Within(2e-3f));
-            Assert.That(size.y, Is.EqualTo(Dg5fGraspLiftSpec.BlockHeight).Within(2e-3f));
+            Assert.That(size.y, Is.EqualTo(Dg5fGraspLiftSpec.CurrentBlockHeight).Within(2e-3f));
             Assert.That(size.z, Is.EqualTo(Dg5fGraspLiftSpec.CurrentBlockWidth).Within(2e-3f));
             Assert.That(collider.material.staticFriction, Is.GreaterThan(1f),
                 "the block needs high friction for a friction grasp to hold");
@@ -109,7 +109,9 @@ namespace KDT.GraspLiftTraining.PlayModeTests
                 Vector3 local = agent.CurrentObjectLocalPosition;
                 Assert.That(
                     Dg5fGraspLiftSpec.IsValidSpawn(
-                        local, Dg5fGraspLiftSpec.CurrentBlockWidth, Dg5fGraspLiftSpec.BlockHeight),
+                        local,
+                        Dg5fGraspLiftSpec.CurrentBlockWidth,
+                        Dg5fGraspLiftSpec.CurrentBlockHeight),
                     Is.True,
                     $"invalid spawn {local}");
                 float tilt = Vector3.Angle(agent.graspObject.transform.up, Vector3.up);

@@ -356,14 +356,15 @@ namespace KDT.GraspLiftTraining.Editor
             block.transform.SetParent(parent, false);
             block.transform.localPosition = new Vector3(
                 0.40f,
-                Dg5fGraspLiftSpec.PanelThickness + Dg5fGraspLiftSpec.BlockHalfHeight,
+                Dg5fGraspLiftSpec.PanelThickness
+                    + Dg5fGraspLiftSpec.CurrentBlockHalfHeight,
                 0.25f);
-            // Default size only; Dg5fGraspLiftAgent re-applies the `block_width`
+            // Initial size only; Dg5fGraspLiftAgent re-applies the runtime block-size
             // lesson (scale and mass) at every episode reset.
             block.transform.localScale = new Vector3(
-                Dg5fGraspLiftSpec.BlockWidth,
-                Dg5fGraspLiftSpec.BlockHeight,
-                Dg5fGraspLiftSpec.BlockWidth);
+                Dg5fGraspLiftSpec.CurrentBlockWidth,
+                Dg5fGraspLiftSpec.CurrentBlockHeight,
+                Dg5fGraspLiftSpec.CurrentBlockWidth);
             block.GetComponent<Collider>().material = material;
             block.GetComponent<Renderer>().sharedMaterial = GetOrCreateBlockMaterial();
 
