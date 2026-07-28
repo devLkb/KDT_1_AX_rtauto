@@ -168,10 +168,17 @@ namespace KDT.GraspLiftTraining
         // 12 cm.
         public const float FineApproachPotentialMaximum = 1.5f;
         public const float FineApproachDistance = 0.12f;
-        // Keeping the palm pointing down is what makes a grasp reachable at all,
-        // but it is no longer the primary objective (grasping is), so it carries
-        // less weight than in the reach task.
+        // Keeping the palm pointing down is what makes a grasp reachable at all.
+        // The transferred pre-grasp policy reached 25.3 deg, but the solved lift
+        // policy drifted to 83-87 deg because this new-best potential was only 0.3
+        // against the 1.5 fine-approach potential and stopped constraining posture
+        // after being banked. Runtime tuning lets a sweep restore enough weight
+        // without rebuilding the inference player.
         public const float TopDownAlignmentPotentialMax = 0.3f;
+        public const float MinimumTopDownAlignmentPotentialMax = 0f;
+        public const float MaximumTopDownAlignmentPotentialMax = 5f;
+        public const string TopDownAlignmentPotentialMaxParameterName =
+            "topdown_potential_max";
         public const float TopDownAlignmentRewardDistance = 0.20f;
         public const float MaximumTopDownAngleDegrees = 35f;
         public const float TopDownRewardEntryAngleDegrees = 70f;
@@ -265,23 +272,64 @@ namespace KDT.GraspLiftTraining
         public const float NearObjectControlClearance = 0.08f;
         public const float NearObjectActionPenaltyScale = -0.002f;
         public const float NearObjectArmDeltaScale = 0.35f;
-        // Small global rate cost targets direction reversals during the full approach
-        // without making ordinary arm motion expensive.
+        // Measured MeanArmActionRate is 0.40 over ~110 decisions. Because the helper
+        // divides by six arm joints, the default costs only
+        // -0.001 * (0.40 / 6) * 110 ~= -0.007 per episode (0.06% of return ~11).
+        // The old -0.02 clamp still reached only about -0.15, so the wider runtime
+        // range is required for a smoothness sweep to produce a meaningful signal.
         public const float ActionRatePenaltyScale = -0.001f;
+        public const float MinimumActionRatePenaltyScale = -1f;
+        public const float MaximumActionRatePenaltyScale = 0f;
         // Runtime tuning is needed to sweep smoothness against grasp success without
         // rebuilding the inference player.
         public const string ActionRatePenaltyScaleParameterName =
             "action_rate_penalty_scale";
-        // A sustained hand-panel scrape should matter, while a brief brush remains
-        // negligible and never terminates the episode.
+        // Measured HandSurfaceContactSeconds is ~3.5 s, so the default costs only
+        // -0.05/s * 3.5 s = -0.175, or about -0.18 per episode (1.6% of return ~11).
+        // A sustained scrape should be sweepable into a material cost, while the
+        // unchanged default keeps a brief brush negligible and non-terminal.
         public const float HandSurfacePenaltyPerSecond = -0.05f;
+        public const float MinimumHandSurfacePenaltyPerSecond = -5f;
+        public const float MaximumHandSurfacePenaltyPerSecond = 0f;
         // Runtime tuning is needed to balance scrape avoidance against reaching low
         // enough to grasp without rebuilding the inference player.
         public const string HandSurfacePenaltyPerSecondParameterName =
             "hand_surface_penalty_per_second";
+        // Unlike the new-best top-down potential, this direct per-decision term keeps
+        // constraining the wrist at the moment of grasp commitment. It defaults off
+        // so an unparameterised run remains identical to the solved policy.
+        public const float GraspPosturePenaltyScale = 0f;
+        public const float MinimumGraspPosturePenaltyScale = -1f;
+        public const float MaximumGraspPosturePenaltyScale = 0f;
+        public const string GraspPosturePenaltyScaleParameterName =
+            "grasp_posture_penalty_scale";
 
+        static float _topDownAlignmentPotentialMax = TopDownAlignmentPotentialMax;
         static float _actionRatePenaltyScale = ActionRatePenaltyScale;
         static float _handSurfacePenaltyPerSecond = HandSurfacePenaltyPerSecond;
+        static float _graspPosturePenaltyScale = GraspPosturePenaltyScale;
+
+        /// Top-down alignment potential maximum for the current episode.
+        public static float CurrentTopDownAlignmentPotentialMax =>
+            _topDownAlignmentPotentialMax;
+
+        public static void RefreshTopDownAlignmentPotentialMax()
+        {
+            SetTopDownAlignmentPotentialMax(
+                Academy.Instance.EnvironmentParameters.GetWithDefault(
+                    TopDownAlignmentPotentialMaxParameterName,
+                    TopDownAlignmentPotentialMax));
+        }
+
+        public static void SetTopDownAlignmentPotentialMax(float maximum)
+        {
+            _topDownAlignmentPotentialMax = IsFinite(maximum)
+                ? Mathf.Clamp(
+                    maximum,
+                    MinimumTopDownAlignmentPotentialMax,
+                    MaximumTopDownAlignmentPotentialMax)
+                : TopDownAlignmentPotentialMax;
+        }
 
         /// Action-rate weight for the current episode.
         public static float CurrentActionRatePenaltyScale => _actionRatePenaltyScale;
@@ -296,7 +344,10 @@ namespace KDT.GraspLiftTraining
         public static void SetActionRatePenaltyScale(float scale)
         {
             _actionRatePenaltyScale = IsFinite(scale)
-                ? Mathf.Clamp(scale, -0.02f, 0f)
+                ? Mathf.Clamp(
+                    scale,
+                    MinimumActionRatePenaltyScale,
+                    MaximumActionRatePenaltyScale)
                 : ActionRatePenaltyScale;
         }
 
@@ -315,8 +366,33 @@ namespace KDT.GraspLiftTraining
         public static void SetHandSurfacePenaltyPerSecond(float scale)
         {
             _handSurfacePenaltyPerSecond = IsFinite(scale)
-                ? Mathf.Clamp(scale, -1f, 0f)
+                ? Mathf.Clamp(
+                    scale,
+                    MinimumHandSurfacePenaltyPerSecond,
+                    MaximumHandSurfacePenaltyPerSecond)
                 : HandSurfacePenaltyPerSecond;
+        }
+
+        /// Direct grasp-posture weight for the current episode.
+        public static float CurrentGraspPosturePenaltyScale =>
+            _graspPosturePenaltyScale;
+
+        public static void RefreshGraspPosturePenaltyScale()
+        {
+            SetGraspPosturePenaltyScale(
+                Academy.Instance.EnvironmentParameters.GetWithDefault(
+                    GraspPosturePenaltyScaleParameterName,
+                    GraspPosturePenaltyScale));
+        }
+
+        public static void SetGraspPosturePenaltyScale(float scale)
+        {
+            _graspPosturePenaltyScale = IsFinite(scale)
+                ? Mathf.Clamp(
+                    scale,
+                    MinimumGraspPosturePenaltyScale,
+                    MaximumGraspPosturePenaltyScale)
+                : GraspPosturePenaltyScale;
         }
 
         // Palm-local centre of the full-hand grasp volume (same anchor the reach
@@ -556,7 +632,29 @@ namespace KDT.GraspLiftTraining
             float progress = Mathf.Clamp01(
                 (TopDownRewardEntryAngleDegrees - TopDownAngleDegrees(topDownAlignment))
                 / (TopDownRewardEntryAngleDegrees - MaximumTopDownAngleDegrees));
-            return TopDownAlignmentPotentialMax * progress * progress;
+            return _topDownAlignmentPotentialMax * progress * progress;
+        }
+
+        /// Per-decision cost for committing to a grasp with a wrist angle beyond the
+        /// acceptable top-down cone. Approach motion remains free outside the grasp
+        /// volume, and wrist motion is free again after grasp confirmation.
+        public static float GraspPosturePenalty(
+            float angleDegrees,
+            float graspDistance,
+            bool graspConfirmed)
+        {
+            if (graspConfirmed
+                || !IsFinite(angleDegrees)
+                || !IsFinite(graspDistance)
+                || graspDistance > GraspReadyDistance + 1e-6f)
+            {
+                return 0f;
+            }
+
+            float progress = Mathf.Clamp01(
+                (angleDegrees - MaximumTopDownAngleDegrees)
+                / (90f - MaximumTopDownAngleDegrees));
+            return _graspPosturePenaltyScale * progress;
         }
 
         /// Potential paid for having the fingers closed while next to the object.

@@ -14,10 +14,14 @@ namespace KDT.GraspLiftTraining.Tests
             Dg5fGraspLiftSpec.SetToppleLimit(Dg5fGraspLiftSpec.ToppleLimitDegrees);
             Dg5fGraspLiftSpec.SetBlockComHeightFraction(
                 Dg5fGraspLiftSpec.BlockComHeightFraction);
+            Dg5fGraspLiftSpec.SetTopDownAlignmentPotentialMax(
+                Dg5fGraspLiftSpec.TopDownAlignmentPotentialMax);
             Dg5fGraspLiftSpec.SetActionRatePenaltyScale(
                 Dg5fGraspLiftSpec.ActionRatePenaltyScale);
             Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(
                 Dg5fGraspLiftSpec.HandSurfacePenaltyPerSecond);
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(
+                Dg5fGraspLiftSpec.GraspPosturePenaltyScale);
         }
 
         // --- block size parameter -------------------------------------------
@@ -227,6 +231,33 @@ namespace KDT.GraspLiftTraining.Tests
                 "below the object a top-down pose cannot grasp it");
             Assert.Greater(
                 Dg5fGraspLiftSpec.TopDownAlignmentPotential(0.05f, 0.05f, aligned), 0f);
+        }
+
+        [Test]
+        public void TopDownPotentialMaximumIsTunableClampedAndRejectsNonFinite()
+        {
+            float aligned = Dg5fGraspLiftSpec.TopDownAlignment(Vector3.down, Vector3.up);
+            Dg5fGraspLiftSpec.SetTopDownAlignmentPotentialMax(2f);
+            Assert.AreEqual(
+                2f,
+                Dg5fGraspLiftSpec.TopDownAlignmentPotential(0.05f, 0.05f, aligned),
+                1e-6f);
+
+            Dg5fGraspLiftSpec.SetTopDownAlignmentPotentialMax(-1f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.MinimumTopDownAlignmentPotentialMax,
+                Dg5fGraspLiftSpec.CurrentTopDownAlignmentPotentialMax,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetTopDownAlignmentPotentialMax(10f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.MaximumTopDownAlignmentPotentialMax,
+                Dg5fGraspLiftSpec.CurrentTopDownAlignmentPotentialMax,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetTopDownAlignmentPotentialMax(float.NaN);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.TopDownAlignmentPotentialMax,
+                Dg5fGraspLiftSpec.CurrentTopDownAlignmentPotentialMax,
+                1e-6f);
         }
 
         // --- grip shaping ----------------------------------------------------
@@ -449,14 +480,20 @@ namespace KDT.GraspLiftTraining.Tests
         [Test]
         public void ActionRatePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled()
         {
-            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(-1f);
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(-2f);
             Assert.AreEqual(
-                -0.02f,
+                Dg5fGraspLiftSpec.MinimumActionRatePenaltyScale,
                 Dg5fGraspLiftSpec.CurrentActionRatePenaltyScale,
                 1e-6f);
+            Dg5fGraspLiftSpec.SetActionRatePenaltyScale(-0.1f);
+            Assert.AreEqual(
+                -0.1f,
+                Dg5fGraspLiftSpec.CurrentActionRatePenaltyScale,
+                1e-6f,
+                "the widened range must accept a value rejected by the old -0.02 clamp");
             Dg5fGraspLiftSpec.SetActionRatePenaltyScale(1f);
             Assert.AreEqual(
-                0f,
+                Dg5fGraspLiftSpec.MaximumActionRatePenaltyScale,
                 Dg5fGraspLiftSpec.CurrentActionRatePenaltyScale,
                 1e-6f);
             Dg5fGraspLiftSpec.SetActionRatePenaltyScale(0f);
@@ -511,14 +548,20 @@ namespace KDT.GraspLiftTraining.Tests
         [Test]
         public void HandSurfacePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled()
         {
-            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(-5f);
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(-10f);
             Assert.AreEqual(
-                -1f,
+                Dg5fGraspLiftSpec.MinimumHandSurfacePenaltyPerSecond,
                 Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
                 1e-6f);
+            Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(-2f);
+            Assert.AreEqual(
+                -2f,
+                Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
+                1e-6f,
+                "the widened range must accept a value rejected by the old -1 clamp");
             Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(1f);
             Assert.AreEqual(
-                0f,
+                Dg5fGraspLiftSpec.MaximumHandSurfacePenaltyPerSecond,
                 Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
                 1e-6f);
             Dg5fGraspLiftSpec.SetHandSurfacePenaltyPerSecond(0f);
@@ -530,6 +573,93 @@ namespace KDT.GraspLiftTraining.Tests
             Assert.AreEqual(
                 Dg5fGraspLiftSpec.HandSurfacePenaltyPerSecond,
                 Dg5fGraspLiftSpec.CurrentHandSurfacePenaltyPerSecond,
+                1e-6f);
+        }
+
+        [Test]
+        public void GraspPosturePenaltyOnlyChargesBadUnconfirmedPoseAtTheBlock()
+        {
+            const float scale = -0.8f;
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(scale);
+            float near = Dg5fGraspLiftSpec.GraspReadyDistance;
+            float acceptable = Dg5fGraspLiftSpec.MaximumTopDownAngleDegrees;
+            float halfway = (acceptable + 90f) * 0.5f;
+
+            Assert.AreEqual(
+                0f, Dg5fGraspLiftSpec.GraspPosturePenalty(90f, near, true), 1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(90f, near + 0.001f, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(acceptable, near, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(acceptable - 10f, near, false),
+                1e-6f);
+            Assert.AreEqual(
+                scale,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(90f, near, false),
+                1e-6f);
+            Assert.AreEqual(
+                scale * 0.5f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(halfway, near, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(float.NaN, near, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(
+                    90f, float.PositiveInfinity, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(
+                    float.NegativeInfinity, near, false),
+                1e-6f);
+            Assert.AreEqual(
+                0f,
+                Dg5fGraspLiftSpec.GraspPosturePenalty(90f, float.NaN, false),
+                1e-6f);
+        }
+
+        [Test]
+        public void DefaultGraspPosturePenaltyIsInertAtEveryAngle()
+        {
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(
+                Dg5fGraspLiftSpec.GraspPosturePenaltyScale);
+            for (int angle = 0; angle <= 180; angle += 5)
+            {
+                Assert.AreEqual(
+                    0f,
+                    Dg5fGraspLiftSpec.GraspPosturePenalty(
+                        angle, Dg5fGraspLiftSpec.GraspReadyDistance, false),
+                    1e-6f);
+            }
+        }
+
+        [Test]
+        public void GraspPosturePenaltyScaleClampsAndRejectsNonFinite()
+        {
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(-2f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.MinimumGraspPosturePenaltyScale,
+                Dg5fGraspLiftSpec.CurrentGraspPosturePenaltyScale,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(1f);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.MaximumGraspPosturePenaltyScale,
+                Dg5fGraspLiftSpec.CurrentGraspPosturePenaltyScale,
+                1e-6f);
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(-0.5f);
+            Dg5fGraspLiftSpec.SetGraspPosturePenaltyScale(float.NegativeInfinity);
+            Assert.AreEqual(
+                Dg5fGraspLiftSpec.GraspPosturePenaltyScale,
+                Dg5fGraspLiftSpec.CurrentGraspPosturePenaltyScale,
                 1e-6f);
         }
 

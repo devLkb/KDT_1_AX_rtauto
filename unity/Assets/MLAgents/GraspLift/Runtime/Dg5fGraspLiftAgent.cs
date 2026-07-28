@@ -82,7 +82,9 @@ namespace KDT.GraspLiftTraining
         float _handSurfaceContactSeconds;
         float _handSurfaceContactSecondsSinceDecision;
         float _sumSquaredArmActionDeltas;
+        float _sumGraspPostureAngleDegrees;
         int _armActionDecisionCount;
+        int _graspPostureAngleSampleCount;
         int _contactCount;
         Vector3 _contactCentroid;
         readonly float[] _previousArmActions =
@@ -297,8 +299,10 @@ namespace KDT.GraspLiftTraining
             Dg5fGraspLiftSpec.RefreshBlockWidth();
             Dg5fGraspLiftSpec.RefreshToppleLimit();
             Dg5fGraspLiftSpec.RefreshBlockCenterOfMass();
+            Dg5fGraspLiftSpec.RefreshTopDownAlignmentPotentialMax();
             Dg5fGraspLiftSpec.RefreshActionRatePenaltyScale();
             Dg5fGraspLiftSpec.RefreshHandSurfacePenaltyPerSecond();
+            Dg5fGraspLiftSpec.RefreshGraspPosturePenaltyScale();
 
             _closure = 0f;
             _episodeSeconds = 0f;
@@ -310,7 +314,9 @@ namespace KDT.GraspLiftTraining
             _handSurfaceContactSeconds = 0f;
             _handSurfaceContactSecondsSinceDecision = 0f;
             _sumSquaredArmActionDeltas = 0f;
+            _sumGraspPostureAngleDegrees = 0f;
             _armActionDecisionCount = 0;
+            _graspPostureAngleSampleCount = 0;
             Array.Clear(_previousArmActions, 0, _previousArmActions.Length);
             _hasPreviousArmAction = false;
             _graspConfirmed = false;
@@ -571,10 +577,28 @@ namespace KDT.GraspLiftTraining
             AddReward(Dg5fGraspLiftSpec.HandSurfaceContactPenalty(
                 handSurfaceContactSeconds,
                 _graspConfirmed));
+            float graspDistance = GraspDistance();
+            float graspPostureAngleDegrees =
+                Dg5fGraspLiftSpec.TopDownAngleDegrees(TopDownAlignment());
+            AddReward(Dg5fGraspLiftSpec.GraspPosturePenalty(
+                graspPostureAngleDegrees,
+                graspDistance,
+                _graspConfirmed));
+            // Sample the same pre-confirmation pose constrained by the direct cost.
+            // Excluding the lift prevents post-grasp wrist motion from contaminating
+            // the diagnostic that the posture sweep is intended to read.
+            if (!_graspConfirmed
+                && Dg5fGraspLiftSpec.IsFinite(graspDistance)
+                && Dg5fGraspLiftSpec.IsFinite(graspPostureAngleDegrees)
+                && graspDistance <= Dg5fGraspLiftSpec.GraspReadyDistance)
+            {
+                _sumGraspPostureAngleDegrees += graspPostureAngleDegrees;
+                _graspPostureAngleSampleCount++;
+            }
 
             // Arm: integrate bounded joint deltas, damped near the block so the hand
             // does not punt it across the panel.
-            bool nearObject = Dg5fGraspLiftSpec.UsesNearObjectControl(GraspDistance());
+            bool nearObject = Dg5fGraspLiftSpec.UsesNearObjectControl(graspDistance);
             float actionScale = nearObject ? Dg5fGraspLiftSpec.NearObjectArmDeltaScale : 1f;
             float sumSquaredArmActions = 0f;
             float sumSquaredArmActionDeltas = 0f;
@@ -971,6 +995,12 @@ namespace KDT.GraspLiftTraining
             _stats.Add(
                 "GraspLift/TopDownAngleDegrees",
                 Dg5fGraspLiftSpec.TopDownAngleDegrees(TopDownAlignment()),
+                StatAggregationMethod.Average);
+            _stats.Add(
+                "GraspLift/GraspPostureAngleDegrees",
+                _graspPostureAngleSampleCount > 0
+                    ? _sumGraspPostureAngleDegrees / _graspPostureAngleSampleCount
+                    : 0f,
                 StatAggregationMethod.Average);
             _stats.Add(
                 "GraspLift/MeanArmActionRate",
