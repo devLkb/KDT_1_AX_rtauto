@@ -1,0 +1,81 @@
+# DG5F GraspLift grasp-posture probe from DG5FGraspLift-3199988.
+#
+# Measured baseline: GraspLift/Success 0.987, TopDownAngleDegrees ~86 deg,
+# HandSurfaceContactSeconds ~3.5 s, and MeanArmActionRate ~0.40.
+#
+# At 85 deg, progress = (85 - 35) / (90 - 35) = 0.909, so each committing
+# decision costs scale * 0.909. For a plausible 10-40 committing decisions:
+#   scale -0.1: -0.0909/decision, or -0.909 to -3.636 per episode;
+#   scale -0.3: -0.2727/decision, or -2.727 to -10.908 per episode.
+#
+# Decision rule: GraspLift/Success must stay >= 0.95, while the new
+# GraspLift/GraspPostureAngleDegrees stat should fall substantially, ideally below
+# 50 deg. That stat is sampled only within GraspReadyDistance before confirmation;
+# it is not the end-of-episode GraspLift/TopDownAngleDegrees metric.
+# If posture and success trade off hard, accept the side grasp and target only the
+# thumb scraping; a posture fix is a hypothesis, not a guaranteed improvement.
+#
+# Keep topdown_potential_max at its 0.3 default: the top-down reward potential pays
+# only below its 70 deg entry angle, so its gradient at the current ~85 deg posture
+# is identically zero. Raising it cannot move this policy; this posture penalty is
+# the only live gradient.
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      # Keep the source PPO rollout/update shape so the quality terms, rather than
+      # a changed optimizer regime, explain policy changes.
+      # 20 parallel training areas x ~200 decisions per episode. A 20480 buffer is
+      # ~2 full rollouts across all areas, which preserves rare grasp/lift events.
+      batch_size: 2048
+      buffer_size: 20480
+      # One-third of the source 3e-4 rate limits destructive re-exploration of an
+      # already competent policy; linear decay still settles the 1 M-step fine-tune.
+      learning_rate: 0.0001
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    # This block must match the source config exactly or `--initialize-from`
+    # cannot restore the converged 3.2 M checkpoint.
+    network_settings:
+      # normalize/hidden_units/num_layers must stay identical to the 57/7 reach
+      # checkpoint or `--initialize-from` cannot load it.
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        # Lift reward can arrive ~100 decisions after the grasp; retain the source
+        # discount horizon and reward strength to isolate motion-quality effects.
+        gamma: 0.995
+        strength: 1.0
+    # Ten evenly spaced snapshots let us select improved smoothness without
+    # accepting a checkpoint whose grasp success has regressed.
+    keep_checkpoints: 6
+    checkpoint_interval: 50000
+    # This is a short fine-tune of a converged 3.2 M policy, not fresh training.
+    max_steps: 200000
+    # Preserve the source rollout horizon and frequent metric sampling; synchronous
+    # collection and CPU Torch match the sibling configs' reproducible setup.
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  # Freeze both curricula at their hardest lessons. Changing task difficulty while
+  # adding reward terms would confound whether motion quality caused any regression.
+  grasp_stage: 3.0
+  block_com_height_fraction: 0.30
+  # Keep the source policy's real toppling failure contract unchanged.
+  topple_limit_deg: 45.0
+  # Record the newly introduced code defaults explicitly for reproducibility.
+  action_rate_penalty_scale: -0.001
+  hand_surface_penalty_per_second: -0.05
+  grasp_posture_penalty_scale: -0.3

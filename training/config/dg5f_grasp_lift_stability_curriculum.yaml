@@ -1,0 +1,120 @@
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      # 20 parallel training areas x ~200 decisions per episode. A 20480 buffer is
+      # ~2 full rollouts across all areas, which keeps the grasp/lift events (rare
+      # early on) from being averaged away inside a single update.
+      batch_size: 2048
+      buffer_size: 20480
+      learning_rate: 0.0003
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    network_settings:
+      # normalize/hidden_units/num_layers must stay identical to the 57/7 reach
+      # checkpoint or `--initialize-from` cannot load it.
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        # The lift payoff arrives up to ~10 s (100 decisions) after the grasp that
+        # earned it, so the discount horizon has to be long.
+        gamma: 0.995
+        strength: 1.0
+    keep_checkpoints: 20
+    checkpoint_interval: 200000
+    max_steps: 5000000
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  # Grasp curriculum. Stage 1 keeps the block inside the annulus the transferred
+  # pre-grasp policy already solves and only asks for a 5 cm lift held 0.25 s;
+  # stages 2-3 widen the workspace and raise the lift contract to 10 cm held 0.5 s.
+  #
+  # Progress (step-count) gating rather than reward gating: the reward scale changes
+  # between stages, so a reward threshold would not mean the same thing in each
+  # lesson.
+  grasp_stage:
+    curriculum:
+      - name: lift_5cm_near
+        completion_criteria:
+          measure: progress
+          behavior: DG5FGraspLift
+          threshold: 0.25
+          min_lesson_length: 1000
+          signal_smoothing: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 1.0
+      - name: lift_8cm
+        completion_criteria:
+          measure: progress
+          behavior: DG5FGraspLift
+          threshold: 0.55
+          min_lesson_length: 1000
+          signal_smoothing: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 2.0
+      - name: lift_10cm_target
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            value: 3.0
+
+  # Remove the stability crutch at progress 0.10 and 0.20 (~0.5 M and ~1.0 M of
+  # 5 M steps), before grasp_stage tightens at 0.25 and 0.55. This ordering makes
+  # the policy learn to keep the real block upright under the easy 5 cm/0.25 s lift
+  # contract instead of changing stability and lift difficulty at the same time.
+  block_com_height_fraction:
+    curriculum:
+      - name: stable_base
+        completion_criteria:
+          measure: progress
+          behavior: DG5FGraspLift
+          threshold: 0.10
+          min_lesson_length: 1000
+          signal_smoothing: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            # COM is 0.05 x 0.09 = 4.5 mm above the base; atan(17.5/4.5)
+            # = 75.6 deg, so early-policy contact is unlikely to tip the block.
+            value: 0.05
+      - name: semi_stable
+        completion_criteria:
+          measure: progress
+          behavior: DG5FGraspLift
+          threshold: 0.20
+          min_lesson_length: 1000
+          signal_smoothing: true
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            # COM is 13.5 mm high; with the current 90 mm block,
+            # atan(17.5/13.5) = 52.4 deg (the earlier 100 mm geometry gave ~49 deg).
+            value: 0.15
+      - name: uniform_like
+        value:
+          sampler_type: constant
+          sampler_parameters:
+            # Probe B used 0.30: COM 27 mm high and atan(17.5/27) = 33.0 deg.
+            # It stopped the -0.0216 m side-lying plateau, but still had 0% success.
+            value: 0.30
+
+  # Probe B made 45 deg toppling the dominant terminal (36.4 per 5000-step window);
+  # keep the real failure contract explicit while the COM curriculum changes.
+  topple_limit_deg: 45.0

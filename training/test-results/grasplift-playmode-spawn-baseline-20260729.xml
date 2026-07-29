@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Failed(Child)" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.8229736">
+  <test-suite type="TestSuite" id="1042" name="KDT_robot_AI" fullname="KDT_robot_AI" runstate="Runnable" testcasecount="22" result="Failed" site="Child" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.822974" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1010" name="KDT.GraspLiftTraining.PlayModeTests.dll" fullname="/home/lkb/workspace/KDT_1_AX_rtauto/unity/Library/ScriptAssemblies/KDT.GraspLiftTraining.PlayModeTests.dll" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.815101" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="366547" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1011" name="KDT" fullname="KDT" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.814497" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1012" name="GraspLiftTraining" fullname="KDT.GraspLiftTraining" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.814169" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1013" name="PlayModeTests" fullname="KDT.GraspLiftTraining.PlayModeTests" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.813844" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1003" name="GraspLiftSceneTests" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" testcasecount="6" result="Failed" site="Child" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.812731" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1007" name="BlockSpawnsUprightAndRestingOnThePanel" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.BlockSpawnsUprightAndRestingOnThePanel" methodname="BlockSpawnsUprightAndRestingOnThePanel" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="1239583074" result="Failed" start-time="2026-07-28 17:54:25Z" end-time="2026-07-28 17:54:26Z" duration="0.799978" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  invalid spawn (0.47, 0.06, 0.09)
+  Expected: True
+  But was:  False
+]]></message>
+                  <stack-trace><![CDATA[at KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests+<BlockSpawnsUprightAndRestingOnThePanel>d__5.MoveNext () [0x00047] in /home/lkb/workspace/KDT_1_AX_rtauto/unity/Assets/MLAgents/GraspLift/Tests/PlayMode/GraspLiftSceneTests.cs:110
+at UnityEngine.TestTools.TestEnumerator+<Execute>d__7.MoveNext () [0x0003a] in ./Library/PackageCache/com.unity.test-framework@f63be82e0d2e/UnityEngine.TestRunner/NUnitExtensions/Attributes/TestEnumerator.cs:44
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[Registered Communicator in Agent.
+Couldn't connect to trainer on port 5004 using API version 1.5.0. Will perform inference instead.
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+Saving results to: /home/lkb/.config/unity3d/DefaultCompany/KDT_robot_AI/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

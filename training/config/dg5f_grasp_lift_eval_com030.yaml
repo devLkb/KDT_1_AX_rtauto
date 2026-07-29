@@ -1,0 +1,61 @@
+# Inference-only evaluation of the deployed DG5F GraspLift policy; no learning occurs.
+# The 0.30-COM control pairs with the 0.50-COM uniform-density test. Compare
+# GraspLift/Success and Failure/ObjectToppled at 0.30 versus 0.50.
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      # Keep the source PPO rollout/update shape so the quality terms, rather than
+      # a changed optimizer regime, explain policy changes.
+      # 20 parallel training areas x ~200 decisions per episode. A 20480 buffer is
+      # ~2 full rollouts across all areas, which preserves rare grasp/lift events.
+      batch_size: 2048
+      buffer_size: 20480
+      # One-third of the source 3e-4 rate limits destructive re-exploration of an
+      # already competent policy; linear decay still settles the 1 M-step fine-tune.
+      learning_rate: 0.0001
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    # This block must match the source config exactly or `--initialize-from`
+    # cannot restore the converged 3.2 M checkpoint.
+    network_settings:
+      # normalize/hidden_units/num_layers must stay identical to the 57/7 reach
+      # checkpoint or `--initialize-from` cannot load it.
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        # Lift reward can arrive ~100 decisions after the grasp; retain the source
+        # discount horizon and reward strength to isolate motion-quality effects.
+        gamma: 0.995
+        strength: 1.0
+    # Ten evenly spaced snapshots let us select improved smoothness without
+    # accepting a checkpoint whose grasp success has regressed.
+    keep_checkpoints: 10
+    checkpoint_interval: 100000
+    # A --resume --inference run needs max_steps above checkpoint step 3199988;
+    # a lower value would exhaust its budget and exit before stepping the environment.
+    max_steps: 3400000
+    # Preserve the source rollout horizon and frequent metric sampling; synchronous
+    # collection and CPU Torch match the sibling configs' reproducible setup.
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  grasp_stage: 3.0
+  block_com_height_fraction: 0.30
+  topple_limit_deg: 45.0
+  # Disable quality costs so reported return describes the deployed policy unchanged.
+  action_rate_penalty_scale: 0
+  hand_surface_penalty_per_second: 0
+  grasp_posture_penalty_scale: 0

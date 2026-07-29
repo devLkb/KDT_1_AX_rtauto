@@ -1,0 +1,48 @@
+# Probe B — same run as dg5f_grasp_lift_probe_tilt.yaml with both topple fixes on.
+#
+# Only two things differ from probe A: the block's centre of mass drops to 30% of
+# its height (static tip angle ~21 deg -> ~33 deg) and the episode ends when an
+# ungrasped block tilts past 45 deg. Everything else — lesson, hyperparameters,
+# step budget — is held fixed so the comparison isolates the change.
+#
+# What to look for against probe A:
+#   GraspLift/MaxObjectTiltDegrees  should fall well below probe A's value
+#   GraspLift/FinalLiftHeight       should stop sitting at ~-0.021 m
+#   GraspLift/BestLiftHeight        should rise above the ~0.0002 m floor
+#   Failure/ObjectToppled           counts how much of the old plateau was toppling
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 20480
+      learning_rate: 0.0003
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    keep_checkpoints: 5
+    checkpoint_interval: 150000
+    max_steps: 150000
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  grasp_stage: 1.0
+  topple_limit_deg: 45.0
+  block_com_height_fraction: 0.30

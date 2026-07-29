@@ -18,6 +18,9 @@ unity/*.userprefs
 # ML-Agents 프로파일러가 실행마다 생성하는 타이머
 unity/Assets/ML-Agents/Timers/
 
+# 크래시 후 Unity가 복구해놓는 미저장 씬 사본
+unity/Assets/_Recovery/
+
 # 소스 Assets의 *.meta는 Unity GUID/참조 정보이므로 의도적으로 무시하지 않는다.
 # 위 ML-Agents 타이머처럼 폴더 전체가 생성물인 경우만 예외다.
 
@@ -59,6 +62,8 @@ training/logs/recovered/
 # 학습 중 생성되는 정책은 제외하되, 현재 Grasp 환경의 배포 모델은 소스와 함께 보존한다.
 unity/Assets/MLAgents/Grasp/Models/*.onnx
 !unity/Assets/MLAgents/Grasp/Models/DG5FGrasp.onnx
+unity/Assets/MLAgents/GraspLift/Models/*.onnx
+!unity/Assets/MLAgents/GraspLift/Models/DG5FGraspLift.onnx
 
 # 로컬 배포 압축본·편집기 백업
 /*.tar.gz

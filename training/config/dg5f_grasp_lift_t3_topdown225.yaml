@@ -1,0 +1,56 @@
+# DG5F GraspLift 0.12 m top-down-potential knee fine-tune from the same
+# deployed step-3,999,946 source checkpoint used by T1 and T2.
+#
+# Hypothesis: topdown_potential_max 2.25 is the knee between T1's safe 1.5
+# setting and T2's disruptive 3.0 setting, producing a more vertical grasp
+# without sacrificing solved lift reliability.
+#
+# Decision rule:
+#   GraspLift/Success must remain >= 0.993, while
+#   GraspLift/GraspPostureAngleDegrees falls below T1's 62.3 deg.
+# Falsification: success below 0.993 or posture at/above 62.3 deg means 2.25
+# does not deliver the required safe improvement.
+behaviors:
+  DG5FGraspLift:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 2048
+      buffer_size: 20480
+      learning_rate: 0.0001
+      learning_rate_schedule: linear
+      beta: 0.01
+      beta_schedule: constant
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+    # Byte-for-byte field match with dg5f_grasp_lift_quality_v2.yaml is required
+    # for the solved 57/7 checkpoint.
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 3
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.995
+        strength: 1.0
+    keep_checkpoints: 15
+    checkpoint_interval: 100000
+    # ML-Agents --initialize-from imports weights but resets the new run to step 0.
+    max_steps: 600000
+    time_horizon: 256
+    summary_freq: 5000
+    threaded: false
+
+torch_settings:
+  device: cpu
+
+environment_parameters:
+  block_height: 0.12
+  block_com_height_fraction: 0.20
+  grasp_stage: 3.0
+  topple_limit_deg: 45.0
+  topdown_potential_max: 2.25
+  grasp_posture_penalty_scale: -0.1
+  hand_surface_penalty_per_second: -0.5
+  action_rate_penalty_scale: 0
