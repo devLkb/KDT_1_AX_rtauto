@@ -44,6 +44,12 @@ namespace KDT.GraspTraining
         public const string HoldStageParameterName = "hold_stage";
         public const int FirstHoldStage = 1;
         public const int FinalHoldStage = 5;
+        // dg5f_grasp_topdown_angle_curriculum_v4.yaml stops the curriculum at stage 4
+        // (30 deg) on purpose — stage 5 (15 deg) was never scheduled, so no checked-in
+        // model has ever been trained against it. RefreshHoldStage() falls back to this
+        // value (rather than FinalHoldStage) whenever no trainer is supplying hold_stage,
+        // which is exactly the no-curriculum inference/demo case.
+        public const int TrainedHoldStage = 4;
         public const float NearTargetControlClearance = 0.05f;
         public const float NearTargetActionPenaltyScale = -0.002f;
         public const float ApproachSuccessReward = 1f;
@@ -177,7 +183,7 @@ namespace KDT.GraspTraining
         {
             SetHoldStage(Academy.Instance.EnvironmentParameters.GetWithDefault(
                 HoldStageParameterName,
-                FinalHoldStage));
+                TrainedHoldStage));
         }
 
         public static void SetHoldStage(float stage)

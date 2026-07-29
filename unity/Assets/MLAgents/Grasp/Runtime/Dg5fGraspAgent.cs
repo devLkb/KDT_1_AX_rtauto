@@ -98,6 +98,12 @@ namespace KDT.GraspTraining
         public int CurrentHoldResetCount => _holdResetCount;
         public bool IsArmLocked => _armLocked;
         public bool IsExternalHandControl => _externalHandControl;
+        /// <summary>
+        /// While the arm is locked, an external controller (e.g. a teleop height nudge)
+        /// can claim the arm joints by setting this true — FixedUpdate then stops re-writing
+        /// _lockedArmTargetDeg to xDrive so the two writers don't fight over the same joints.
+        /// </summary>
+        public bool ExternalArmControl { get; set; }
         public bool IsEpisodeActive => _episodeActive;
         public string LastTerminationReason { get; private set; } = "None";
 
@@ -661,7 +667,7 @@ namespace KDT.GraspTraining
                 ApplyOpenHandTargets();
             if (_armLocked)
             {
-                ApplyLockedArmTargets();
+                if (!ExternalArmControl) ApplyLockedArmTargets();
                 return;
             }
             if (!_episodeActive || ball == null || robotBase == null) return;
@@ -918,6 +924,9 @@ namespace KDT.GraspTraining
         void RecordOutcome(bool success, string reason)
         {
             LastTerminationReason = reason;
+            Debug.Log($"[Dg5fGraspAgent] episode ended: success={success} reason={reason} "
+                + $"armLocked={_armLocked} externalHandControl={_externalHandControl} "
+                + $"endEpisodeOnReach={endEpisodeOnReach}");
             if (success && _armLocked)
                 AddReward(Dg5fGraspSpec.ApproachSuccessReward);
 

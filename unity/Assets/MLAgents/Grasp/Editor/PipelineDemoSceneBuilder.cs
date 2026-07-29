@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Cinemachine;
 using Unity.MLAgents.Policies;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -22,7 +23,10 @@ namespace KDT.GraspTraining.Editor
     /// ArmTargetIK/HandSliderUI/Dg5fFingerIK/Dg5fFingerIKMode/Dg5fIKVectorDebug/
     /// Dg5fThumbIK/RobotInitialPoseSync are force-disabled — some finger-level
     /// instances were found already enabled on the checked-in training area, which
-    /// would fight Dg5fHandDriver once hand physics is re-enabled.
+    /// would fight Dg5fHandDriver once hand physics is re-enabled. Also wires an
+    /// overview/grasp-close-up Cinemachine camera pair onto the demo scene's Main
+    /// Camera (switchable via DemoCameraSwitcher) so the grasp is visible up close
+    /// during the live demo.
     /// </summary>
     public static class PipelineDemoSceneBuilder
     {
@@ -34,6 +38,18 @@ namespace KDT.GraspTraining.Editor
         const int CameraReceiverPort = 5007;
         const string CubeMaterialPath = "Assets/MLAgents/Grasp/GraspCube.mat";
         const string CylinderMaterialPath = "Assets/MLAgents/Grasp/GraspCylinder.mat";
+        const string OverviewCameraName = "OverviewCamera";
+        const string GraspCameraName = "GraspCloseUpCamera";
+        const float GraspCameraFieldOfView = 32f;
+        const float MinZoomFieldOfView = 15f;
+        const float MaxZoomFieldOfView = 120f;
+        // Grasp camera starts live (matches what the demo already showed working);
+        // the switcher lets the operator cut back to the overview camera.
+        const int DefaultLiveCameraIndex = 1;
+
+        // World-space offset (Transposer BindingMode.WorldSpace) so the close-up
+        // camera doesn't spin with the wrist as the arm rotates into the grasp.
+        static readonly Vector3 GraspCameraFollowOffset = new Vector3(0.4f, 0.3f, -0.4f);
 
         static readonly string[] HandTeleopTypeNames =
         {
@@ -94,6 +110,8 @@ namespace KDT.GraspTraining.Editor
             ReEnableHandTeleop(areaCopy);
             CameraTargetReceiver cameraReceiver = ConfigureCameraReceiver(areaCopy);
             ConfigureAgent(areaCopy, cameraReceiver);
+            ConfigureGraspCamera(areaCopy, demoScene);
+            ConfigureArmTeleopNudge(areaCopy);
             ConfigureTargetVariety(areaCopy);
             SetInferenceOnly(areaCopy);
 
@@ -182,6 +200,88 @@ namespace KDT.GraspTraining.Editor
             Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
             agent.cameraReceiver = cameraReceiver;
             agent.driveHandJoints = false;
+            // Training leaves this true (episode-per-attempt throughput). The live demo
+            // needs a completed reach+hold to call LockArmForTeleoperation(), which is what
+            // flips GraspTeleoperationHandoff.IsExternalHandControl and actually enables
+            // Dg5fReceiver/Dg5fHandDriver — otherwise the hand teleop UDP socket never opens.
+            agent.endEpisodeOnReach = false;
+        }
+
+        /// 팔이 잠긴(텔레옵) 구간에서만 ArmTargetIK/HandSliderUI를 빌려 써서 높이(슬라이더)와
+        /// 수평 위치(조이스틱)를 조절할 수 있게 하는 ArmTeleopNudge를 붙인다. ArmTargetIK/
+        /// HandSliderUI 자체는 ReEnableHandTeleop 대상이 아니라 ForceDisabledTypeNames로 이미
+        /// 꺼진 채 시작하고, ArmTeleopNudge가 런타임에 필요할 때만 켠다.
+        static void ConfigureArmTeleopNudge(GameObject area)
+        {
+            Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
+            if (agent.GetComponent<ArmTeleopNudge>() == null)
+                agent.gameObject.AddComponent<ArmTeleopNudge>();
+        }
+
+        /// 기존 Main Camera(기본 위치에서 벗어난 적 없는 미사용 스폰 카메라)에 CinemachineBrain을
+        /// 붙이고, 그 자리를 그대로 물려받는 정적 OverviewCamera와, graspPoint를 바라보며 palm을
+        /// 따라다니는 GraspCloseUpCamera 두 개의 CinemachineVirtualCamera를 추가한 뒤
+        /// DemoCameraSwitcher(OnGUI 버튼)로 둘을 전환할 수 있게 한다. Follow offset은 WorldSpace
+        /// 바인딩이라 손목이 회전해도 카메라가 같이 돌지 않고 안정적으로 유지된다.
+        static void ConfigureGraspCamera(GameObject area, Scene demoScene)
+        {
+            Dg5fGraspAgent agent = area.GetComponentInChildren<Dg5fGraspAgent>(true);
+            Transform followTarget = agent.palm != null ? agent.palm : agent.robotBase;
+            Transform lookTarget = agent.graspPoint != null ? agent.graspPoint : followTarget;
+
+            GameObject mainCameraObject = demoScene.GetRootGameObjects()
+                .FirstOrDefault(go => go.GetComponent<Camera>() != null);
+            if (mainCameraObject == null)
+                throw new InvalidOperationException(
+                    "[PipelineDemoSceneBuilder] Missing Main Camera in demo scene.");
+
+            if (mainCameraObject.GetComponent<CinemachineBrain>() == null)
+                mainCameraObject.AddComponent<CinemachineBrain>();
+
+            Transform originalCameraTransform = mainCameraObject.transform;
+            CinemachineVirtualCamera overviewCamera = CreateStaticVirtualCamera(
+                demoScene,
+                OverviewCameraName,
+                originalCameraTransform.position,
+                originalCameraTransform.rotation);
+            CinemachineVirtualCamera graspCamera = CreateGraspVirtualCamera(demoScene, followTarget, lookTarget);
+
+            DemoCameraSwitcher switcher = agent.gameObject.GetComponent<DemoCameraSwitcher>();
+            if (switcher == null) switcher = agent.gameObject.AddComponent<DemoCameraSwitcher>();
+            switcher.cameras = new[] { overviewCamera, graspCamera };
+            switcher.cameraLabels = new[] { "전체 보기", "그랩 클로즈업" };
+            switcher.defaultCameraIndex = DefaultLiveCameraIndex;
+            switcher.minFieldOfView = MinZoomFieldOfView;
+            switcher.maxFieldOfView = MaxZoomFieldOfView;
+            switcher.SetActiveCamera(DefaultLiveCameraIndex);
+        }
+
+        static CinemachineVirtualCamera CreateStaticVirtualCamera(
+            Scene scene, string name, Vector3 position, Quaternion rotation)
+        {
+            var cameraObject = new GameObject(name);
+            SceneManager.MoveGameObjectToScene(cameraObject, scene);
+            cameraObject.transform.SetPositionAndRotation(position, rotation);
+            return cameraObject.AddComponent<CinemachineVirtualCamera>();
+        }
+
+        static CinemachineVirtualCamera CreateGraspVirtualCamera(
+            Scene scene, Transform followTarget, Transform lookTarget)
+        {
+            var cameraObject = new GameObject(GraspCameraName);
+            SceneManager.MoveGameObjectToScene(cameraObject, scene);
+
+            var vcam = cameraObject.AddComponent<CinemachineVirtualCamera>();
+            vcam.Follow = followTarget;
+            vcam.LookAt = lookTarget;
+            vcam.m_Lens.FieldOfView = GraspCameraFieldOfView;
+
+            var body = vcam.AddCinemachineComponent<CinemachineTransposer>();
+            body.m_BindingMode = CinemachineTransposer.BindingMode.WorldSpace;
+            body.m_FollowOffset = GraspCameraFollowOffset;
+
+            vcam.AddCinemachineComponent<CinemachineComposer>();
+            return vcam;
         }
 
         /// GraspBall 외에 정육면체/원통 후보를 추가로 만들고 GraspTargetSwitcher로 묶어,

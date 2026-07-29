@@ -13,6 +13,15 @@ public class ArmTargetIK : MonoBehaviour
     public Transform target;          // 목표 오브젝트 (씬의 IK_Target)
     public Transform endEffector;     // 말단 기준점. 비우면 tool0 자동 탐색
     public bool enableIK = true;
+    public bool showUI = true;        // false면 OnGUI 패널을 그리지 않음
+    [Tooltip("true면 도달 히스테리시스(_arrived)와 정체 동결(stallFreeze)을 무시하고 항상 " +
+             "타겟을 계속 추종한다. 조이스틱처럼 타겟이 느리게 계속 움직이는 텔레옵 조작에서, " +
+             "두 안전장치가 '다 왔다/막혔다'로 오판해 멈췄다 확 움직이는 끊김을 만들기 때문.")]
+    public bool ignoreArrivalAndStallGating = false;
+    [Tooltip("-1이면 전체 관절로 위치 보정(기존 동작). 0 이상이면 [0, 이 값) 관절만 위치 보정에 " +
+             "쓰고, 그 이상 인덱스(보통 손목 3관절)는 이 컴포넌트가 손대지 않는다 — 다른 곳에서 " +
+             "그 관절을 오리엔테이션 전용으로 쓸 때 서로 되돌리며 흔들리는 것을 막기 위함.")]
+    public int positionJointCount = -1;
 
     public float threshold = 0.02f;   // 도달 판정 거리[m]
     [Range(0.5f, 20f)]
@@ -122,36 +131,48 @@ public class ArmTargetIK : MonoBehaviour
         // 빡빡한 threshold로는 경계에서 끝없이 갈아대는 헌팅이 생긴다 → 도달 판정 완화.
         float th = projected ? threshold * 3f : threshold;
 
-        // 도달 히스테리시스: threshold 진입 후에는 threshold*rearmFactor를 벗어나야 재가동.
-        // (경계값 언저리에서 매 프레임 on/off를 반복하며 미세 헌팅하는 것을 방지)
-        if (_arrived)
+        bool active;
+        if (ignoreArrivalAndStallGating)
         {
-            if (dist > th * rearmFactor) _arrived = false;
+            // 텔레옵 조이스틱처럼 타겟이 느리게 계속 움직이는 상황에서는 "다 왔다"/"막혔다"
+            // 판정이 오히려 멈췄다 확 움직이는 끊김을 만든다 — _arrived/_bestDist/_stallTimer는
+            // 손대지 않고 그대로 두어(다음에 이 플래그가 꺼지면 원래 로직이 이어받게) 매 틱
+            // 그냥 계속 추종하게 한다.
+            active = true;
         }
-        else if (dist <= th) _arrived = true;
-
-        // 도달/정체 시에도 즉시 return하지 않고 active=false로 두고 아래 루프를 돌려
-        // 마지막 스텝이 0으로 정리되게 한다.
-        bool active = !_arrived;
-        if (active)
+        else
         {
-            // 정체 감지: 한동안 거리 개선이 없으면(관절 한계·미도달 지점) 동결해 배회를 막고,
-            // 타겟이 유의미하게 움직이면 재개.
-            if ((tgt - _lastTgt).magnitude > stallResumeMove)
+            // 도달 히스테리시스: threshold 진입 후에는 threshold*rearmFactor를 벗어나야 재가동.
+            // (경계값 언저리에서 매 프레임 on/off를 반복하며 미세 헌팅하는 것을 방지)
+            if (_arrived)
             {
-                _lastTgt = tgt;
-                _bestDist = float.MaxValue;
-                _stallTimer = 0f;
+                if (dist > th * rearmFactor) _arrived = false;
             }
-            if (dist < _bestDist - 0.005f)
+            else if (dist <= th) _arrived = true;
+
+            // 도달/정체 시에도 즉시 return하지 않고 active=false로 두고 아래 루프를 돌려
+            // 마지막 스텝이 0으로 정리되게 한다.
+            active = !_arrived;
+            if (active)
             {
-                _bestDist = dist;
-                _stallTimer = 0f;
-            }
-            else
-            {
-                _stallTimer += Time.fixedDeltaTime;
-                if (_stallTimer >= stallFreezeSec) active = false; // 동결(감속 정지)
+                // 정체 감지: 한동안 거리 개선이 없으면(관절 한계·미도달 지점) 동결해 배회를 막고,
+                // 타겟이 유의미하게 움직이면 재개.
+                if ((tgt - _lastTgt).magnitude > stallResumeMove)
+                {
+                    _lastTgt = tgt;
+                    _bestDist = float.MaxValue;
+                    _stallTimer = 0f;
+                }
+                if (dist < _bestDist - 0.005f)
+                {
+                    _bestDist = dist;
+                    _stallTimer = 0f;
+                }
+                else
+                {
+                    _stallTimer += Time.fixedDeltaTime;
+                    if (_stallTimer >= stallFreezeSec) active = false; // 동결(감속 정지)
+                }
             }
         }
 
@@ -167,6 +188,10 @@ public class ArmTargetIK : MonoBehaviour
         {
             var b = _bodies[i];
             if (b == null) continue;
+            // positionJointCount >= 0이면 그 이상 인덱스(보통 손목)는 이 컴포넌트가 아예 손대지
+            // 않는다 — 다른 스크립트(예: 손바닥 평탄화)가 같은 관절을 오리엔테이션 목적으로
+            // 전담할 때, 위치 보정이 거기 끼어들어 둘이 서로 되돌리며 흔들리는 것을 막는다.
+            if (positionJointCount >= 0 && i >= positionJointCount) continue;
 
             // revolute ArticulationBody의 회전축 = 앵커 프레임의 X축
             Vector3 pivot = Pivot(b);
@@ -214,6 +239,7 @@ public class ArmTargetIK : MonoBehaviour
 
     void OnGUI()
     {
+        if (!showUI) return;
         GUILayout.BeginArea(new Rect(Screen.width - 250, 10, 240, 95), GUI.skin.box);
         GUILayout.Label("<b>팔 IK (RobotArm 이식)</b>");
         enableIK = GUILayout.Toggle(enableIK, "IK 활성 (타겟 추종)");

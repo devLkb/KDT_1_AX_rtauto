@@ -25,6 +25,12 @@ public class HandSliderUI : MonoBehaviour
     [Range(1f, 30f)] public float lerpSpeed = 12f;   // 슬라이더→타깃 부드럽게
     public bool showArm = true;
 
+    [Tooltip("false면 handJoints 값을 xDrive에 적용하지 않음 — 손 텔레옵(Dg5fHandDriver)이 손가락을 " +
+             "전담하는 동안 이 컴포넌트로 팔(armJoints)만 구동할 때 끈다.")]
+    public bool driveHandJoints = true;
+    [Tooltip("false면 이 컴포넌트의 OnGUI 패널을 그리지 않음")]
+    public bool showUI = true;
+
     private Dictionary<string, ArticulationBody> _bodies;
     private bool _showHand = true;
 
@@ -105,7 +111,18 @@ public class HandSliderUI : MonoBehaviour
     {
         if (_bodies == null) return;
         Apply(armJoints);
-        Apply(handJoints);
+        if (driveHandJoints) Apply(handJoints);
+    }
+
+    /// <summary>armJoints[i].value를 각 관절의 현재 xDrive.target으로 재동기화한다.
+    /// 이 컴포넌트를 씬 시작 후 한참 지나서(예: RL이 팔을 다른 자세로 옮긴 뒤) 다시 켤 때,
+    /// Awake 시점의 낡은 슬라이더 값으로 팔이 갑자기 튀는 것을 막는다.</summary>
+    public void ResyncArmValuesFromCurrentPose()
+    {
+        if (_bodies == null) return;
+        for (int i = 0; i < armJoints.Length; i++)
+            if (_bodies.TryGetValue(armJoints[i].link, out var b))
+                armJoints[i].value = b.xDrive.target;
     }
 
     void Apply(JointSlider[] arr)
@@ -124,6 +141,7 @@ public class HandSliderUI : MonoBehaviour
 
     void OnGUI()
     {
+        if (!showUI) return;
         GUILayout.BeginArea(new Rect(10, 10, 320, Screen.height - 20), GUI.skin.box);
         GUILayout.Label("<b>UR5e + SVH 직접 조작</b>");
 
