@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.3346255">
+  <test-suite type="TestSuite" id="1048" name="KDT_robot_AI" fullname="KDT_robot_AI" runstate="Runnable" testcasecount="27" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.334626" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1016" name="KDT.GraspLiftTraining.PlayModeTests.dll" fullname="/home/lkb/workspace/KDT_1_AX_rtauto/unity/Library/ScriptAssemblies/KDT.GraspLiftTraining.PlayModeTests.dll" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.324044" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="64810" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1017" name="KDT" fullname="KDT" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.323212" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1018" name="GraspLiftTraining" fullname="KDT.GraspLiftTraining" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.322756" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1019" name="PlayModeTests" fullname="KDT.GraspLiftTraining.PlayModeTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.322316" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="GraspLiftBlockSizeSweep" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:21Z" duration="25.320360" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="Width030" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep.Width030" methodname="Width030" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep" runstate="Runnable" seed="989973788" result="Passed" start-time="2026-07-27 16:09:55Z" end-time="2026-07-27 16:10:01Z" duration="5.284228" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Registered Communicator in Agent.
+Couldn't connect to trainer on port 5004 using API version 1.5.0. Will perform inference instead.
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+Setting linear velocity of a kinematic body is not supported.
+Setting angular velocity of a kinematic body is not supported.
+[BlockTrial] width=0.030 mass=0.032 holdDrop=0.2290 palmRise=0.1433 blockRise=0.1377 ratio=0.961 => drops
+]]></output>
+              </test-case>
+              <test-case id="1003" name="Width035" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep.Width035" methodname="Width035" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep" runstate="Runnable" seed="1723775504" result="Passed" start-time="2026-07-27 16:10:01Z" end-time="2026-07-27 16:10:07Z" duration="6.401547" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+Setting linear velocity of a kinematic body is not supported.
+Setting angular velocity of a kinematic body is not supported.
+[BlockTrial] width=0.035 mass=0.044 holdDrop=0.2604 palmRise=0.2456 blockRise=36.1428 ratio=147.185 => drops
+]]></output>
+              </test-case>
+              <test-case id="1004" name="Width040" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep.Width040" methodname="Width040" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep" runstate="Runnable" seed="587047536" result="Passed" start-time="2026-07-27 16:10:07Z" end-time="2026-07-27 16:10:14Z" duration="6.776523" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+Setting linear velocity of a kinematic body is not supported.
+Setting angular velocity of a kinematic body is not supported.
+[BlockTrial] width=0.040 mass=0.058 holdDrop=0.2490 palmRise=-0.4291 blockRise=-108.5970 ratio=253.075 => drops
+]]></output>
+              </test-case>
+              <test-case id="1005" name="Width045" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep.Width045" methodname="Width045" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftBlockSizeSweep" runstate="Runnable" seed="1937249701" result="Passed" start-time="2026-07-27 16:10:14Z" end-time="2026-07-27 16:10:21Z" duration="6.841814" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+Setting linear velocity of a kinematic body is not supported.
+Setting angular velocity of a kinematic body is not supported.
+[BlockTrial] width=0.045 mass=0.073 holdDrop=0.6737 palmRise=-0.7780 blockRise=0.0000 ratio=0.000 => drops
+Saving results to: /home/lkb/.config/unity3d/DefaultCompany/KDT_robot_AI/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

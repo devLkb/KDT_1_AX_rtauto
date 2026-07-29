@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="55" result="Passed" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.0570293">
+  <test-suite type="TestSuite" id="1000" name="KDT_robot_AI" fullname="KDT_robot_AI" runstate="Runnable" testcasecount="84" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.057029" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1057" name="KDT.GraspLiftTraining.Tests.dll" fullname="/home/lkb/workspace/KDT_1_AX_rtauto/unity/Library/ScriptAssemblies/KDT.GraspLiftTraining.Tests.dll" runstate="Runnable" testcasecount="55" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.050277" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="362558" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1058" name="KDT" fullname="KDT" runstate="Runnable" testcasecount="55" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.049616" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1059" name="GraspLiftTraining" fullname="KDT.GraspLiftTraining" runstate="Runnable" testcasecount="55" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.049189" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1060" name="Tests" fullname="KDT.GraspLiftTraining.Tests" runstate="Runnable" testcasecount="55" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.048768" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="Dg5fGraspLiftSpecTests" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" testcasecount="55" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.047237" total="55" passed="55" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1036" name="ActionRatePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ActionRatePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled" methodname="ActionRatePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="163743074" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.013851" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1033" name="AFlyingObjectIsNotAStableLift" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.AFlyingObjectIsNotAStableLift" methodname="AFlyingObjectIsNotAStableLift" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1074898463" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000673" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1029" name="AnOpenHandIsNeverAGrasp" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.AnOpenHandIsNeverAGrasp" methodname="AnOpenHandIsNeverAGrasp" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1825368946" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000781" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1016" name="ApproachPotentialIsGatedOnThePalmFacingTheObject" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ApproachPotentialIsGatedOnThePalmFacingTheObject" methodname="ApproachPotentialIsGatedOnThePalmFacingTheObject" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1969711245" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.002673" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="ApproachPotentialRisesAsDistanceFalls" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ApproachPotentialRisesAsDistanceFalls" methodname="ApproachPotentialRisesAsDistanceFalls" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1757182893" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000169" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="ApproachShapingHasRealGradientInTheLastFewCentimetres" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ApproachShapingHasRealGradientInTheLastFewCentimetres" methodname="ApproachShapingHasRealGradientInTheLastFewCentimetres" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="208073759" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000619" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1035" name="ArmActionRatePenaltyIsProportionalAndNormalisedByArmJointCount" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ArmActionRatePenaltyIsProportionalAndNormalisedByArmJointCount" methodname="ArmActionRatePenaltyIsProportionalAndNormalisedByArmJointCount" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="112753717" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000259" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1008" name="BlockCenterOfMassHeightFractionIsClampedAndMappedToLocalSpace" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.BlockCenterOfMassHeightFractionIsClampedAndMappedToLocalSpace" methodname="BlockCenterOfMassHeightFractionIsClampedAndMappedToLocalSpace" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1061344328" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000206" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="BlockHeightIsClampedAndRejectsNonFiniteValues" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.BlockHeightIsClampedAndRejectsNonFiniteValues" methodname="BlockHeightIsClampedAndRejectsNonFiniteValues" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1469498202" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000122" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="BlockMassFollowsBlockVolume" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.BlockMassFollowsBlockVolume" methodname="BlockMassFollowsBlockVolume" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="639112579" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000136" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1002" name="BlockWidthIsClampedToASensibleRange" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.BlockWidthIsClampedToASensibleRange" methodname="BlockWidthIsClampedToASensibleRange" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="368669043" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000115" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1042" name="ClosedEmptyHandAscentIsFlaggedOnlyWithoutAGrasp" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ClosedEmptyHandAscentIsFlaggedOnlyWithoutAGrasp" methodname="ClosedEmptyHandAscentIsFlaggedOnlyWithoutAGrasp" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="2110711713" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000214" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1021" name="ClosingAwayFromTheObjectIsPenalisedAndOpeningIsFree" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ClosingAwayFromTheObjectIsPenalisedAndOpeningIsFree" methodname="ClosingAwayFromTheObjectIsPenalisedAndOpeningIsFree" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1393822790" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000158" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1023" name="ClosingIsWorthMoreThanTheRiskOfNudgingTheBlock" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ClosingIsWorthMoreThanTheRiskOfNudgingTheBlock" methodname="ClosingIsWorthMoreThanTheRiskOfNudgingTheBlock" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1693171040" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000259" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="ClosingOnlyCountsInsideTheHandsGraspVolume" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ClosingOnlyCountsInsideTheHandsGraspVolume" methodname="ClosingOnlyCountsInsideTheHandsGraspVolume" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="79092848" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000085" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1020" name="ClosingOnlyEarnsPotentialNextToTheObject" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ClosingOnlyEarnsPotentialNextToTheObject" methodname="ClosingOnlyEarnsPotentialNextToTheObject" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1884275828" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000185" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1022" name="ClosingRewardSaturatesAtTheBestGripClosure" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ClosingRewardSaturatesAtTheBestGripClosure" methodname="ClosingRewardSaturatesAtTheBestGripClosure" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="247264030" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000111" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1045" name="ConfirmedGraspMayReorientPastTheToppleLimit" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ConfirmedGraspMayReorientPastTheToppleLimit" methodname="ConfirmedGraspMayReorientPastTheToppleLimit" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="372523325" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000119" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="CurrentBlockHalfHeightTracksCurrentBlockHeight" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.CurrentBlockHalfHeightTracksCurrentBlockHeight" methodname="CurrentBlockHalfHeightTracksCurrentBlockHeight" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="347781441" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000136" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="CurriculumMonotonicallyTightensTheLiftContract" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.CurriculumMonotonicallyTightensTheLiftContract" methodname="CurriculumMonotonicallyTightensTheLiftContract" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1300891058" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000144" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="DefaultBlockHeightMatchesThePromotedGeometry" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.DefaultBlockHeightMatchesThePromotedGeometry" methodname="DefaultBlockHeightMatchesThePromotedGeometry" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1577033699" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000091" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="DefaultBlockWidthFitsTheMeasuredHandAperture" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.DefaultBlockWidthFitsTheMeasuredHandAperture" methodname="DefaultBlockWidthFitsTheMeasuredHandAperture" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="895410047" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000075" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1040" name="DefaultGraspPosturePenaltyIsInertAtEveryAngle" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.DefaultGraspPosturePenaltyIsInertAtEveryAngle" methodname="DefaultGraspPosturePenaltyIsInertAtEveryAngle" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="660725264" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000201" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1050" name="EpisodeTimesOutAtTheContractedLimit" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.EpisodeTimesOutAtTheContractedLimit" methodname="EpisodeTimesOutAtTheContractedLimit" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1742745207" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000117" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1051" name="EverySampledSpawnIsValidAtEveryStage" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.EverySampledSpawnIsValidAtEveryStage" methodname="EverySampledSpawnIsValidAtEveryStage" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1793731673" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.001308" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1049" name="FailurePenaltiesAreOrderedBySeverity" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.FailurePenaltiesAreOrderedBySeverity" methodname="FailurePenaltiesAreOrderedBySeverity" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="329718706" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000269" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="FineApproachPotentialSaturatesOutsideItsRange" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.FineApproachPotentialSaturatesOutsideItsRange" methodname="FineApproachPotentialSaturatesOutsideItsRange" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="383286730" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000125" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1031" name="GraspIsOnlyConfirmedAfterTheFullDwell" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.GraspIsOnlyConfirmedAfterTheFullDwell" methodname="GraspIsOnlyConfirmedAfterTheFullDwell" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="817271447" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000170" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1039" name="GraspPosturePenaltyOnlyChargesBadUnconfirmedPoseAtTheBlock" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.GraspPosturePenaltyOnlyChargesBadUnconfirmedPoseAtTheBlock" methodname="GraspPosturePenaltyOnlyChargesBadUnconfirmedPoseAtTheBlock" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="907774442" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000176" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1041" name="GraspPosturePenaltyScaleClampsAndRejectsNonFinite" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.GraspPosturePenaltyScaleClampsAndRejectsNonFinite" methodname="GraspPosturePenaltyScaleClampsAndRejectsNonFinite" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1222538293" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000109" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1010" name="GraspStageIsClampedAndRounded" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.GraspStageIsClampedAndRounded" methodname="GraspStageIsClampedAndRounded" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="509653986" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000381" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1037" name="HandSurfaceContactPenaltyOnlyChargesPreGraspPositiveFiniteTime" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.HandSurfaceContactPenaltyOnlyChargesPreGraspPositiveFiniteTime" methodname="HandSurfaceContactPenaltyOnlyChargesPreGraspPositiveFiniteTime" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="325319562" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000173" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1038" name="HandSurfacePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.HandSurfacePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled" methodname="HandSurfacePenaltyScaleClampsRejectsNonFiniteAndCanBeDisabled" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1650306931" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000142" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1034" name="LiftHeightIsMeasuredAgainstTheSpawnHeight" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.LiftHeightIsMeasuredAgainstTheSpawnHeight" methodname="LiftHeightIsMeasuredAgainstTheSpawnHeight" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1779707373" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000142" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1032" name="LiftPotentialTracksHeightAndSaturatesAtTheTarget" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.LiftPotentialTracksHeightAndSaturatesAtTheTarget" methodname="LiftPotentialTracksHeightAndSaturatesAtTheTarget" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="623984567" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000167" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1055" name="NonFiniteInputsNeverProduceNonFiniteRewards" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.NonFiniteInputsNeverProduceNonFiniteRewards" methodname="NonFiniteInputsNeverProduceNonFiniteRewards" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1204953993" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000311" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1056" name="NormalizeJointMapsLimitsToMinusOneAndOne" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.NormalizeJointMapsLimitsToMinusOneAndOne" methodname="NormalizeJointMapsLimitsToMinusOneAndOne" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="909545157" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000155" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1030" name="ObjectMustSitInsideTheContactCage" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ObjectMustSitInsideTheContactCage" methodname="ObjectMustSitInsideTheContactCage" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="320043757" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000244" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1044" name="ObjectTiltMeasuresAlignmentAndRejectsInvalidVectors" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ObjectTiltMeasuresAlignmentAndRejectsInvalidVectors" methodname="ObjectTiltMeasuresAlignmentAndRejectsInvalidVectors" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="749737513" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000345" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1046" name="ObjectTopplesAtOrAboveTheConfiguredLimit" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ObjectTopplesAtOrAboveTheConfiguredLimit" methodname="ObjectTopplesAtOrAboveTheConfiguredLimit" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1653000680" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000108" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1027" name="OpposedContactsAroundTheObjectAreAGrasp" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.OpposedContactsAroundTheObjectAreAGrasp" methodname="OpposedContactsAroundTheObjectAreAGrasp" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1234609448" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000153" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1025" name="OppositionAngleFindsTheWidestContactPair" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.OppositionAngleFindsTheWidestContactPair" methodname="OppositionAngleFindsTheWidestContactPair" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1625190733" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000155" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1048" name="OutOfBoundsCoversFallingOffAndFlyingAway" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.OutOfBoundsCoversFallingOffAndFlyingAway" methodname="OutOfBoundsCoversFallingOffAndFlyingAway" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1879343222" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000270" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1026" name="PokingFromOneSideIsNotAGrasp" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.PokingFromOneSideIsNotAGrasp" methodname="PokingFromOneSideIsNotAGrasp" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="474276718" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000181" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="PolicyShapeMatchesTheTransferableReachContract" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.PolicyShapeMatchesTheTransferableReachContract" methodname="PolicyShapeMatchesTheTransferableReachContract" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="865030343" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000151" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1024" name="PumpingTheFingersCannotFarmReward" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.PumpingTheFingersCannotFarmReward" methodname="PumpingTheFingersCannotFarmReward" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1946319636" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000156" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1043" name="ShovingTheBlockAcrossThePanelEndsTheAttempt" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ShovingTheBlockAcrossThePanelEndsTheAttempt" methodname="ShovingTheBlockAcrossThePanelEndsTheAttempt" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1928491563" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000321" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1054" name="SpawnRadiusStaysInsideTheCurrentStageAnnulus" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.SpawnRadiusStaysInsideTheCurrentStageAnnulus" methodname="SpawnRadiusStaysInsideTheCurrentStageAnnulus" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="891439937" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000198" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1053" name="SpawnsRestOnThePanelTop" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.SpawnsRestOnThePanelTop" methodname="SpawnsRestOnThePanelTop" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="386780970" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000118" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1052" name="TallerBlockSpawnStillValidates" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.TallerBlockSpawnStillValidates" methodname="TallerBlockSpawnStillValidates" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1682056794" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000137" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1028" name="TooFewContactsIsNeverAGrasp" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.TooFewContactsIsNeverAGrasp" methodname="TooFewContactsIsNeverAGrasp" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="866874118" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000130" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1017" name="TopDownAlignmentIsOneWhenTheGraspAxisPointsStraightDown" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.TopDownAlignmentIsOneWhenTheGraspAxisPointsStraightDown" methodname="TopDownAlignmentIsOneWhenTheGraspAxisPointsStraightDown" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1786317744" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000383" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1019" name="TopDownPotentialMaximumIsTunableClampedAndRejectsNonFinite" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.TopDownPotentialMaximumIsTunableClampedAndRejectsNonFinite" methodname="TopDownPotentialMaximumIsTunableClampedAndRejectsNonFinite" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1323005973" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000212" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="TopDownPotentialOnlyPaysCloseToAndAboveTheObject" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.TopDownPotentialOnlyPaysCloseToAndAboveTheObject" methodname="TopDownPotentialOnlyPaysCloseToAndAboveTheObject" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="1708493550" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000154" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1047" name="ToppleLimitIsClampedAndCanDisableTheRule" fullname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests.ToppleLimitIsClampedAndCanDisableTheRule" methodname="ToppleLimitIsClampedAndCanDisableTheRule" classname="KDT.GraspLiftTraining.Tests.Dg5fGraspLiftSpecTests" runstate="Runnable" seed="627777327" result="Passed" start-time="2026-07-28 17:48:25Z" end-time="2026-07-28 17:48:25Z" duration="0.000145" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: /home/lkb/.config/unity3d/DefaultCompany/KDT_robot_AI/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

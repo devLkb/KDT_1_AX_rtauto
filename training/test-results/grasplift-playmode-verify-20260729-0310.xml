@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="7" result="Failed(Child)" total="7" passed="6" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:16Z" duration="18.9571711">
+  <test-suite type="TestSuite" id="1042" name="KDT_robot_AI" fullname="KDT_robot_AI" runstate="Runnable" testcasecount="22" result="Failed" site="Child" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:16Z" duration="18.957171" total="7" passed="6" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1010" name="KDT.GraspLiftTraining.PlayModeTests.dll" fullname="/home/lkb/workspace/KDT_1_AX_rtauto/unity/Library/ScriptAssemblies/KDT.GraspLiftTraining.PlayModeTests.dll" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:16Z" duration="18.949425" total="7" passed="6" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="363297" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1011" name="KDT" fullname="KDT" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:16Z" duration="18.948876" total="7" passed="6" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1012" name="GraspLiftTraining" fullname="KDT.GraspLiftTraining" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:16Z" duration="18.948588" total="7" passed="6" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1013" name="PlayModeTests" fullname="KDT.GraspLiftTraining.PlayModeTests" runstate="Runnable" testcasecount="7" result="Failed" site="Child" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:16Z" duration="18.948336" total="7" passed="6" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1001" name="GraspLiftHandGeometryProbe" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftHandGeometryProbe" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftHandGeometryProbe" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:03Z" duration="5.725906" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="ReportClosedHandGeometry" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftHandGeometryProbe.ReportClosedHandGeometry" methodname="ReportClosedHandGeometry" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftHandGeometryProbe" runstate="Runnable" seed="1344644483" result="Passed" start-time="2026-07-28 17:48:57Z" end-time="2026-07-28 17:49:03Z" duration="5.714666" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <reason>
+                  <message><![CDATA[geometry reported to the log]]></message>
+                </reason>
+                <output><![CDATA[Registered Communicator in Agent.
+Couldn't connect to trainer on port 5004 using API version 1.5.0. Will perform inference instead.
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[HandGeometryProbe] palm-local fingertip positions
+  configured GraspPoint local = (0.00, 0.05, 0.04)
+  --- closure 0.00
+      tip1 palmLocal = (0.1251, 0.0128, 0.0258)
+      tip2 palmLocal = (0.0270, 0.1957, 0.0106)
+      tip3 palmLocal = (0.0025, 0.1997, 0.0105)
+      tip4 palmLocal = (-0.0220, 0.1917, 0.0105)
+      tip5 palmLocal = (-0.0475, 0.1624, 0.0103)
+      centroid palmLocal = (0.0170, 0.1525, 0.0135)
+      centroid -> configured GraspPoint offset = 0.1072 m
+      graspPoint palmLocal = (0.0000, 0.0500, 0.0400)
+      widest tip pair = tip1-tip4 at 0.2321 m
+      thumb-index = 0.2081 m, thumb-middle = 0.2241 m
+  --- closure 0.50
+      tip1 palmLocal = (0.0612, 0.0823, 0.0789)
+      tip2 palmLocal = (0.0270, 0.1029, 0.1000)
+      tip3 palmLocal = (0.0025, 0.1069, 0.1000)
+      tip4 palmLocal = (-0.0220, 0.1028, 0.0994)
+      tip5 palmLocal = (-0.0475, 0.1264, 0.0703)
+      centroid palmLocal = (0.0042, 0.1043, 0.0897)
+      centroid -> configured GraspPoint offset = 0.0737 m
+      graspPoint palmLocal = (0.0000, 0.0500, 0.0400)
+      widest tip pair = tip1-tip5 at 0.1176 m
+      thumb-index = 0.0451 m, thumb-middle = 0.0670 m
+  --- closure 0.75
+      tip1 palmLocal = (0.0124, 0.0826, 0.0764)
+      tip2 palmLocal = (0.0270, 0.0499, 0.0721)
+      tip3 palmLocal = (0.0025, 0.0539, 0.0721)
+      tip4 palmLocal = (-0.0220, 0.0500, 0.0748)
+      tip5 palmLocal = (-0.0475, 0.0928, 0.0774)
+      centroid palmLocal = (-0.0055, 0.0659, 0.0746)
+      centroid -> configured GraspPoint offset = 0.0384 m
+      graspPoint palmLocal = (0.0000, 0.0500, 0.0400)
+      widest tip pair = tip2-tip5 at 0.0861 m
+      thumb-index = 0.0360 m, thumb-middle = 0.0306 m
+  --- closure 1.00
+      tip1 palmLocal = (-0.0185, 0.0662, 0.0575)
+      tip2 palmLocal = (0.0270, 0.0383, 0.0248)
+      tip3 palmLocal = (0.0025, 0.0423, 0.0248)
+      tip4 palmLocal = (-0.0220, 0.0358, 0.0295)
+      tip5 palmLocal = (-0.0475, 0.0626, 0.0667)
+      centroid palmLocal = (-0.0117, 0.0491, 0.0406)
+      centroid -> configured GraspPoint offset = 0.0118 m
+      graspPoint palmLocal = (0.0000, 0.0500, 0.0400)
+      widest tip pair = tip2-tip5 at 0.0888 m
+      thumb-index = 0.0626 m, thumb-middle = 0.0456 m
+
+]]></output>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1003" name="GraspLiftSceneTests" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" testcasecount="6" result="Failed" site="Child" start-time="2026-07-28 17:49:03Z" end-time="2026-07-28 17:49:16Z" duration="13.221322" total="6" passed="5" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1005" name="BehaviorParametersMatchTheSpecShape" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.BehaviorParametersMatchTheSpecShape" methodname="BehaviorParametersMatchTheSpecShape" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="1177770890" result="Passed" start-time="2026-07-28 17:49:03Z" end-time="2026-07-28 17:49:05Z" duration="2.229702" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+]]></output>
+              </test-case>
+              <test-case id="1007" name="BlockSpawnsUprightAndRestingOnThePanel" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.BlockSpawnsUprightAndRestingOnThePanel" methodname="BlockSpawnsUprightAndRestingOnThePanel" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="1463125178" result="Failed" start-time="2026-07-28 17:49:05Z" end-time="2026-07-28 17:49:08Z" duration="2.186610" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  invalid spawn (-0.02, 0.06, -0.53)
+  Expected: True
+  But was:  False
+]]></message>
+                  <stack-trace><![CDATA[at KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests+<BlockSpawnsUprightAndRestingOnThePanel>d__5.MoveNext () [0x00047] in /home/lkb/workspace/KDT_1_AX_rtauto/unity/Assets/MLAgents/GraspLift/Tests/PlayMode/GraspLiftSceneTests.cs:119
+at UnityEngine.TestTools.TestEnumerator+<Execute>d__7.MoveNext () [0x0003a] in ./Library/PackageCache/com.unity.test-framework@f63be82e0d2e/UnityEngine.TestRunner/NUnitExtensions/Attributes/TestEnumerator.cs:44
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+]]></output>
+              </test-case>
+              <test-case id="1006" name="BlockUsesTheDocumentedPhysicsSetup" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.BlockUsesTheDocumentedPhysicsSetup" methodname="BlockUsesTheDocumentedPhysicsSetup" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="880487560" result="Passed" start-time="2026-07-28 17:49:08Z" end-time="2026-07-28 17:49:10Z" duration="2.199066" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+]]></output>
+              </test-case>
+              <test-case id="1008" name="ContactSensorsCoverEveryFingertipAndThePalm" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.ContactSensorsCoverEveryFingertipAndThePalm" methodname="ContactSensorsCoverEveryFingertipAndThePalm" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="801254227" result="Passed" start-time="2026-07-28 17:49:10Z" end-time="2026-07-28 17:49:12Z" duration="2.188957" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+]]></output>
+              </test-case>
+              <test-case id="1009" name="PanelSafetySensorsSkipTheHand" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.PanelSafetySensorsSkipTheHand" methodname="PanelSafetySensorsSkipTheHand" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="1159599571" result="Passed" start-time="2026-07-28 17:49:12Z" end-time="2026-07-28 17:49:14Z" duration="2.180343" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+]]></output>
+              </test-case>
+              <test-case id="1004" name="SceneHasTwentyIndependentTrainingAreas" fullname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests.SceneHasTwentyIndependentTrainingAreas" methodname="SceneHasTwentyIndependentTrainingAreas" classname="KDT.GraspLiftTraining.PlayModeTests.GraspLiftSceneTests" runstate="Runnable" seed="1004513326" result="Passed" start-time="2026-07-28 17:49:14Z" end-time="2026-07-28 17:49:16Z" duration="2.225891" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+[RobotSelfCollisionIgnore] 자기충돌 무시(OFF·통과): 콜라이더 93개, 4278쌍 적용
+Saving results to: /home/lkb/.config/unity3d/DefaultCompany/KDT_robot_AI/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
