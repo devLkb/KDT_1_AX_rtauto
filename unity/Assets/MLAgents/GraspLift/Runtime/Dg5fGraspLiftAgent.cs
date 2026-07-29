@@ -45,6 +45,8 @@ namespace KDT.GraspLiftTraining
         [Header("Episode")]
         public bool useDeterministicSpawns;
         public int spawnSeed = 12345;
+        [Tooltip("Training resets on a successful lift. A live demo instead freezes the arm/hand in place.")]
+        public bool endEpisodeOnSuccess = true;
 
         [Header("Control")]
         public float armDeltaDegPerDecision = 2f;
@@ -113,6 +115,15 @@ namespace KDT.GraspLiftTraining
                 ? robotBase.InverseTransformPoint(graspObject.position)
                 : Vector3.zero;
         public string LastTerminationReason { get; private set; } = "None";
+
+        /// Freezes the arm/hand exactly like a successful lift would (see FinishEpisode),
+        /// but on demand — used when the operator flips the live demo to manual teleop.
+        /// Resuming autonomous control is just calling EndEpisode(): a policy should never
+        /// resume mid-action from a pose a human placed it in, so it always starts fresh.
+        public void PauseForManualControl()
+        {
+            _episodeActive = false;
+        }
 
         public float CurrentArmTargetDeg(int index)
         {
@@ -878,7 +889,7 @@ namespace KDT.GraspLiftTraining
 
             if (Dg5fGraspLiftSpec.IsLiftComplete(_liftHoldSeconds))
             {
-                FinishEpisode(true, "Success");
+                FinishEpisode(true, "Success", endEpisodeOnSuccess);
                 return true;
             }
             return false;
@@ -953,7 +964,7 @@ namespace KDT.GraspLiftTraining
             if (surface == pedestalCollider) _unsafeSurfaceContact = true;
         }
 
-        void FinishEpisode(bool success, string reason)
+        void FinishEpisode(bool success, string reason, bool endEpisode = true)
         {
             if (!_episodeActive) return;
             _episodeActive = false;
@@ -965,7 +976,7 @@ namespace KDT.GraspLiftTraining
                 AddReward(Dg5fGraspLiftSpec.FailurePenalty(reason));
 
             RecordOutcome(success, reason);
-            EndEpisode();
+            if (endEpisode) EndEpisode();
         }
 
         void RecordOutcome(bool success, string reason)

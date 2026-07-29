@@ -2,7 +2,9 @@
   "name": "KDT.GraspLiftTraining",
   "rootNamespace": "KDT.GraspLiftTraining",
   "references": [
-    "Unity.ML-Agents"
+    "Unity.ML-Agents",
+    "KDT.RobotScripts",
+    "Cinemachine"
   ],
   "autoReferenced": true
 }
