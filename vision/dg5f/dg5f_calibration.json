@@ -2,88 +2,88 @@
   "note": "calibrate_dg5f.py 자동 생성 — dg5f_angles.py가 임포트 시 읽음. 재보정하면 덮어써짐.",
   "version": 3,
   "method": "percentile 2.0/98.0 + human cap; thumb_straight p95",
-  "created": "2026-07-20 15:32",
+  "created": "2026-07-28 14:39",
   "human_ranges": {
     "thumb_cmc": {
-      "min": -0.524,
-      "max": -0.025
+      "min": -0.449,
+      "max": 0.028
     },
     "thumb_opp": {
-      "min": 0.013,
-      "max": 0.428
+      "min": 0.321,
+      "max": 1.18
     },
     "thumb_mcp": {
-      "min": 0.054,
-      "max": 0.549
+      "min": 0.032,
+      "max": 0.598
     },
     "thumb_ip": {
-      "min": 0.031,
-      "max": 1.369
+      "min": 0.022,
+      "max": 1.242
     },
     "index_abd": {
-      "min": -0.345,
-      "max": 0.096
+      "min": -0.338,
+      "max": 0.06
     },
     "index_mcp": {
-      "min": 0.094,
-      "max": 0.497
+      "min": 0.031,
+      "max": 0.465
     },
     "index_pip": {
-      "min": 0.056,
+      "min": 0.049,
       "max": 1.9
     },
     "index_dip": {
-      "min": 0.009,
-      "max": 1.095
+      "min": 0.037,
+      "max": 1.6
     },
     "middle_abd": {
       "min": 0.0,
       "max": 0.0
     },
     "middle_mcp": {
-      "min": 0.054,
-      "max": 0.58
+      "min": 0.006,
+      "max": 0.554
     },
     "middle_pip": {
-      "min": 0.04,
+      "min": 0.062,
       "max": 1.9
     },
     "middle_dip": {
-      "min": 0.021,
-      "max": 1.42
+      "min": 0.047,
+      "max": 1.6
     },
     "ring_abd": {
-      "min": -0.131,
-      "max": 0.206
+      "min": -0.058,
+      "max": 0.196
     },
     "ring_mcp": {
-      "min": 0.015,
-      "max": 0.902
+      "min": 0.006,
+      "max": 0.676
     },
     "ring_pip": {
-      "min": 0.025,
+      "min": 0.014,
       "max": 1.9
     },
     "ring_dip": {
-      "min": 0.028,
-      "max": 1.433
+      "min": 0.01,
+      "max": 1.6
     },
     "pinky_cmc": {
-      "min": 0.109,
-      "max": 0.21
+      "min": -0.285,
+      "max": 0.302
     },
     "pinky_lat": {
-      "min": -0.542,
-      "max": 0.634
+      "min": -0.47,
+      "max": 0.668
     },
     "pinky_mcp": {
-      "min": 0.034,
-      "max": 1.261
+      "min": 0.003,
+      "max": 0.851
     },
     "pinky_pip": {
       "min": 0.036,
-      "max": 1.49
+      "max": 1.9
     }
   },
-  "thumb_straight_ratio": 0.9983
+  "thumb_straight_ratio": 0.9988
 }
