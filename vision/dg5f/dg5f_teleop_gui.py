@@ -34,6 +34,16 @@ PhotoImage 생성(5~13ms)을 다 하고 그 위에 after(20)을 더 얹었다. �
      끝내둔다 — 그러지 않으면 IP를 타이핑하는 중간 문자열('1','19','192','192.')이 전부
      DNS 조회로 들어가 한 번 입력에 10.8초를 멈춘다(실측 근거는 _sync_settings 주석).
 
+────────────────────────── 레이아웃/스크롤 (2026-07-30) ──────────────────────────
+  [영상(고정)] [컨트롤 패널 ①~⑥ (Canvas 안, 세로·가로 스크롤)] [수직바]
+                                   [수평바]
+  [────────────────── 상태바(고정) ──────────────────]
+스크롤은 **오른쪽 패널에만** 건다. 전체를 한 Canvas에 넣으면 ⑤·⑥을 보러 내려간 순간
+미리보기가 화면 밖으로 나가서 '손을 보며 값을 맞추는' 일 자체가 불가능해진다.
+영상 열은 VIDEO_COL_W로 자리를 예약한다 — 창 크기를 잡는 시점엔 영상 라벨이 아직
+안내문 크기(≈107px)라, 예약이 없으면 첫 프레임에 라벨이 496px로 커지면서 패널을
+창 밖으로 밀어낸다(그 상태가 "오른쪽 UI가 잘린다" = 07-30에 실제로 고친 증상).
+
 ────────────────────────── 로그 (2026-07-28 추가) ──────────────────────────
 ⑤ 체크박스를 켜면 logs/teleop_<초단위>.csv 에 **한 프레임 = 한 행**으로 파이프라인 4개 층을
 전부 남긴다(랜드마크 → 사람각 → 로봇각 → UDP 송신값). 상세는 _TeleopLogger 참조.
@@ -53,7 +63,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, font as tkfont, messagebox
 
 from one_euro_filter import OneEuroFilter
 from dg5f_paths import unique_log_path
@@ -79,6 +89,13 @@ TIP_MIN_CUTOFF, TIP_BETA = 0.15, 0.5
 DISPLAY_W = 480             # 미리보기 표시 폭(카메라 원본 640 → 세로는 비율 유지).
                             # 640으로 그리면 Tk 전송이 프레임당 7.7ms, 480이면 1.7ms.
                             # 각도 계산은 항상 원본 프레임으로 하므로 전송값과 무관.
+DISPLAY_H = DISPLAY_W * 3 // 4   # 4:3 웹캠 기준 표시 높이 — 영상 자리 예약용(초기 창 크기 계산).
+VIDEO_PAD = 6               # 미리보기 라벨 내부 여백. ⚠️ 크게 주지 말 것 — 라벨 폭은
+                            # 이미지폭+2*VIDEO_PAD+4(테두리)라서, 여백을 키우면 프레임이
+                            # 도착한 순간 영상 열이 예약폭(VIDEO_COL_W)을 넘어 컨트롤 패널을
+                            # 창 밖으로 밀어낸다(2026-07-30에 padding=40으로 실제 발생:
+                            # 라벨 175→564px, 우측 패널이 58px 잘려 가로 스크롤 없이는 안 보였음).
+VIDEO_COL_W = DISPLAY_W + 2 * VIDEO_PAD + 4       # 영상 열에 예약하는 폭(=라벨 최종 폭)
 UI_HZ = 30                  # UI 리프레시 상한 (카메라 30fps보다 높일 이유 없음)
 READOUT_HZ = 10             # ④ 판독 + 상태바 갱신 주기(문자열 포맷 아끼기)
 UI_PERIOD_MS = 1000.0 / UI_HZ
@@ -422,17 +439,65 @@ class TeleopGUI:
     # ============================ UI 구성 ============================
     def _build_ui(self):
         root = self.root
-        main = ttk.Frame(root, padding=6)
-        main.grid(row=0, column=0, sticky="nsew")
 
-        # ---- 좌: 영상 ----
-        self.video = ttk.Label(main, text="카메라 준비 중…\n(모델 로딩 ~4초)",
-                               anchor="center", padding=40, foreground="#888")
-        self.video.grid(row=0, column=0, rowspan=3, sticky="nw", padx=(0, 8))
+        # ---- 레이아웃 ----
+        #   row0: [영상(고정)] [컨트롤 캔버스(스크롤)] [수직 스크롤바]
+        #   row1:              [수평 스크롤바]
+        #   row2: 상태바(전 폭)
+        # 컨트롤 패널(①~⑥)이 노트북 화면 높이보다 길어서 아래쪽(⑤ 로그·⑥ 프리셋)이 잘린다.
+        # **스크롤은 오른쪽 패널에만** 건다 — 영상까지 같이 스크롤되면 슬라이더를 만지려고
+        # 내려간 순간 미리보기가 화면 밖으로 사라져서, 손을 보면서 값을 맞출 수가 없다
+        # (텔레옵에서 그건 기능 상실이다). ttk.Frame은 스크롤을 못 하므로 패널만
+        # Canvas + create_window에 담는다.
+        root.columnconfigure(1, weight=1)        # 창을 넓히면 영상이 아니라 패널 쪽이 늘어난다
+        root.rowconfigure(0, weight=1)
 
-        # ---- 우: 컨트롤 ----
+        # ---- 좌: 영상 (스크롤 밖 = 항상 같은 자리) ----
+        # 영상 자리를 미리 480x360으로 예약한다(열/행 minsize). 그러지 않으면 창을 띄우는
+        # 순간(=첫 프레임 전)의 라벨 크기는 안내문뿐이라 초기 창이 그 크기로 잡히고,
+        # 프레임이 도착해 라벨이 커지는 순간 컨트롤 패널이 오른쪽으로 밀려 **잘린다**.
+        # 예약폭은 라벨의 최종 폭(VIDEO_COL_W)과 정확히 같게 맞춘다 — 라벨이 예약폭보다
+        # 커지면 예약이 무의미해지므로 padding은 VIDEO_PAD로만 준다.
+        self.video = ttk.Label(root, text="카메라 준비 중…\n(모델 로딩 ~4초)",
+                               anchor="center", padding=VIDEO_PAD, foreground="#888")
+        self.video.grid(row=0, column=0, rowspan=2, sticky="nw", padx=(6, 8), pady=(6, 0))
+        root.columnconfigure(0, minsize=VIDEO_COL_W + 14)
+        root.rowconfigure(0, minsize=DISPLAY_H + 2 * VIDEO_PAD + 4)
+
+        # ---- 우: 컨트롤 (스크롤 안) ----
+        outer = tk.Canvas(root, highlightthickness=0, borderwidth=0)
+        outer.grid(row=0, column=1, sticky="nsew")
+        vbar = ttk.Scrollbar(root, orient="vertical", command=outer.yview)
+        vbar.grid(row=0, column=2, sticky="ns")
+        hbar = ttk.Scrollbar(root, orient="horizontal", command=outer.xview)
+        hbar.grid(row=1, column=1, sticky="ew")
+        # increment을 주지 않으면 휠 한 칸이 '창 높이의 1/10'로 튄다 → 20px 단위로 고정.
+        outer.configure(yscrollcommand=vbar.set, xscrollcommand=hbar.set,
+                        yscrollincrement=20, xscrollincrement=20)
+        self._canvas = outer
+
+        main = ttk.Frame(outer, padding=(0, 6, 6, 6))
+        self._main = main
+        self._main_item = outer.create_window((0, 0), window=main, anchor="nw")
+        # 내용 크기가 바뀌면(채널 전환으로 라벨 길이가 변하는 등) 스크롤 범위를 다시 잡는다.
+        main.bind("<Configure>", self._on_content_configure)
+        outer.bind("<Configure>", self._on_canvas_configure)
+        # 휠: 포커스와 무관하게 창 어디서든(영상 위에서도) 패널이 굴러가게. 단 휠로 값이
+        # 바뀌는 위젯(콤보·스핀박스) 위에서는 이중 동작이 되지 않게 넘긴다.
+        # ⚠️ X11(리눅스)은 휠을 <MouseWheel>로 주지 않고 <Button-4/5>로 준다 —
+        #    <MouseWheel>만 걸면 리눅스에서 휠 스크롤이 통째로 죽는다(방향 판정은 _wheel_dir).
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            root.bind_all(seq, self._on_wheel)
+        for seq in ("<Shift-MouseWheel>", "<Shift-Button-4>", "<Shift-Button-5>"):
+            root.bind_all(seq, self._on_wheel_x)
+        for k in ("<Prior>", "<Next>", "<Home>", "<End>"):
+            root.bind_all(k, self._on_page)
+        self._vbar, self._hbar = vbar, hbar
+
         ctrl = ttk.Frame(main)
-        ctrl.grid(row=0, column=1, sticky="nsew")
+        ctrl.grid(row=0, column=0, sticky="nsew")
+        main.columnconfigure(0, weight=1)         # 창을 넓히면 ①~⑥ 프레임도 같이 넓어진다
+                                                 # (안 주면 패널 오른쪽에 빈 띠만 생긴다)
 
         # (1) 연결 대상
         f = ttk.LabelFrame(ctrl, text="① 송신 대상 (IP·포트)", padding=6)
@@ -457,7 +522,7 @@ class TeleopGUI:
         f.grid(row=1, column=0, sticky="ew", pady=3)
         ttk.Label(f, text="손:").grid(row=0, column=0)
         ttk.Radiobutton(f, text="right", value="right", variable=self.hand).grid(row=0, column=1)
-        ttk.Radiobutton(f, text="left(미러)", value="left", variable=self.hand).grid(row=0, column=2)
+        ttk.Radiobutton(f, text="left", value="left", variable=self.hand).grid(row=0, column=2)
         ttk.Label(f, text="매핑:").grid(row=0, column=3, padx=(10, 0))
         ttk.Radiobutton(f, text="direct", value="direct", variable=self.mapmode).grid(row=0, column=4)
         ttk.Radiobutton(f, text="ratio", value="ratio", variable=self.mapmode).grid(row=0, column=5)
@@ -494,7 +559,8 @@ class TeleopGUI:
         # (4) 라이브 판독
         f = ttk.LabelFrame(ctrl, text="④ 선택 채널 실시간 값", padding=6)
         f.grid(row=3, column=0, sticky="ew", pady=3)
-        self.lbl_read = ttk.Label(f, text="-", font=("Consolas", 10))
+        self._mono = self._mono_font()            # Font 객체는 참조를 잡아둬야 GC되지 않는다
+        self.lbl_read = ttk.Label(f, text="-", font=self._mono)
         self.lbl_read.pack(anchor="w")
 
         # (5) 로그 기록
@@ -518,10 +584,82 @@ class TeleopGUI:
         ttk.Button(f, text="프리셋 불러오기", command=self.load_preset).pack(side="left", padx=2)
         ttk.Button(f, text="채널 리셋", command=self.reset_channel).pack(side="left", padx=2)
 
-        # 상태바
+        # 상태바 — 스크롤 밖(항상 보이는 자리)에 고정
         self.status = ttk.Label(root, text="", anchor="w", relief="sunken")
-        self.status.grid(row=1, column=0, sticky="ew")
-        root.columnconfigure(0, weight=1)
+        self.status.grid(row=2, column=0, columnspan=3, sticky="ew")
+
+    # ---- 스크롤 배관 ----
+    # 휠을 캔버스 스크롤로 쓰지 않고 그냥 넘길 위젯 = **자기 클래스에 <MouseWheel> 바인딩이
+    # 있는 것들만**. bind_all("all" 태그)은 클래스 바인딩보다 **뒤에** 실행되므로, 여기서
+    # "break"를 해도 값 변경은 이미 일어난 뒤다 → 넘기는 게 아니라 '이중 동작을 피한다'는 뜻.
+    # 실측(Tk 8.6): TCombobox·TSpinbox·Listbox만 휠 바인딩이 있고 Scale/TScale은 없다.
+    # ③이 슬라이더로 가득해서 예전엔 그 위에서 휠이 완전히 죽어 ⑤·⑥까지 내려갈 수가 없었다.
+    _NO_WHEEL = ("TCombobox", "TSpinbox", "Listbox", "Text", "Treeview")
+
+    def _on_content_configure(self, _e=None):
+        box = self._canvas.bbox("all")
+        if box is not None:                      # 위젯이 아직 없으면(초기 1프레임) bbox=None
+            self._canvas.configure(scrollregion=box)
+
+    def _on_canvas_configure(self, e):
+        # 창이 내용보다 넓어지면 내부 프레임도 같이 늘려 준다(오른쪽에 빈 띠가 생기지 않게).
+        inner = self._canvas.nametowidget(self._canvas.itemcget(self._main_item, "window"))
+        self._canvas.itemconfigure(self._main_item, width=max(e.width, inner.winfo_reqwidth()))
+
+    @staticmethod
+    def _wheel_dir(e):
+        """휠 이벤트 → -1(위로)/+1(아래로). 플랫폼 3종의 차이를 여기서 흡수한다:
+             Windows : <MouseWheel>, delta = ±120
+             macOS   : <MouseWheel>, delta = ±1 (트랙패드는 더 큰 값)
+             X11     : <Button-4>(위)/<Button-5>(아래), **delta = 0**
+           → X11에서 delta 부호만 보면 0 > 0 이 False라서 항상 아래로만 굴러간다."""
+        if getattr(e, "num", None) in (4, 5):
+            return -1 if e.num == 4 else 1
+        return -1 if e.delta > 0 else 1
+
+    def _on_wheel(self, e):
+        if e.widget.winfo_class() in self._NO_WHEEL:
+            return
+        self._canvas.yview_scroll(3 * self._wheel_dir(e), "units")
+        return "break"
+
+    def _on_wheel_x(self, e):
+        if e.widget.winfo_class() in self._NO_WHEEL:
+            return
+        self._canvas.xview_scroll(3 * self._wheel_dir(e), "units")
+        return "break"
+
+    def _on_page(self, e):
+        """PgUp/PgDn/Home/End — 휠이나 스크롤바를 안 쓰고도 아래쪽(⑤·⑥)에 닿게.
+        텍스트를 입력하는 중(Entry/Spinbox)에는 캐럿 이동을 방해하지 않게 넘긴다."""
+        if e.widget.winfo_class() in ("TEntry", "Entry", "TSpinbox", "Spinbox", "Text"):
+            return
+        if e.keysym == "Prior":
+            self._canvas.yview_scroll(-1, "pages")
+        elif e.keysym == "Next":
+            self._canvas.yview_scroll(1, "pages")
+        elif e.keysym == "Home":
+            self._canvas.yview_moveto(0.0)
+        else:                                    # End
+            self._canvas.yview_moveto(1.0)
+        return "break"
+
+    @staticmethod
+    def _mono_font(size=10):
+        """④ 판독용 고정폭 글꼴. 자릿수를 맞춘 포맷('{:+7.1f}')이라 비례 글꼴이면 숫자가
+        흔들려 읽기 어렵다. "Consolas"는 **윈도우 전용**이므로(리눅스/맥엔 없어 비례 글꼴로
+        대체됨) 설치된 것 중 앞선 것을 고르고, 하나도 없으면 Tk가 플랫폼별로 정의해 둔
+        TkFixedFont(고정폭 보장)로 떨어진다."""
+        have = set(tkfont.families())
+        for fam in ("Consolas",              # Windows
+                    "Menlo", "SF Mono",      # macOS
+                    "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono",  # Linux
+                    "Courier New"):          # 3종 공통 폴백
+            if fam in have:
+                return tkfont.Font(family=fam, size=size)
+        fnt = tkfont.nametofont("TkFixedFont").copy()
+        fnt.configure(size=size)
+        return fnt
 
     def _mk_scale(self, parent, row, label, lo, hi, res, cmd):
         ttk.Label(parent, text=label, width=16).grid(row=row, column=0, sticky="w")
@@ -974,7 +1112,21 @@ class TeleopGUI:
 
 def main():
     root = tk.Tk()
-    TeleopGUI(root)
+    gui = TeleopGUI(root)
+    # Canvas는 내용 크기를 따라가지 않으므로(기본 378x265) 초기 창 크기를 직접 잡는다.
+    # 내용 전체가 들어가되 화면(작업표시줄 감안)을 넘지 않게 — 넘치는 만큼은 스크롤로 본다.
+    # ⚠️ '영상 자리'는 예약값(VIDEO_COL_W/DISPLAY_H)으로 계산한다. 이 시점의 영상 라벨은
+    #    아직 안내문 크기(≈175px)뿐이므로 실측으로 잡으면 첫 프레임에 창이 모자라진다.
+    root.update_idletasks()
+    chrome_w = gui._vbar.winfo_reqwidth() + 2                     # 수직 스크롤바
+    chrome_h = gui._hbar.winfo_reqheight() + gui.status.winfo_reqheight() + 2
+    need_w = VIDEO_COL_W + 14 + gui._main.winfo_reqwidth() + chrome_w
+    need_h = max(gui._main.winfo_reqheight(), DISPLAY_H + 2 * VIDEO_PAD + 4) + chrome_h
+    w = min(need_w, int(root.winfo_screenwidth() * 0.95))
+    h = min(need_h, int(root.winfo_screenheight() * 0.90))
+    root.geometry(f"{w}x{h}")
+    # 최소 크기: 영상 + 패널이 최소한 절반은 보이게(더 좁히면 패널은 가로 스크롤로 본다).
+    root.minsize(VIDEO_COL_W + 220, 360)
     root.mainloop()
 
 
