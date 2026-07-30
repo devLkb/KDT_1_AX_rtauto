@@ -50,9 +50,24 @@ PhotoImage 생성(5~13ms)을 다 하고 그 위에 after(20)을 더 얹었다. �
 
 실행:  <vision venv python> dg5f_teleop_gui.py
 """
+import os
+
+# ⚠️ 이 두 줄은 **어떤 import보다 먼저** 와야 한다(matplotlib은 임포트 시점에 백엔드를 정한다).
+# mediapipe.solutions.drawing_utils가 모듈 레벨에서 `import matplotlib.pyplot`을 하는데,
+# 리눅스 matplotlib의 기본 백엔드는 **TkAgg**다. 우리는 mediapipe를 **워커 스레드**에서
+# 임포트하므로(_process_loop) 그 순간 tkinter/backend_tkagg가 워커에서 로드되며 X 연결을
+# 건드리고, 메인 스레드의 Tk와 부딪혀 프로세스가 통째로 죽는다(리눅스 실측):
+#     [xcb] Unknown sequence number while appending request
+#     [xcb] You called XInitThreads, this is not your fault
+#     python: xcb_io.c:157: append_pending_request:
+#             Assertion `!xcb_xlib_unknown_seq_number' failed.  → Aborted (core dumped)
+# Agg(비GUI)로 고정하면 워커에서 tkinter가 **아예 임포트되지 않는다**(실측: TkAgg일 때
+# `tkinter in sys.modules`=True → Agg에선 False). 이 GUI는 pyplot을 쓰지 않으니 손실 없음.
+# 윈도우에서는 TkAgg여도 죽지 않아 07-30까지 드러나지 않았다.
+os.environ.setdefault("MPLBACKEND", "Agg")   # 필요하면 셸에서 MPLBACKEND로 덮어쓸 수 있다
+
 import collections
 import json
-import os
 import socket
 import struct
 import sys
