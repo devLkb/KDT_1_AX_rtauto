@@ -27,8 +27,9 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from dg5f_angles import compute_raw, landmarks_to_xyz, CHANNEL_NAMES, WRIST, THUMB, MIDDLE
-from dg5f_paths import CALIB_PATH, unique_log_path
+from dg5f_angles import (compute_raw, landmarks_to_xyz, thumb_straight_ratio,
+                         CHANNEL_NAMES, DEFAULT_THUMB_STRAIGHT, CALIB_VERSION)
+from dg5f_paths import CALIB_PATH, unique_log_path, ensure_data_dir
 
 CAM_INDEX = 0
 # FRAME_W/FRAME_H는 2026-07-28에 삭제 — cap.set()을 안 쓰므로 미사용.
@@ -49,6 +50,9 @@ HUMAN_CAP = {
 }
 
 
+MIN_SAMPLES = 30        # 이보다 적으면 그 채널은 저장하지 않는다(기본값 유지가 낫다)
+
+
 def _cap_for(name):
     if name in HUMAN_CAP:
         return HUMAN_CAP[name]
@@ -56,6 +60,63 @@ def _cap_for(name):
         if name.endswith(suffix):
             return cap
     return float("inf")
+
+
+def build_calibration(samples, straight_samples):
+    """채널별 샘플 → (dg5f_calibration.json에 넣을 dict, 사람이 읽을 보고 줄 목록).
+    저장은 하지 않는다(호출자가 save_calibration으로).
+
+    ⚠️ 백분위·물리캡·스키마 버전·키 이름은 **여기 한 곳에만** 둘 것.
+       dg5f_teleop_gui.py의 ⑥ 보정 녹화가 이 함수를 그대로 부른다 — 로직을 복사하면
+       "GUI로 보정한 파일"과 "스크립트로 보정한 파일"이 다른 규칙을 갖게 된다.
+
+    samples: {채널명: [rad, ...]},  straight_samples: [직진도, ...]
+    """
+    lines, human_ranges = [], {}
+    for name in CHANNEL_NAMES:
+        arr = samples.get(name) or []
+        if len(arr) < MIN_SAMPLES:
+            lines.append(f"  {name:12s} 샘플 부족({len(arr)}) — 기본값 유지 권장, 저장 생략")
+            continue
+        lo = float(np.percentile(arr, PCT_LO))
+        hi = float(np.percentile(arr, PCT_HI))
+        cap = _cap_for(name)
+        capped = hi > cap
+        hi = min(hi, cap)
+        human_ranges[name] = {"min": round(lo, 3), "max": round(hi, 3)}
+        lines.append(f"  {name:12s} {lo:7.2f} ~ {hi:7.2f}"
+                     + (f"  (물리캡 {cap} 적용)" if capped else "")
+                     + (f"  ⚠️범위폭 {hi - lo:.2f} 좁음 — 해당 동작 확인"
+                        if hi - lo < 0.3 and "abd" not in name else ""))
+
+    out = {
+        "note": "calibrate_dg5f.build_calibration 자동 생성 — dg5f_angles.py가 임포트 시 읽음. "
+                "재보정하면 덮어써짐.",
+        "version": CALIB_VERSION,   # v3: thumb_straight_ratio(직진도). v2 thumb_reach_ratio는 폐기.
+        "method": f"percentile {PCT_LO}/{PCT_HI} + human cap; thumb_straight p95",
+        "created": time.strftime("%Y-%m-%d %H:%M"),
+        "human_ranges": human_ranges,
+    }
+    if len(straight_samples) >= MIN_SAMPLES:
+        out["thumb_straight_ratio"] = round(float(np.percentile(straight_samples, 95)), 4)
+        lines.append(f"  thumb_straight_ratio = {out['thumb_straight_ratio']:.3f} "
+                     f"(|엄지끝-CMC| 직선/마디합 p95, {len(straight_samples)}샘플)")
+        if out["thumb_straight_ratio"] < 0.90:
+            lines.append("  ⚠️ thumb_straight_ratio가 0.90 미만 — 엄지를 충분히 안 편 것 같음. "
+                         "'엄지 쭉 펴기' 동작을 포함해 재보정 권장.")
+    else:
+        lines.append(f"  ⚠️ thumb_straight_ratio 샘플 부족 — 런타임 기본값"
+                     f"({DEFAULT_THUMB_STRAIGHT})으로 동작")
+    return out, lines
+
+
+def save_calibration(out):
+    """⚠️ 절대 CWD 상대로 저장하지 말 것 — dg5f_angles의 로드 경로와 어긋난다(2026-07-16 발각).
+    저장·로드가 dg5f_paths.CALIB_PATH 하나를 공유한다."""
+    ensure_data_dir()
+    with open(CALIB_PATH, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+    return CALIB_PATH
 
 
 # landmarks_to_xyz는 dg5f_angles가 소유한다(2026-07-28 통합) — 종횡비 등방 보정 포함.
@@ -112,12 +173,10 @@ def main():
             raw = compute_raw(xyz)
 
             # 엄지 직진도 샘플 — compute_thumb_tip의 '펴짐 비율' 상한 보정(v3).
-            chain = (np.linalg.norm(xyz[THUMB[1]] - xyz[THUMB[0]])
-                     + np.linalg.norm(xyz[THUMB[2]] - xyz[THUMB[1]])
-                     + np.linalg.norm(xyz[THUMB[3]] - xyz[THUMB[2]]))
-            if chain > 1e-6:
-                straight_samples.append(
-                    float(np.linalg.norm(xyz[THUMB[3]] - xyz[THUMB[0]]) / chain))
+            # 수식은 dg5f_angles가 소유한다(_reach_vector와 같은 양이어야 하므로).
+            sr = thumb_straight_ratio(xyz)
+            if sr is not None:
+                straight_samples.append(sr)
 
             now = time.time()
             writer.writerow([f"{now:.3f}"] + [f"{v:.4f}" for v in raw])
@@ -145,45 +204,11 @@ def main():
     cv2.destroyAllWindows()
     csv_file.close()
 
-    human_ranges = {}
     print(f"\n===== 보정 결과 (백분위 {PCT_LO}/{PCT_HI}% + 물리캡, dg5f_calibration.json 저장) =====")
-    for name in CHANNEL_NAMES:
-        arr = samples[name]
-        if len(arr) < 30:
-            print(f"  {name:12s} 샘플 부족({len(arr)}) — 기본값 유지 권장, 저장 생략")
-            continue
-        lo = float(np.percentile(arr, PCT_LO))
-        hi = float(np.percentile(arr, PCT_HI))
-        cap = _cap_for(name)
-        capped = hi > cap
-        hi = min(hi, cap)
-        human_ranges[name] = {"min": round(lo, 3), "max": round(hi, 3)}
-        print(f"  {name:12s} {lo:7.2f} ~ {hi:7.2f}"
-              + (f"  (물리캡 {cap} 적용)" if capped else "")
-              + (f"  ⚠️범위폭 {hi-lo:.2f} 좁음 — 해당 동작 확인" if hi - lo < 0.3 and "abd" not in name else ""))
-
-    out = {
-        "note": "calibrate_dg5f.py 자동 생성 — dg5f_angles.py가 임포트 시 읽음. "
-                "재보정하면 덮어써짐.",
-        "version": 3,  # v3: thumb_straight_ratio(직진도). v2 thumb_reach_ratio(직선/손길이)는 폐기.
-        "method": f"percentile {PCT_LO}/{PCT_HI} + human cap; thumb_straight p95",
-        "created": time.strftime("%Y-%m-%d %H:%M"),
-        "human_ranges": human_ranges,
-    }
-    if len(straight_samples) >= 30:
-        out["thumb_straight_ratio"] = round(float(np.percentile(straight_samples, 95)), 4)
-        print(f"  thumb_straight_ratio = {out['thumb_straight_ratio']:.3f} "
-              f"(|엄지끝-CMC| 직선/마디합 p95, {len(straight_samples)}샘플)")
-        if out["thumb_straight_ratio"] < 0.90:
-            print("  ⚠️ thumb_straight_ratio가 0.90 미만 — 엄지를 충분히 안 편 것 같음. "
-                  "'엄지 쭉 펴기' 동작을 포함해 재보정 권장.")
-    else:
-        print(f"  ⚠️ thumb_straight_ratio 샘플 부족 — 런타임 기본값({0.97})으로 동작")
-    # ⚠️ 절대 CWD 상대로 저장하지 말 것 — dg5f_angles의 로드 경로와 어긋난다(2026-07-16 발각).
-    #    저장·로드가 dg5f_paths.CALIB_PATH 하나를 공유한다.
-    with open(CALIB_PATH, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
-    print(f"[저장] {CALIB_PATH} + 원시 로그 {CSV_PATH}")
+    out, lines = build_calibration(samples, straight_samples)
+    for line in lines:
+        print(line)
+    print(f"[저장] {save_calibration(out)} + 원시 로그 {CSV_PATH}")
     print("→ vision_node_dg5f.py 다시 실행하면 자동 적용됩니다.")
 
 

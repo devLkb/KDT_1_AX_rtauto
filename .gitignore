@@ -17,6 +17,14 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+# PyInstaller 산출물 — 저장소에 넣지 않는다.
+# dg5f_teleop.exe는 onefile로 **132MB**라 GitHub의 100MB 파일 제한에 걸린다(push 자체가 거부됨).
+# 배포는 GitHub Releases에 첨부하는 방식으로 한다 — vision/dg5f/BUILD.md 참조.
+dist/
+build/
+*.manifest
+build_log*.txt
+
 # 로컬 환경변수·비밀값 (공유 가능한 예제 파일만 허용)
 .env
 .env.*

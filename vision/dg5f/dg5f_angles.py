@@ -3,7 +3,7 @@ import math
 import os
 import numpy as np
 
-from dg5f_paths import CALIB_PATH
+from dg5f_paths import CALIB_PATH, read_path
 
 # --- MediaPipe landmark 인덱스 ---
 WRIST = 0                 # 손목
@@ -794,6 +794,30 @@ def compute_thumb_tip(lm):
     return tip, pinch_d
 
 
+def thumb_straight_ratio(lm):
+    """|엄지끝−CMC| 직선 ÷ **같은 프레임** 엄지 마디합 = 엄지 '직진도'(0~1, 쭉 펴면 1 근처).
+    보정이 재는 것은 이 값의 상한(=그 사람이 엄지를 쭉 폈을 때의 실측치)이고, 그게
+    _thumb_straight_calib → compute_thumb_tip의 cap으로 들어간다.
+
+    ⚠️ 이 수식은 _reach_vector가 프레임마다 계산하는 straight/chain과 **같은 양**이다.
+       보정 쪽에 사본을 두면 둘이 갈라져 cap이 자기 자신과 다른 척도가 된다 →
+       calibrate_dg5f.py와 dg5f_teleop_gui.py ⑥ 둘 다 이 함수를 부른다(사본 금지).
+    마디합이 0이면(랜드마크 붕괴) None."""
+    lm = np.asarray(lm)
+    straight = float(np.linalg.norm(lm[THUMB[3]] - lm[THUMB[0]]))
+    chain = float(np.linalg.norm(lm[THUMB[1]] - lm[THUMB[0]])
+                  + np.linalg.norm(lm[THUMB[2]] - lm[THUMB[1]])
+                  + np.linalg.norm(lm[THUMB[3]] - lm[THUMB[2]]))
+    return None if chain < 1e-6 else straight / chain
+
+
+def set_thumb_straight(value):
+    """보정 직후 **재시작 없이** 엄지 직진도 상한을 갈아끼운다(GUI ⑥ 보정 녹화용).
+    None이면 기본값(DEFAULT_THUMB_STRAIGHT)으로 되돌린다."""
+    global _thumb_straight_calib
+    _thumb_straight_calib = None if value is None else float(value)
+
+
 def compute_finger_tips(lm):
     lm = np.asarray(lm)
     frame = _anat_frame(lm)
@@ -827,7 +851,10 @@ _CALIB_PATH = CALIB_PATH
 
 
 def _load_calibration():
-    global DG5F_CHANNELS, _thumb_straight_calib
+    global DG5F_CHANNELS, _thumb_straight_calib, _CALIB_PATH
+    # exe라면 사용자 폴더(LOCALAPPDATA)에 없을 때 번들에 동봉한 기본 보정값으로 떨어진다.
+    # 소스 실행에서는 read_path가 같은 경로를 그대로 돌려준다.
+    _CALIB_PATH = read_path(_CALIB_PATH)
     if not os.path.exists(_CALIB_PATH):
         return False
     try:
