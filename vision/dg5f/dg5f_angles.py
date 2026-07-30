@@ -13,6 +13,48 @@ MIDDLE = [9, 10, 11, 12]  # 중지 MCP, PIP, DIP, TIP
 RING = [13, 14, 15, 16]   # 약지 MCP, PIP, DIP, TIP
 PINKY = [17, 18, 19, 20]  # 소지 MCP, PIP, DIP, TIP
 
+# ── 랜드마크 → 좌표배열 (등방 보정 포함) ─────────────────────────────────────
+# ★2026-07-28 신설. 그 전엔 calibrate/vision_node/teleop_gui가 **각자 같은 함수를 복사**해
+#   갖고 있었다(MP_MODEL_COMPLEXITY가 한 곳만 달라 보정과 라이브가 어긋났던 07-27 사고와 같은
+#   구조). 한 곳으로 모아 사본이 갈라질 수 없게 한다.
+#
+# 무엇을 고치나 — **종횡비 왜곡**:
+#   MediaPipe 이미지 랜드마크는 x=px/W, y=py/H 로 **축마다 다른 값으로 정규화**된다.
+#   640x480이면 y축만 4/3배 늘어난 비등방 좌표계라, 여기서 잰 모든 각도가 왜곡된다.
+#   등방 좌표 = (x·W, y·H, z·W).  전체 배율은 각도에 무영향이므로 W로 나눠 (x, y·H/W, z)만 쓴다.
+#   (z는 MediaPipe 문서상 "x와 대략 같은 스케일" = 폭 정규화 → x와 같이 두면 된다)
+#
+# 실측 효과(07-27 녹화 좌/우 각 1200여 프레임, p2~p98 폭):
+#   MCP  +21~30%   벌림 +18~32%   thumb_cmc +10~13%   (과소 판독이 줄어 이득/노이즈증폭 완화)
+#   PIP  −5~15%    (153~168°까지 나오던 과다 판독이 줄어드는 방향)
+#   index_mcp 실측 최대 0.578 → 0.711 rad
+#
+# ⚠️ world 랜드마크(multi_hand_world_landmarks)에는 **적용하면 안 된다** — 그쪽은 미터 단위
+#   손 중심 좌표라 애초에 이 왜곡이 없다. 그 경우 frame_shape=None 으로 부를 것.
+# ⚠️ 프록시 값이 20%대로 바뀌므로 **이 변경 이후 재보정 필수**. 거리 기반 상수
+#   (THUMB_OPP_D_OPEN/D_FULL)도 함께 재산출했다 — 해당 상수 주석 참조.
+LM_ASPECT_FIX = True    # False로 두면 옛 동작(비등방 정규화 좌표 그대로). A/B 비교용.
+
+
+def landmarks_to_xyz(hand_landmarks, frame_shape):
+    """MediaPipe 랜드마크 → (21,3) ndarray.
+
+    frame_shape: 그 랜드마크를 뽑은 프레임의 `.shape` (h, w, ...).
+        이미지 랜드마크면 반드시 넘길 것 — 등방 보정에 쓴다.
+        world 랜드마크면 **None**(보정 대상 아님).
+    ⚠️ 기본값을 두지 않는 건 일부러다. 빼먹으면 조용히 옛 좌표계로 돌아가 보정과 라이브가
+       어긋나므로, 호출부가 매번 명시하게 해서 그 사고를 막는다.
+    """
+    pts = np.zeros((21, 3), dtype=np.float64)
+    for i, lm in enumerate(hand_landmarks.landmark):
+        pts[i] = (lm.x, lm.y, lm.z)
+    if LM_ASPECT_FIX and frame_shape is not None:
+        h, w = float(frame_shape[0]), float(frame_shape[1])
+        if w > 0.0:
+            pts[:, 1] *= h / w
+    return pts
+
+
 # _angle(a, b, c): 점 b를 꼭짓점으로 하는 두 벡터(b→a, b→c) 사이 각(rad)을 구하는 함수
 def _angle(a, b, c):
     # 점 b를 꼭짓점으로 하는 두 벡터 만들기
@@ -45,6 +87,67 @@ def _bend(lm, i, j, k):
     # - k : 다음 관절
     # 위에서 구현한 _angle() 함수에 미디어파이프 전체 랜드마크 좌표에서 자신이 구할 관절의 내부 각도를 구하고
     # math.pi(180°) 에서 구한 관절 내부 각도를 빼서 손가락 관절을 완전히 폈을때 기준 얼만큼 굽혔는지 그 각도를 구함.
+    #
+    # ⚠️ 이 각은 **부호 없는 3D 각**이라 굽힘 평면 밖 성분(좌우 벌림)도 그대로 섞여 들어온다.
+    #   MCP 굽힘(_bend(lm, WRIST, X[0], X[1]))은 손목→MCP가 손바닥에 고정된 반면 MCP→PIP는
+    #   굽힘과 벌림 양쪽으로 움직이므로, 손가락을 옆으로 θ 돌리면 굽힘도 θ만큼 늘어난다.
+    #   → MCP는 _bend_mcp()(평면 투영판)를 쓴다. 아래 주석 참조.
+    #   PIP/DIP·엄지 MCP/IP는 두 벡터가 모두 그 손가락 안에 있어 벌림에 함께 회전 → 각이 불변.
+    #   그래서 그쪽은 이 함수를 그대로 쓴다(투영하면 오히려 정보를 깎는다).
+
+
+# MCP 굽힘 전용: 굽힘 평면에 투영해 좌우 벌림 성분을 제거한다 (2026-07-28 신설).
+#
+# 왜 (실측 근거):
+#   사용자 보고 — "손을 선서하듯 쭉 펴서 **모으면** 로봇 검지가 앞으로 굽는다"(좌·우 양손).
+#   07-28 라이브 3개 런(rad_dg5f 14:10/14:12/14:14, 편 손 1495프레임)에서 그대로 재현:
+#     펴고 벌림 → 사람 index_mcp  8.2° / 로봇 2_2 25.5°
+#     펴고 모음 → 사람 index_mcp 18.5° / 로봇 2_2 49.2°   (모으기만 했는데 +10.4° / +23.7°)
+#   검지가 최악인 이유: 손목→검지MCP 축이 네 손가락 중 가장 비스듬하고 벌림 가동범위도 가장 크다.
+#
+# 방법: 그 손가락의 '측면축' lat = palm_n × (손목→MCP) 성분을 두 벡터에서 빼고 각을 잰다.
+#   _abduction()이 palm_n(법선) 성분을 빼서 손바닥 평면만 남기는 것과 정확히 대칭 —
+#   이쪽은 측면 성분을 빼서 굽힘 평면만 남긴다.
+#
+# 07-27 녹화 랜드마크(lmprobe 좌/우 각 1200여 프레임) 시뮬레이션 결과:
+#   index  벌림상관 0.74→0.45(우) / 0.69→0.24(좌),  편손 rest 10.2°→7.1° / 10.1°→6.7°
+#   middle 편손 rest 7.4°→4.1° / 6.5°→2.5°     pinky 편손 rest 13.6°→7.1° / 13.2°→4.7°
+#   (약지·새끼의 '벌림상관'은 오히려 올라가는데, 그쪽 _abduction 자체가 굽힘 오염이 심해서
+#    (5_2 vs 5_3 r=0.95) 굽힘이 깨끗해질수록 상관이 커지는 착시다. _abduction 수정은 별건.)
+#
+# ⚠️ 프록시 정의가 바뀌므로 **이 변경 이후로 재보정해야 한다**(사람 min/max가 달라진다).
+#   BEND_MCP_PLANAR=False로 즉시 옛 동작으로 되돌릴 수 있다(A/B 비교용).
+BEND_MCP_PLANAR = True
+
+
+def _bend_mcp(lm, finger):
+    """finger = INDEX/MIDDLE/RING/PINKY. 손목→MCP 기준 MCP 굽힘각(rad), 굽힘 평면 투영."""
+    if not BEND_MCP_PLANAR:
+        return _bend(lm, WRIST, finger[0], finger[1])
+
+    lm = np.asarray(lm)
+    palm_n = np.cross(lm[INDEX[0]] - lm[WRIST], lm[PINKY[0]] - lm[WRIST])
+    npn = np.linalg.norm(palm_n)
+    axis = lm[finger[0]] - lm[WRIST]            # 손목→MCP (이 손가락의 MCP 축)
+    na = np.linalg.norm(axis)
+    if npn < 1e-9 or na < 1e-9:                 # 손이 정면에서 뭉개진 프레임 — 옛 방식으로 폴백
+        return _bend(lm, WRIST, finger[0], finger[1])
+
+    lat = np.cross(palm_n / npn, axis / na)     # 굽힘 평면의 법선(= 좌우 벌림 축)
+    nl = np.linalg.norm(lat)
+    if nl < 1e-9:
+        return _bend(lm, WRIST, finger[0], finger[1])
+    lat /= nl
+
+    a = lm[WRIST] - lm[finger[0]]               # MCP→손목
+    b = lm[finger[1]] - lm[finger[0]]           # MCP→PIP
+    a = a - lat * np.dot(a, lat)                # 측면(벌림) 성분 제거 → 굽힘 평면 성분만 남김
+    b = b - lat * np.dot(b, lat)
+    n1, n2 = np.linalg.norm(a), np.linalg.norm(b)
+    if n1 < 1e-6 or n2 < 1e-6:
+        return _bend(lm, WRIST, finger[0], finger[1])
+    return math.pi - float(np.arccos(np.clip(np.dot(a, b) / (n1 * n2), -1.0, 1.0)))
+
 
 # _abduction(): 중지의 근위지골(9→10) 방향을 기준으로 손가락이 얼마나 좌우로 벌어졌는지 계산하는 함수
 def _abduction(lm, finger):
@@ -161,39 +264,40 @@ def _thumb_elevation(lm):
     # np.arcsin(): sin값을 값으로부터 실제 각도(φ)를 구하는 함수
 
 
-# _thumb_opposition(): 엄지 '대향(opposition)'각 — 엄지가 손바닥을 가로질러 손가락 쪽으로
-#   얼마나 넘어왔는지. 2026-07-21 신규(기존 _thumb_elevation 대체). 왜 바꾸나:
-#   MediaPipe는 대향을 크게 잘 잡는데(엄지끝이 소지끝에 거의 닿음), _thumb_elevation은
-#   엄지 근위마디의 '손바닥에서 들린 각(arcsin dot v·n)'만 재서 **손 축 성분에 희석**돼
-#   과소평가(실측 max ~30°, 로봇 대향은 75° 필요)했다. 여기선 엄지 근위마디에서 **손 축 성분을
-#   먼저 제거**하고, 남은 '손 축에 수직인 평면(폭 w × 깊이 n)' 안에서 깊이방향 회전각을 재
-#   대향을 온전히 잡는다(손 축 희석 제거 → elevation보다 큰 범위).
+# _thumb_opposition(): 엄지 '대향(opposition)' 정도 — 엄지끝이 손바닥을 가로질러 새끼 뿌리로
+#   얼마나 다가왔는지. **각도가 아니라 거리(손 크기로 정규화)** 를 돌려준다. 대향할수록 작아진다.
+#     반환값 = ‖랜드마크4(엄지끝) − 랜드마크17(소지 MCP)‖ / ‖랜드마크9(중지 MCP) − 랜드마크0(손목)‖
+#   ★2026-07-27 두 번째 교체 — '평면 밖 각도' 방식을 완전히 버린 이유(원본 랜드마크 실측):
+#     ① 각도 방식(arcsin(dot(v,n)/‖v‖), v=엄지 CMC1→MCP2)이 재는 마디는 **거의 손바닥 평면에 누워
+#        있다**. 실측 평균 기울기 0.84~2.04°인데 잡음이 0.92~2.28° — 신호대잡음 1:1~1:2.7.
+#        그래서 손을 오므리면 **부호가 19~37% 확률로 뒤집힌다**(lmprobe cup/pinkybend 실측).
+#     ② 매핑이 max(0,·) 정류라 음수는 전부 0 → **파지 자세에서 엄지 명령이 죽는다**
+#        (라이브 실측: 깊은 파지 구간의 55~80% 프레임이 음수, corr(엄지MCP굽힘, 대향)=−0.92~−0.97).
+#     ③ 엄지가 실제로 뒤로 가는 건 **아니다** — MCP(2)점의 평면 밖 위치는 3개 녹화 전부
+#        +0.098~+0.124로 **음수 프레임 0.0%**. 즉 z가 죽은 것도, 엄지가 뒤로 넘어간 것도 아니고
+#        '거의 0인 기울기'를 재던 게 문제였다.
+#   ★거리 방식의 이점:
+#     • x·y가 지배 → MediaPipe z 품질(파지 시 가림)에 둔감
+#     • **부호가 없다** → 정류가 신호를 잘라먹는 일이 원천적으로 불가능
+#     • **좌우 불변** → THUMB_OPP_SIGN / THUMB_OPP_HAND_SIGN 같은 손별 부호 표가 불필요해짐
+#     • 실측 신호대잡음: 현재식 3.9~9.1 → 거리식 3.8~29.8, 집기동작 상관 +0.25 → +0.91(cup)
+#   ⚠️ 대향 없이 엄지를 굽히기만 해도 거리가 줄어 1_3/1_4(엄지 MCP·IP 굽힘)와 신호가 일부 겹친다.
+#      파지에선 둘이 함께 일어나 실용상 문제는 작지만, "엄지만 접었는데 대향까지 들어감"이 보이면
+#      엄지끝(4) 대신 IP(3)를 쓰거나 굽힘 성분을 빼는 보정이 필요하다.
 def _thumb_opposition(lm):
     lm = np.asarray(lm)
-    # 손바닥 법선 n (기존 elevation과 동일 부호 — 대향할수록 depth +)
-    n = np.cross(lm[INDEX[0]] - lm[WRIST], lm[PINKY[0]] - lm[WRIST])
-    nn = np.linalg.norm(n)
-    if nn < 1e-9:
+    hand_len = float(np.linalg.norm(lm[MIDDLE[0]] - lm[WRIST]))   # 손 크기 = 카메라 거리 보정
+    if hand_len < 1e-9:
+        return THUMB_OPP_D_OPEN                                    # 판정 불가 → '펴진 상태'로
+    return float(np.linalg.norm(lm[THUMB[3]] - lm[PINKY[0]])) / hand_len
+
+
+def _thumb_opp_amount(d):
+    """대향 프록시(거리) → 0(펴짐) ~ 1(완전대향) 비율. 거리는 대향할수록 '작아지므로' 반전한다."""
+    span = THUMB_OPP_D_OPEN - THUMB_OPP_D_FULL
+    if span < 1e-9:
         return 0.0
-    n /= nn
-    # 손 축 a (손목→중지 MCP) — 손가락이 뻗는 위쪽 방향
-    a = lm[MIDDLE[0]] - lm[WRIST]
-    an = np.linalg.norm(a)
-    if an < 1e-9:
-        return 0.0
-    a /= an
-    # 엄지 근위 마디(cmc→mcp, 1→2)에서 손 축 성분 제거 → 손 축에 수직인 성분만 남김
-    #   (TIP 안 씀 → MCP·IP 굽힘이 대향값에 안 섞임)
-    v = lm[THUMB[1]] - lm[THUMB[0]]
-    v = v - np.dot(v, a) * a
-    if np.linalg.norm(v) < 1e-9:
-        return 0.0
-    w = np.cross(n, a)                 # 손바닥 폭 축(검지↔소지 방향)
-    depth = float(np.dot(v, n))        # 손바닥 밖(대향)으로 나가는 성분 — 대향 시 +
-    width = float(np.dot(v, w))        # 폭 방향(평면 내) 성분
-    # 대향각 = 평면 내(width)에서 평면 밖(depth)으로 회전한 각. 손 축 성분을 뺐으므로
-    #   elevation(arcsin, 손 축에 희석)보다 큰 범위. rest≈0, 완전대향→90° 근처.
-    return float(np.arctan2(depth, abs(width) + 1e-9))
+    return min(1.0, max(0.0, (THUMB_OPP_D_OPEN - d) / span))
 
 
 # ── 엄지 평면 벌림(1_1) ↔ 대향(1_2) crosstalk 게이트 (기본 OFF) ─────────────────
@@ -206,17 +310,20 @@ def _thumb_opposition(lm):
 # THUMB_ABD_OPP_GATE=True로 켜면: 대향(opp)이 깊어질수록 벌림(1_1)을 감쇠(fold 중 1_1→중립).
 #   실험용 — 특정 태스크에서 벌림 crosstalk가 방해될 때만.
 THUMB_ABD_OPP_GATE = False   # 기본 OFF = 대향/벌림 혼합 허용(사용자 요구)
-OPP_GATE_LO = 0.20   # (게이트 ON일 때) 이 대향각(rad) 이하: 벌림 그대로 통과
-OPP_GATE_HI = 0.45   # (게이트 ON일 때) 이 대향각(rad) 이상: 벌림 완전 차단
+# ⚠️ 2026-07-27: 대향 프록시가 '각도(rad)'에서 **거리(손크기 정규화)** 로 바뀌었다.
+#   게이트 임계값도 그에 맞춰 대향량(0=펴짐 ~ 1=완전대향) 기준으로 재정의했다.
+OPP_GATE_LO = 0.30   # (게이트 ON일 때) 이 대향량 이하: 벌림 그대로 통과
+OPP_GATE_HI = 0.70   # (게이트 ON일 때) 이 대향량 이상: 벌림 완전 차단
 
 
-def _opp_gate(opp):
-    """대향각(opp, rad)이 클수록(=fold 깊을수록) 0에 가까운 게이트값[0,1] 반환. (게이트 ON일 때만 사용)"""
-    if opp <= OPP_GATE_LO:
+def _opp_gate(opp_d):
+    """대향이 깊을수록 0에 가까운 게이트값[0,1]. 인자는 _thumb_opposition의 **거리** 프록시."""
+    t = _thumb_opp_amount(opp_d)
+    if t <= OPP_GATE_LO:
         return 1.0
-    if opp >= OPP_GATE_HI:
+    if t >= OPP_GATE_HI:
         return 0.0
-    return (OPP_GATE_HI - opp) / (OPP_GATE_HI - OPP_GATE_LO)
+    return (OPP_GATE_HI - t) / (OPP_GATE_HI - OPP_GATE_LO)
 
 
 # _palm_fold():
@@ -280,23 +387,23 @@ def compute_raw(lm):
         _bend(lm, THUMB[1], THUMB[2], THUMB[3]),       # thumb_ip(3번) 관절의 각도
         # 검지
         _abduction(lm, INDEX),                         # 중지의 근위지골(9→10) 방향을 기준으로 검지가 얼마나 좌우로 벌어졌는지 각도
-        _bend(lm, WRIST, INDEX[0], INDEX[1]),          # index_mcp(5번) 관절의 각도
+        _bend_mcp(lm, INDEX),                          # index_mcp(5번) 관절의 각도 (굽힘평면 투영)
         _bend(lm, INDEX[0], INDEX[1], INDEX[2]),       # index_pip(6번) 관절의 각도
         DIP_PIP_COUPLING * _bend(lm, INDEX[0], INDEX[1], INDEX[2]),   # index_dip(7번): PIP에서 유도(측정 z 부실). =k×PIP
         # 중지
         _abduction(lm, MIDDLE),                        # middle_abd — 기준(9→10)과 자기 자신 비교라 항상 ≈0 (중립 유지용)
-        _bend(lm, WRIST, MIDDLE[0], MIDDLE[1]),        # middle_mcp(9번) 관절의 각도
+        _bend_mcp(lm, MIDDLE),                         # middle_mcp(9번) 관절의 각도 (굽힘평면 투영)
         _bend(lm, MIDDLE[0], MIDDLE[1], MIDDLE[2]),    # middle_pip(10번) 관절의 각도
         DIP_PIP_COUPLING * _bend(lm, MIDDLE[0], MIDDLE[1], MIDDLE[2]),  # middle_dip(11번): PIP에서 유도. =k×PIP
         # 약지
         _abduction(lm, RING),                          # ring_abd — 중지(9→10) 기준 약지 벌림각
-        _bend(lm, WRIST, RING[0], RING[1]),            # ring_mcp(13번) 관절의 각도
+        _bend_mcp(lm, RING),                           # ring_mcp(13번) 관절의 각도 (굽힘평면 투영)
         _bend(lm, RING[0], RING[1], RING[2]),          # ring_pip(14번) 관절의 각도
         DIP_PIP_COUPLING * _bend(lm, RING[0], RING[1], RING[2]),       # ring_dip(15번): PIP에서 유도. =k×PIP
         # 새끼
         _palm_fold(lm),                                # pinky_cmc → 손바닥접기 각도, 5_1 대응용
         _abduction(lm, PINKY),                         # pinky_lat → 중지의 근위지골(9→10) 방향을 기준으로 새끼가 얼마나 좌우로 벌어졌는지 각도, 5_2 대응용
-        _bend(lm, WRIST, PINKY[0], PINKY[1]),          # pinky_mcp(17번) 관절의 각도, 5_3 대응용
+        _bend_mcp(lm, PINKY),                          # pinky_mcp(17번) 관절의 각도, 5_3 대응용 (굽힘평면 투영)
         (1.0 + DIP_PIP_COUPLING) * _bend(lm, PINKY[0], PINKY[1], PINKY[2]),  # pinky 원위(5_4): 로봇은 원위관절 1개뿐 → 사람 PIP+DIP 합을 PIP에서 유도((1+k)×PIP). 옛 (PIP+측정DIP)/2는 DIP z부실로 과소(사용자: "덜 움직임")
     ]
 
@@ -313,6 +420,20 @@ LEFT_MIRROR_CHANNELS = {
     "pinky_cmc", "pinky_lat",
 }
 
+# 우수(right) 모델에서만 부호를 뒤집는 채널 (2026-07-27 추가)
+#   thumb_cmc(1_1)는 LEFT_MIRROR_CHANNELS에 없다(|abd|→[FOLD,SPREAD] 직접 산출). 그런데 그
+#   FOLD/SPREAD·RATIO_LIMIT 값이 **왼손 URDF 기준**이라 우수 URDF에선 그대로 쓰면 안 된다:
+#   좌수 1_1 리밋 [-77,+22] ↔ 우수 [-22,+77] (Y축 거울).
+#   실측(로그 rad_dg5f_20260727_143610, 우수 로봇 라이브): 뒤집기 전 명령 -65.0..-4.8 →
+#   **82.1%가 하한(-22°) 밖으로 잘려** 가동폭이 좌수 65° → 우수 24°로 붕괴(로봇 -22에 42.8% 포화).
+#   뒤집으면 명령 +4.8..+65.0, 리밋 이탈 0.0%.
+#   ★한 곳(끝단 부호 반전)에서 처리하는 근거: direct는 deg=FOLD+t·(SPREAD−FOLD), ratio는
+#     deg=rmin+t·(rmax−rmin)로 **두 끝점에 대해 선형**이므로 −deg는 두 끝점을 모두 반전한 것과
+#     완전히 동일하다. 그래서 상수를 손대지 않고 direct/ratio 양쪽이 함께 맞는다.
+#   ⚠️ 따라서 GUI의 1_1 '로봇 lo/hi' 슬라이더는 **항상 왼손 기준값**이고, right 모드에서는
+#     자동 반전돼 로봇에 적용된다(프리셋도 왼손 기준으로 저장됨).
+RIGHT_MIRROR_CHANNELS = {"thumb_cmc"}
+
 # 벌림(좌우) 채널 — 사람 벌림각(rad)을 로봇 벌림각(deg)으로 **1:1 직접 매핑**(로봇 범위로 clamp).
 #   percentile min/max 정규화를 쓰면 안 되는 이유(2026-07-20 실측): 보정 세션에서 벌림을 조금만 해도
 #   사람 범위가 좁게 잡혀(예 index 양수쪽 hmax=0.096rad=5.5°) 로봇 dmax=20°까지 ~3.6배 증폭 →
@@ -323,19 +444,34 @@ LEFT_MIRROR_CHANNELS = {
 ABDUCTION_CHANNELS = {"index_abd", "middle_abd", "ring_abd", "pinky_lat"}
 ABD_GAIN = 1.0  # 로봇도 = 사람 벌림각(deg) × 이 값. 1.0 = 1:1(증폭 없음).
 
-# 엄지 깊이 대향(thumb_opp): 신 프록시 _thumb_opposition 사용. 2026-07-21 라이브 실측 —
-#   사람은 엄지를 손바닥 안쪽까지 깊게 대향하는데 로봇은 use clamp -75°(≈손바닥 법선)에서 잘렸다.
-#   URDF 한계는 155°이므로 clamp를 -155°(전 범위)로 열고, 프록시가 ~83°에서 천장(atan2)이라 그 범위를
-#   쓰려면 GAIN>1 필요 → 1.5. (사람 대향 83° → 로봇 125°로 손바닥 안쪽까지 접힘.) 너무 과하면 ↓, 부족하면 ↑.
-THUMB_OPP_GAIN = 1.5
-# 어느 부호의 raw 대향각을 '대향(fold-in)'으로 볼지. +1.0=기존(v>0을 대향으로). 라이브에서 대향
-#   방향이 반대면(격리 1_2 테스트로 확인) -1.0으로 뒤집을 것. LEFT_MIRROR(로봇 좌우)와는 별개 제어.
-THUMB_OPP_SIGN = 1.0
-# 비율(ratio) 모드 전용: 사람 대향각(양의 대향, rad)의 '완전대향' 상한. 이 값에서 t=1(로봇 최대 대향).
-#   보정값(0.013~0.428)은 옛 프록시(_thumb_elevation) 기준이라 새 _thumb_opposition(라이브 0~1.4rad)엔
-#   안 맞아 조기 포화 → 반응 소실. 라이브 실측 max≈1.42rad(rad_dg5f 로그)를 반영해 1.4로 고정.
-#   대향이 부족하면(끝까지 못 감) ↓, 너무 일찍 포화하면 ↑.
-THUMB_OPP_RATIO_HI = 1.4
+# ── 엄지 대향(thumb_opp, 1_2) 거리 프록시 상수 ────────────────────────────────
+# 프록시 = ‖엄지끝(4) − 소지MCP(17)‖ / ‖중지MCP(9) − 손목(0)‖  (_thumb_opposition 참조)
+#   D_OPEN = 손을 쫙 폈을 때(엄지도 옆으로 벌림)의 거리 — 여기서 대향량 0
+#   D_FULL = 엄지끝을 새끼 뿌리에 최대한 붙였을 때의 거리 — 여기서 대향량 1(로봇 최대 대향)
+# ★좌우 공통이다 — 거리는 거울상에 불변이라 손별 상수가 원리적으로 불필요하다.
+#   (그래서 옛 THUMB_OPP_SIGN / THUMB_OPP_HAND_SIGN 부호 표를 통째로 제거했다.)
+# ★확정값(2026-07-27 lmprobe_grasp_left/right 실측, 각 ~1200프레임 · 펴기/완전대향/집게파지 3자세):
+#     펴짐 중앙값     왼 1.019 / 오 1.058  → D_OPEN은 **작은 쪽**(1.02)으로: 양손 다 rest 누출 0
+#     완전대향 중앙값  왼 0.227 / 오 0.247  → D_FULL은 **큰 쪽**(0.25)으로: 양손 다 풀스케일 도달
+#   좌우 차이가 펴짐 3.7% / 대향 8%로 작아 **손별 상수 불필요**가 실측으로 확인됐다.
+#   집게 파지(엄지-검지) 자세는 거리 0.68~0.69 → 대향량 0.43 → 로봇 ≈41°. 죽지 않고 제대로 반응.
+#   랜드마크쌍 선택 근거(4개 후보 비교): 4↔17이 span 0.62~0.67·신호대잡음 7.4~11.0으로 최고.
+#     (3↔17은 span 0.40, 2↔17은 0.22로 좁고, 4↔13은 좌우 일치는 좋으나 span·SNR이 낮음)
+# ★2026-07-28 종횡비 등방 보정(landmarks_to_xyz)에 맞춰 재산출:
+#   이 프록시는 **방향이 다른 두 거리의 비**(엄지끝→소지MCP / 중지MCP→손목)라 비등방 보정이
+#   상쇄되지 않고 값이 통째로 커진다. 같은 07-27 녹화로 보정 전/후 배율을 재보니 분포 전 구간
+#   (p2~p99)에서 **1.22~1.32로 일정** → 위 실측 튜닝값의 의도를 그대로 살려 배율만 곱했다.
+#     D_OPEN 1.02 × 1.30(펴짐측 배율) = 1.33      D_FULL 0.25 × 1.25(대향측 배율) = 0.31
+#   ⚠️ LM_ASPECT_FIX=False로 되돌릴 땐 이 두 값도 1.02 / 0.25로 함께 되돌릴 것.
+# 튜닝: 중립에서 엄지가 미리 들어가 있으면 D_OPEN↓, 끝까지 대향이 안 되면 D_FULL↑.
+THUMB_OPP_D_OPEN = 1.33     # 펴진 상태 거리(큼)   — 옛 비등방 좌표 기준 1.02
+THUMB_OPP_D_FULL = 0.31     # 완전대향 거리(작음) — 옛 비등방 좌표 기준 0.25
+
+# direct 모드에서 대향량(0~1)을 로봇 각도로 바꿀 때의 최대각[deg]. 로봇 clamp는 -155(URDF 전 범위).
+#   ratio 모드는 이 값을 쓰지 않는다(THUMB_OPP_RATIO_MAX_DEG가 담당).
+THUMB_OPP_GAIN = 95.0
+
+
 
 # 엄지 손바닥평면 벌림/접힘(thumb_cmc, 1_1): |abd| → 로봇 [접힘, 벌림] 양방향 선형매핑.
 #   ★왜 부호/미러가 아니라 크기 매핑인가(2026-07-21 실데이터 진단):
@@ -360,7 +496,10 @@ DG5F_CHANNELS = [
     #   dmin/dmax(0,65)·hmin/hmax는 이 채널에선 미사용(분기가 자체 [FOLD_DEG,SPREAD_DEG]로 클램프).
     #   실사용 범위 = [THUMB_CMC_FOLD_DEG, THUMB_CMC_SPREAD_DEG] = 기본 [-65, +22]°(왼손).
     ("thumb_cmc",  -0.52, -0.03,    0.0,   65.0,  False),
-    # thumb_opp(1_2, 깊이 대향): dmax -75→-155(2026-07-21) — 로봇 clamp가 -75(≈손바닥 법선)에서
+    # thumb_opp(1_2, 대향): ⚠️ hmin/hmax(0.15,0.85)는 **미사용**이다. 이 채널만 프록시 단위가
+    #   각도(rad)가 아니라 '거리'라서 보정 파일 값이 의미 없고, 매핑은 THUMB_OPP_D_OPEN/D_FULL이 담당.
+    #   (보정 로드가 이 자리를 덮어써도 무해 — 두 특수분기 어디서도 읽지 않는다.)
+    #   dmax -75→-155(2026-07-21) — 로봇 clamp가 -75(≈손바닥 법선)에서
     #   잘려 사람처럼 손바닥 안쪽까지 못 접혔음. URDF 한계 155°까지 열어 깊은 대향 허용(GAIN 1.5와 함께).
     #   dmin=0(평면). 신 프록시 _thumb_opposition + THUMB_OPP_GAIN로 이 범위를 채운다.
     ("thumb_opp",   0.15,  0.85,    0.0, -155.0,  False),
@@ -400,6 +539,11 @@ CHANNEL_NAMES = [c[0] for c in DG5F_CHANNELS]
 #     → 비율이 안 쓰는 극단 영역까지 분산돼 같은 사람동작에도 로봇 움직임이 작아진다(사용자 인지·선택).
 #     또 굽힘 관절 리밋 하한이 −90(과신전 여유)이라 사람 rest(≈사람min)가 로봇 −90 근처로 갈 수 있음.
 #     rest 포즈가 뒤로 젖혀 보이면 RATIO_ROBOT_RANGE를 "use"로 바꿔 재평가할 것(한 줄).
+#   ⚠️⚠️ 좌표계 함정(2026-07-28): 이 표는 **좌수** URDF다. 그런데 _map_ratio가 만드는 값은
+#     LEFT_MIRROR_CHANNELS에 대해 함수 끝에서 hand=="left"일 때 부호 반전되므로, 반전 전 단계는
+#     **우수 좌표계**다. 따라서 LEFT_MIRROR 채널에 이 표를 경계로 쓰면 양손 모두 거울상으로
+#     어긋난다. 그런 채널은 RATIO_LIMIT에 우수 기준 값을 명시해 폴백을 끊는다(벌림 3채널이 그 예).
+#     이 표 자체는 '좌수 URDF의 사실'이므로 값을 고치지 말 것 — joint_ranges.py SPEC과 짝이다.
 URDF_LIMITS_DEG = {
     "thumb_cmc": (-77.0,  22.0), "thumb_opp": (0.0, 155.0),
     "thumb_mcp": (-90.0,  90.0), "thumb_ip":  (-90.0, 90.0),
@@ -419,8 +563,9 @@ RATIO_ROBOT_RANGE = "urdf"
 # ── 비율 모드 채널별 로봇 출력 한계[deg] (URDF/use 대신 이 값을 최우선 사용) ─────────────
 #   2026-07-22 라이브 관절디버깅 피드백 반영. URDF 리밋(±90 등)이면 사람보다 과하게 움직이거나
 #   (특히 굽힘 관절) 사람이 못 하는 뒤꺾임(과신전, rmin=−90)까지 나온다. → 사람 실제 ROM으로 조인다.
-#   여기 '없는' 채널은 URDF 리밋(RATIO_ROBOT_RANGE)로 폴백 — 벌림(abduction) 채널은 URDF가 더
-#   사람같이 벌어진다는 피드백이라 일부러 뺐다(index_abd 등). (rmin,rmax) 의미는 채널별 주석 참조.
+#   여기 '없는' 채널은 URDF 리밋(RATIO_ROBOT_RANGE)로 폴백한다. (rmin,rmax) 의미는 채널별 주석 참조.
+#   ⚠️ 폴백은 LEFT_MIRROR_CHANNELS 채널에 쓰면 안 된다 — URDF_LIMITS_DEG가 좌수 표라 좌표계가
+#     어긋난다(2026-07-28 벌림 3채널 사고, 아래 벌림 블록 주석 참조). 그런 채널은 여기 명시할 것.
 #   ⚠️ 첫 튜닝값 — 라이브 보고 이 숫자만 조정하면 됨.
 RATIO_LIMIT = {
     # ── 엄지 ──
@@ -437,7 +582,27 @@ RATIO_LIMIT = {
     "middle_mcp": (0.0, 95.0),  "middle_pip": (0.0, 85.0), "middle_dip": (0.0, 80.0),
     "ring_mcp":   (0.0, 105.0), "ring_pip":   (0.0, 85.0), "ring_dip":   (0.0, 80.0),
     "pinky_mcp":  (0.0, 85.0),  "pinky_pip":  (0.0, 80.0),
-    # ── 벌림(abduction)은 일부러 없음 → URDF 폴백(index_abd 등 ratio-URDF가 더 사람같이 벌어짐, 피드백) ──
+    # ── 벌림(abduction) ★2026-07-28 추가 (그 전엔 일부러 비워 URDF 폴백을 썼는데, 그게 버그였다) ──
+    #   무엇이 틀렸나: URDF_LIMITS_DEG는 **좌수** URDF 표다. 그런데 이 채널들은 LEFT_MIRROR_CHANNELS
+    #   소속이라 값이 함수 끝에서 hand=="left"일 때만 부호 반전된다 — 즉 반전 '전' 단계의 값은
+    #   **우수 좌표계**여야 한다. 좌수 경계를 그대로 물린 탓에 **양손 모두** 명령 가능범위가
+    #   구동 중인 로봇 가동범위의 정확히 거울상이 됐다:
+    #       hand=right(반전 없음) → [-20,+31] 인데 우수 로봇은 [-31,+20]
+    #       hand=left (반전됨)    → [-31,+20] 인데 좌수 로봇은 [-20,+31]
+    #   같은 LEFT_MIRROR인 thumb_opp(−95..0)·thumb_mcp/ip(0..80)는 이미 우수 기준이라 멀쩡했고,
+    #   벌림 셋만 좌수 표를 물고 있었다. (direct 모드는 DG5F_CHANNELS use범위가 양손 다 들어맞아 무사)
+    #   실측 근거(unity_dg5f 4개 런, 07-28): 한쪽 끝에 붙어 있던 시간 2_1 5.1%/4_1 3.5%/5_2 20.1%,
+    #   반대쪽으로는 각각 11°/17°/75°를 한 번도 못 씀. 5_2는 vis_rad→joint_rad 상관이 0.33까지 붕괴.
+    #   방향(부호)은 건드리지 않는다 — vis_rad(사람 프록시)가 좌/우 손에서 부호 불변임을 4개 런에서
+    #   확인했고(index −5~−7°, ring +3.6~+5.7°로 일관), 따라서 끝단 반전이 곧 로봇 거울 대응이라 정상.
+    #   ⚠️ 여기 값은 **우수 URDF 기준**으로 적을 것(좌수 표의 negate&swap). 좌수 값을 적으면 원위치.
+    "index_abd": (-31.0, 20.0),   # 우수 URDF 그대로 (좌수 -20..31 의 negate&swap)
+    "ring_abd":  (-15.0, 32.0),   # 우수 URDF 그대로 (좌수 -32..15)
+    # pinky_lat(5_2): 우수 URDF는 (-15,+90)이지만 편측 90°는 사람 새끼 벌림의 5배다
+    #   (실측 피크가 리밋 대비 5.2~5.8배). 사람 ROM으로 조인다 — 첫 튜닝값, 라이브 보고 조정.
+    "pinky_lat": (-15.0, 25.0),
+    # middle_abd(3_1)는 기준 손가락이라 항상 0 + 리밋이 대칭(±25) → 폴백이어도 무해해서 그대로 둔다.
+    # pinky_cmc(5_1)는 gated(항상 0). 게이트를 풀면 여기에 우수 기준 (0,60)을 넣을 것.
 }
 
 # thumb_opp(1_2) 비율 모드 손바닥쪽(대향) 최대각[deg]. 부호는 direct와 동일(−, left-mirror가 +로).
@@ -483,14 +648,11 @@ def _map_ratio(raw, hand):
             t = min(1.0, max(0.0, t))
             deg = rmin + t * (rmax - rmin)
         elif name == "thumb_opp":
-            # ★thumb_opp(1_2)는 '깊이 방향(양의 대향)'만 유효한 단방향 동작이다(direct의 max(0,·)와
-            #   동일). 프록시 _thumb_opposition은 양·음(대향/후퇴) 양방향이라 균일 비율식을 쓰면 rest(v≈0)가
-            #   중간값으로 매핑돼 반쯤 대향된 채 시작하고, 게다가 보정값(0.013~0.428)이 옛 프록시 기준이라
-            #   조기 포화(→ 반응 소실)한다. → 양의 대향 성분만 [0, THUMB_OPP_RATIO_HI] 비율로 로봇 대향
-            #   범위(dmax=−155, URDF 방향·크기)에 실는다. 부호는 direct와 동일 → 아래 left-mirror가 좌수 URDF(+)로 맞춤.
-            opp = max(0.0, THUMB_OPP_SIGN * v)
-            t = min(1.0, opp / THUMB_OPP_RATIO_HI) if THUMB_OPP_RATIO_HI > 1e-9 else 0.0
-            deg = t * THUMB_OPP_RATIO_MAX_DEG            # 0(rest) .. MAX(−95, 사람 대향 한계)
+            # ★thumb_opp(1_2)는 단방향 동작(펴짐→대향)이고, 프록시가 **거리**라 균일 비율식을 못 쓴다.
+            #   _thumb_opp_amount가 [D_OPEN, D_FULL] 거리를 0~1 대향량으로 뒤집어 준다(대향할수록 거리↓).
+            #   부호가 없는 양이므로 손별 부호 표(옛 THUMB_OPP_HAND_SIGN)가 필요 없다 —
+            #   로봇 좌우 방향은 아래 left-mirror가 담당한다.
+            deg = _thumb_opp_amount(v) * THUMB_OPP_RATIO_MAX_DEG   # 0(펴짐) .. MAX(−95, 완전대향)
         elif name in ABDUCTION_CHANNELS:
             # ★벌림은 0중심 양방향 신호(v=0=중립=손가락 평행). 균일 비율식은 중립을 0°로 안 보내
             #   (예 pinky_lat v=0→+41.6°) rest에서 손가락이 옆으로 휘어버림 → 0을 중심으로 각 방향을
@@ -511,6 +673,8 @@ def _map_ratio(raw, hand):
             deg = min(max(rmin, rmax), max(min(rmin, rmax), deg))  # 안전 clamp
         if hand == "left" and name in LEFT_MIRROR_CHANNELS:
             deg = -deg
+        elif hand == "right" and name in RIGHT_MIRROR_CHANNELS:
+            deg = -deg          # 왼손 기준 FOLD/SPREAD·RATIO_LIMIT → 우수 URDF 부호로
         out.append(deg)
     return out
 
@@ -535,9 +699,9 @@ def map_to_dg5f(raw, hand="right", mode="direct"):
             deg = math.degrees(v) * ABD_GAIN
             deg = min(dmax, max(dmin, deg))
         elif name == "thumb_opp":
-            # 깊이 대향 1:1: THUMB_OPP_SIGN이 정한 '대향 방향' 성분만 취해 로봇 깊이각으로.
-            #   dmin=0/dmax=-155 부호 맞춰 음수. 대향 방향이 반대면 THUMB_OPP_SIGN 뒤집기.
-            deg = -max(0.0, THUMB_OPP_SIGN * math.degrees(v)) * THUMB_OPP_GAIN
+            # 대향량(0~1, 거리 프록시) × 최대각 → 로봇 깊이각. dmin=0/dmax=-155 부호 맞춰 음수.
+            #   direct라도 프록시가 각도가 아니라 거리라 '1:1'이 성립하지 않는다 → GAIN이 스케일 담당.
+            deg = -_thumb_opp_amount(v) * THUMB_OPP_GAIN
             deg = max(dmax, min(dmin, deg))
         elif name == "thumb_cmc":
             # 벌림/접힘: |abd|(벌림 크기, 방향·거울 불변)를 [H_FOLD,H_SPREAD]→[FOLD_DEG,SPREAD_DEG] 선형.
@@ -553,6 +717,8 @@ def map_to_dg5f(raw, hand="right", mode="direct"):
             deg = min(dmax, max(dmin, deg))
         if hand == "left" and name in LEFT_MIRROR_CHANNELS:
             deg = -deg
+        elif hand == "right" and name in RIGHT_MIRROR_CHANNELS:
+            deg = -deg          # 왼손 기준 FOLD/SPREAD·RATIO_LIMIT → 우수 URDF 부호로
         out.append(deg)
     return out
 

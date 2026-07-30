@@ -27,11 +27,12 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from dg5f_angles import compute_raw, CHANNEL_NAMES, WRIST, THUMB, MIDDLE
+from dg5f_angles import compute_raw, landmarks_to_xyz, CHANNEL_NAMES, WRIST, THUMB, MIDDLE
 from dg5f_paths import CALIB_PATH, unique_log_path
 
 CAM_INDEX = 0
-FRAME_W, FRAME_H = 640, 480
+# FRAME_W/FRAME_H는 2026-07-28에 삭제 — cap.set()을 안 쓰므로 미사용.
+# 실제 크기는 frame.shape에서 읽어 landmarks_to_xyz의 등방 보정에 쓴다.
 LOG_EVERY_SEC = 0.5
 # 경로 규칙은 dg5f_paths가 소유 — 초 단위 + 중복 시 접미사라 덮어쓰기 불가
 CSV_PATH = unique_log_path("calib_log")
@@ -57,11 +58,9 @@ def _cap_for(name):
     return float("inf")
 
 
-def landmarks_to_xyz(hand_landmarks):
-    pts = np.zeros((21, 3), dtype=np.float64)
-    for i, lm in enumerate(hand_landmarks.landmark):
-        pts[i] = (lm.x, lm.y, lm.z)
-    return pts
+# landmarks_to_xyz는 dg5f_angles가 소유한다(2026-07-28 통합) — 종횡비 등방 보정 포함.
+#   ⚠️ 여기에 사본을 되살리지 말 것. 보정(calibrate)과 라이브가 다른 좌표계를 쓰게 된다
+#   (한 곳만 값이 달라 어긋났던 07-27 MP_MODEL_COMPLEXITY 사고와 같은 구조).
 
 
 def main():
@@ -69,9 +68,14 @@ def main():
     hands = mp_hands.Hands(model_complexity=1, max_num_hands=1,
                            min_detection_confidence=0.6,
                            min_tracking_confidence=0.6)
+    # ⚠️ cap.set() 을 추가하지 말 것 (2026-07-28 제거). 이 웹캠 + Windows MSMF 실측:
+    #    W/H/FPS set 하나당 3.7~3.9초가 붙어 '열기+첫프레임'이 5.11초 → 16.73초가 됐다.
+    #    그런데 결과는 넣든 안 넣든 640x480 @30fps / read 33ms로 **완전히 동일**했다
+    #    (FOURCC는 MSMF가 아예 무시하고 False를 반환한다 — 0초, 효과도 0).
+    #    카메라 기본값이 이미 640x480@30이라 순수 손해였다. vision_node_dg5f.py·
+    #    dg5f_teleop_gui.py는 07-27에 같은 이유로 이미 제거된 상태다.
+    #    실제 해상도는 frame.shape에서 읽어 쓴다(종횡비 보정도 그 값을 쓴다).
     cap = cv2.VideoCapture(CAM_INDEX)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
     if not cap.isOpened():
         print(f"[오류] 카메라 {CAM_INDEX} 열기 실패 — CAM_INDEX를 1,2로 바꿔보세요.")
         return
@@ -104,7 +108,7 @@ def main():
             hlm = res.multi_hand_landmarks[0]
             mp.solutions.drawing_utils.draw_landmarks(
                 frame, hlm, mp_hands.HAND_CONNECTIONS)
-            xyz = landmarks_to_xyz(hlm)
+            xyz = landmarks_to_xyz(hlm, frame.shape)   # 이미지 랜드마크 → 등방 보정
             raw = compute_raw(xyz)
 
             # 엄지 직진도 샘플 — compute_thumb_tip의 '펴짐 비율' 상한 보정(v3).

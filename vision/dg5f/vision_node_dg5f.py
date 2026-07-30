@@ -30,15 +30,15 @@ import mediapipe as mp
 import numpy as np
 
 from one_euro_filter import OneEuroFilter
-from dg5f_angles import (compute_raw, map_to_dg5f, compute_thumb_tip,
+from dg5f_angles import (compute_raw, map_to_dg5f, compute_thumb_tip, landmarks_to_xyz,
                          compute_finger_tips, compute_wrist_tip_vectors,
                          CHANNEL_NAMES, PINCH_ON, PINCH_OFF,
                          PACKET_FMT, TIP_FINGERS, WRIST_TIP_FINGERS)
 from dg5f_paths import unique_log_path
 
 # ------------------------- 설정 -------------------------
-CAM_INDEX = 0
-FRAME_W, FRAME_H = 640, 480
+CAM_INDEX = 0                 # 프레임 크기는 카메라 기본값(640x480@30)을 그대로 쓴다 —
+                              # 강제 설정 상수를 두지 않는 이유는 cap 생성부 주석 참조
 UNITY_IP = "127.0.0.1"
 UNITY_PORT = 5006             # ⚠️ SVH(5005)와 다른 포트 — 공존용
 BRIDGE_PORT = 5007            # --bridge 시 실물 SDK 브리지(dg5f_sdk_bridge.py)에도 같은 패킷 송신
@@ -68,11 +68,9 @@ ANGLE_Z_FLIP = False
 # --------------------------------------------------------
 
 
-def landmarks_to_xyz(hand_landmarks):
-    pts = np.zeros((21, 3), dtype=np.float64)
-    for i, lm in enumerate(hand_landmarks.landmark):
-        pts[i] = (lm.x, lm.y, lm.z)
-    return pts
+# landmarks_to_xyz는 dg5f_angles가 소유한다(2026-07-28 통합) — 종횡비 등방 보정 포함.
+#   ⚠️ 여기에 사본을 되살리지 말 것. 보정(calibrate)과 라이브가 다른 좌표계를 쓰게 된다
+#   (한 곳만 값이 달라 어긋났던 07-27 MP_MODEL_COMPLEXITY 사고와 같은 구조).
 
 
 def main():
@@ -102,11 +100,12 @@ def main():
         model_complexity=1, max_num_hands=1,
         min_detection_confidence=0.6, min_tracking_confidence=0.6)
 
+    # ⚠️ cap.set() 을 추가하지 말 것. 2026-07-27 실측(4회 반복, 이 웹캠 + Windows MSMF):
+    #    FOURCC/W/H/FPS 4개를 넣으면 시작에 6.3~18.9초가 붙는데(set 하나당 2~4.3초)
+    #    read 지연·해상도·fps는 넣든 안 넣든 33ms / 640x480 / 30fps로 **완전히 동일**했다.
+    #    카메라 기본값이 이미 640x480@30이고, MSMF는 set(FOURCC, MJPG)에 False를 반환(무시)한다.
+    #    즉 순수 손해. 해상도를 정말 바꿔야 하면 그때 set 하나만 넣고 시작시간을 재볼 것.
     cap = cv2.VideoCapture(CAM_INDEX)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
-    cap.set(cv2.CAP_PROP_FPS, 30)
 
     filters = {n: OneEuroFilter(freq=FILTER_FREQ, min_cutoff=FILTER_MIN_CUTOFF,
                                 beta=FILTER_BETA) for n in CHANNEL_NAMES}
@@ -158,11 +157,12 @@ def main():
             mp.solutions.drawing_utils.draw_landmarks(
                 frame, res.multi_hand_landmarks[0],
                 mp.solutions.hands.HAND_CONNECTIONS)
-            xyz = landmarks_to_xyz(res.multi_hand_landmarks[0])
+            xyz = landmarks_to_xyz(res.multi_hand_landmarks[0], frame.shape)
             # 각도 계산 전용 랜드마크: world면 깊이 정확(핀치·리치·그리기는 이미지 xyz 유지).
             xyz_ang = xyz
             if USE_WORLD_LANDMARKS and res.multi_hand_world_landmarks:
-                xyz_ang = landmarks_to_xyz(res.multi_hand_world_landmarks[0])
+                # world는 미터 단위 손 중심 좌표 — 종횡비 왜곡이 없어 보정 대상이 아니다
+                xyz_ang = landmarks_to_xyz(res.multi_hand_world_landmarks[0], None)
                 if ANGLE_Z_FLIP:
                     xyz_ang = xyz_ang.copy(); xyz_ang[:, 2] *= -1.0
             raw = compute_raw(xyz_ang)                      # 라디안 원값(프록시 출력)
